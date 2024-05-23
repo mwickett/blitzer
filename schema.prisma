@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Uses connection pooling
+  url       = env("POSTGRES_PRISMA_URL")
+  // Uses direct connection, ⚠️ make sure to keep this to `POSTGRES_URL_NON_POOLING`
+  // or you'll have dangling databases from migrations
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  clerk_user_id String   @unique
+  username      String   @unique
+  email         String?  @unique
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relationships
+  games        Game[]
+  scores       Score[]
+  statistics   Statistics? @relation(fields: [statisticsId], references: [id])
+  statisticsId String?
+}
+
+model Friendship {
+  id        String   @id @default(uuid())
+  user1_id  String
+  user2_id  String
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+}
+
+model Game {
+  id         String    @id @default(uuid())
+  createdAt  DateTime  @default(now()) @map("created_at")
+  endedAt    DateTime? @map("ended_at")
+  isFinished Boolean   @default(false) @map("is_finished")
+  winnerId   String?
+
+  // Relationships
+  scores  Score[]
+  players GamePlayers[]
+  User    User?         @relation(fields: [userId], references: [id])
+  userId  String?
+}
+
+model Score {
+  id                 String   @id @default(uuid())
+  gameId             String
+  userId             String
+  totalCardsPlayed   Int
+  blitzPileRemaining Int
+  value              Int
+  createdAt          DateTime @default(now()) @map("created_at")
+  User               User     @relation(fields: [userId], references: [id])
+  Game               Game     @relation(fields: [gameId], references: [id])
+}
+
+model Statistics {
+  id              String @id @default(uuid())
+  userId          String @unique
+  totalGames      Int    @default(0)
+  totalWins       Int    @default(0)
+  averageScore    Float  @default(0)
+  fastestBlitz    Int?
+  mostCardsPlayed Int?
+  efficiency      Float?
+  User            User[]
+}
+
+model GamePlayers {
+  gameId String
+  userId String
+  Game   Game   @relation(fields: [gameId], references: [id])
+
+  @@id([gameId, userId])
+}
