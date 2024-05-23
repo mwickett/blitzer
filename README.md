@@ -1,3 +1,12 @@
+# Blitz
+
+This is a project to build a web app for scoring the card game [Dutch Blitz](https://en.wikipedia.org/wiki/Dutch_Blitz). It's built using:
+
+- NextJS
+- Vercel
+- Vercel Postgres
+- Clerk for auth
+
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
