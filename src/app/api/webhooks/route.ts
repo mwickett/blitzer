@@ -1,6 +1,7 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
-import { WebhookEvent } from "@clerk/nextjs/server";
+import { WebhookEvent, UserJSON } from "@clerk/nextjs/server";
+import prisma from "../../../../db";
 
 export async function POST(req: Request) {
   // You can find this in the Clerk Dashboard -> Webhooks -> choose the endpoint
@@ -50,22 +51,77 @@ export async function POST(req: Request) {
 
   // Do something with the payload
   // For this guide, you simply log the payload to the console
-  const { id } = evt.data;
   const eventType = evt.type;
   //   console.log(`Webhook with and ID of ${id} and type of ${eventType}`);
   //   console.log("Webhook body:", body);
 
   if (eventType === "user.created") {
     console.log("user created event");
+    try {
+      const createUser = await prisma.user.create({
+        data: {
+          clerk_user_id: evt.data.id,
+          // TODO: use primary email ID to pick off address from array
+          email: getPrimaryEmail(evt.data),
+          username: `${evt.data.first_name}${evt.data.last_name}`,
+        },
+      });
+    } catch {
+      console.error("failed to create user");
+      return new Response("Failed to create user", { status: 500 });
+    }
   }
 
   if (eventType === "user.deleted") {
     console.log("user deleted event");
+    try {
+      const deleteUser = await prisma.user.delete({
+        where: {
+          clerk_user_id: evt.data.id,
+        },
+      });
+    } catch {
+      console.error("failed to delete user");
+      return new Response("Failed to delete user", { status: 500 });
+    }
   }
 
   if (eventType === "user.updated") {
     console.log("user updated event");
+    try {
+      const updateUser = await prisma.user.update({
+        where: {
+          clerk_user_id: evt.data.id,
+        },
+        data: {
+          email: getPrimaryEmail(evt.data),
+        },
+      });
+      console.log("update user resulted in: ", updateUser);
+    } catch {
+      console.error("failed to update user");
+      return new Response("Failed to update user", { status: 500 });
+    }
   }
 
   return new Response("", { status: 200 });
+}
+
+// Return user's primary email
+function getPrimaryEmail(user: UserJSON) {
+  const primaryEmailId = user.primary_email_address_id;
+
+  if (
+    !primaryEmailId ||
+    !user.email_addresses ||
+    user.email_addresses.length === 0
+  ) {
+    return null; // No primary email ID or email addresses available
+  }
+
+  const primaryEmailObject = user.email_addresses.find(
+    (email) => email.id === primaryEmailId
+  );
+
+  return primaryEmailObject ? primaryEmailObject.email_address : null;
 }
