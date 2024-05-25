@@ -58,16 +58,15 @@ export async function POST(req: Request) {
   if (eventType === "user.created") {
     console.log("user created event");
     try {
-      const createUser = await prisma.user.create({
+      await prisma.user.create({
         data: {
           clerk_user_id: evt.data.id,
           // TODO: use primary email ID to pick off address from array
           email: getPrimaryEmail(evt.data),
-          username: `${evt.data.first_name}${evt.data.last_name}`,
         },
       });
-    } catch {
-      console.error("failed to create user");
+    } catch (e) {
+      console.error("failed to create user", e);
       return new Response("Failed to create user", { status: 500 });
     }
   }
@@ -80,8 +79,8 @@ export async function POST(req: Request) {
           clerk_user_id: evt.data.id,
         },
       });
-    } catch {
-      console.error("failed to delete user");
+    } catch (e) {
+      console.error("failed to delete user", e);
       return new Response("Failed to delete user", { status: 500 });
     }
   }
@@ -98,8 +97,8 @@ export async function POST(req: Request) {
         },
       });
       console.log("update user resulted in: ", updateUser);
-    } catch {
-      console.error("failed to update user");
+    } catch (e) {
+      console.error("failed to update user", e);
       return new Response("Failed to update user", { status: 500 });
     }
   }

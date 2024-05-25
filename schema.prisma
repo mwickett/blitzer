@@ -14,25 +14,13 @@ datasource db {
 model User {
   id            String   @id @default(uuid())
   clerk_user_id String   @unique
-  username      String   @unique
   email         String?  @unique
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
   // Relationships
-  games        Game[]
-  scores       Score[]
-  statistics   Statistics? @relation(fields: [statisticsId], references: [id])
-  statisticsId String?
-}
-
-model Friendship {
-  id        String   @id @default(uuid())
-  user1_id  String
-  user2_id  String
-  status    String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  games  GamePlayers[]
+  scores Score[]
 }
 
 model Game {
@@ -43,10 +31,8 @@ model Game {
   winnerId   String?
 
   // Relationships
-  scores  Score[]
   players GamePlayers[]
-  User    User?         @relation(fields: [userId], references: [id])
-  userId  String?
+  scores  Score[]
 }
 
 model Score {
@@ -55,28 +41,21 @@ model Score {
   userId             String
   totalCardsPlayed   Int
   blitzPileRemaining Int
-  value              Int
   createdAt          DateTime @default(now()) @map("created_at")
-  User               User     @relation(fields: [userId], references: [id])
-  Game               Game     @relation(fields: [gameId], references: [id])
-}
 
-model Statistics {
-  id              String @id @default(uuid())
-  userId          String @unique
-  totalGames      Int    @default(0)
-  totalWins       Int    @default(0)
-  averageScore    Float  @default(0)
-  fastestBlitz    Int?
-  mostCardsPlayed Int?
-  efficiency      Float?
-  User            User[]
+  // Foreign keys
+  game Game @relation(fields: [gameId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model GamePlayers {
   gameId String
   userId String
-  Game   Game   @relation(fields: [gameId], references: [id])
 
+  // Foreign keys
+  game Game @relation(fields: [gameId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  // Composite primary key
   @@id([gameId, userId])
 }
