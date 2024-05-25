@@ -7,6 +7,7 @@
 5. [x] Add Vercel postgres
 6. [x] Decide whether or not to use an ORM?
 7. [x] Add Clerk
+8. [ ] Setup staging (local DB) and prod DB
 
 ### Data fetching
 
