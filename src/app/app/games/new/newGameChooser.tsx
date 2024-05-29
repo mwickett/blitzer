@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/select";
 import { AvatarImage, AvatarFallback, Avatar } from "@/components/ui/avatar";
 
-export default function NewGameChooser({ users }: { users: User[] }) {
+type userSubset = Pick<User, "id" | "email">;
+
+export default function NewGameChooser({ users }: { users: userSubset[] }) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [inGameUsers, setInGameUsers] = useState<User[]>([]);
+  const [inGameUsers, setInGameUsers] = useState<userSubset[]>([]);
 
   const handleAddUser = () => {
     if (selectedUserId) {
@@ -31,6 +33,8 @@ export default function NewGameChooser({ users }: { users: User[] }) {
     }
   };
 
+  const gameFull = inGameUsers.length >= 4;
+
   return (
     <div className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto">
       <div className="flex items-center justify-between mb-4">
@@ -44,7 +48,7 @@ export default function NewGameChooser({ users }: { users: User[] }) {
           <h3 className="text-lg font-medium mb-2">Available Players</h3>
           <Select
             onValueChange={(value) => setSelectedUserId(value)}
-            value={selectedUserId}
+            value={selectedUserId ?? undefined}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select players..." />
@@ -53,15 +57,19 @@ export default function NewGameChooser({ users }: { users: User[] }) {
               <SelectGroup>
                 <SelectLabel>Players</SelectLabel>
                 {users.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
+                  <SelectItem
+                    disabled={inGameUsers.some((u) => u.id === user.id)}
+                    key={user.id}
+                    value={user.id}
+                  >
                     {user.email}
                   </SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
           </Select>
-          <Button onClick={handleAddUser} className="mt-2">
-            Add User
+          <Button disabled={gameFull} onClick={handleAddUser} className="mt-2">
+            {gameFull ? `Click start to begin` : "Add player"}
           </Button>
         </div>
         <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
@@ -70,7 +78,9 @@ export default function NewGameChooser({ users }: { users: User[] }) {
             {inGameUsers.map((user) => (
               <div key={user.id} className="flex flex-col items-center">
                 <Avatar>
-                  <AvatarFallback>{user.email.toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>
+                    {user.email ? user.email.toUpperCase() : ""}
+                  </AvatarFallback>
                 </Avatar>
                 <p className="text-sm font-medium mt-2">{user.email}</p>
                 <Button
