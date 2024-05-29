@@ -19,7 +19,12 @@ export default async function NewGame() {
     );
   }
 
-  const users = await prisma.user.findMany();
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      email: true,
+    },
+  });
 
   if (!users) {
     return (
