@@ -1,6 +1,8 @@
 "use server";
 
 import prisma from "@/db";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export async function createNewGame(users: { id: string }[]) {
   const game = await prisma.game.create({
@@ -25,5 +27,7 @@ export async function createNewGame(users: { id: string }[]) {
   });
 
   console.log(game);
-  // change route to game view /app/games/:gameId
+  // TODO: change route to game view /app/games/:gameId
+  revalidatePath("/app/games");
+  redirect(`/app/games/${game.id}`);
 }

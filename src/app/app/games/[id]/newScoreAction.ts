@@ -1,5 +1,6 @@
 "use server";
 import prisma from "@/db";
+import { revalidatePath } from "next/cache";
 
 // TODO: Check if a player has passed 75 points played and if so, end the game
 
@@ -21,4 +22,5 @@ export default async function createScoresForGame(
   });
 
   console.log(scoreEntries);
+  revalidatePath(`/app/games/${gameId}`);
 }
