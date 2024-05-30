@@ -13,6 +13,7 @@ import {
   Select,
 } from "@/components/ui/select";
 import { AvatarImage, AvatarFallback, Avatar } from "@/components/ui/avatar";
+import { createNewGame } from "./newGameAction";
 
 type userSubset = Pick<User, "id" | "email">;
 
@@ -39,7 +40,11 @@ export default function NewGameChooser({ users }: { users: userSubset[] }) {
     <div className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Select Players</h2>
-        <Button size="sm" variant="outline">
+        <Button
+          onClick={() => createNewGame(inGameUsers)}
+          size="sm"
+          variant="outline"
+        >
           Start Game
         </Button>
       </div>
