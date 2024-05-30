@@ -58,11 +58,16 @@ export function ScoreEntry({ game }: { game: GameWithPlayers }) {
 
   return (
     <div className="bg-white dark:bg-gray-950 rounded-lg shadow-sm p-6 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Dutch Blitz Scores</h1>
+      <h1 className="text-2xl font-bold mb-6">Scores</h1>
       <div className="grid gap-4">
+        <div className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 bg-slate-50">
+          <p>Player</p>
+          <p>Blitz Pile Left</p>
+          <p>Cards played</p>
+        </div>
         {playerScores.map((playerScore: Player) => (
           <div
-            className="grid grid-cols-[1fr_2fr_1fr] items-center gap-2"
+            className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2"
             key={playerScore.userId}
           >
             <Label htmlFor={playerScore.userId}>{playerScore.email}</Label>
@@ -77,6 +82,9 @@ export function ScoreEntry({ game }: { game: GameWithPlayers }) {
                   parseInt(e.target.value, 10) || 0
                 )
               }
+              min={0}
+              max={30}
+              required
             />
             <Input
               id="player1-cards"
@@ -89,6 +97,9 @@ export function ScoreEntry({ game }: { game: GameWithPlayers }) {
                   parseInt(e.target.value, 10) || 0
                 )
               }
+              min={0}
+              max={30}
+              required
             />
           </div>
         ))}
