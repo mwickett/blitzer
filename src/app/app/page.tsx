@@ -1,12 +1,13 @@
 import prisma from "@/db";
 
 export default async function AppHome() {
-  const games = await prisma.game.findMany();
-
   return (
     <div>
       <h2>This is the app homepage</h2>
-      <pre>{JSON.stringify(games, null, 2)}</pre>
+      <p>
+        Eventually this will display an overview of your recent games, and some
+        summaries of stats. For now, click Games to get started.
+      </p>
     </div>
   );
 }
