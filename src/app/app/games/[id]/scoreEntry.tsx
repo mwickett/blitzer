@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Game } from "@prisma/client";
+import { User } from "@prisma/client";
 
 import createScoresForGame from "./newScoreAction";
 
@@ -16,18 +17,23 @@ interface Player {
   totalCardsPlayed: number;
 }
 
-export function ScoreEntry({ game }: { game: Game }) {
+interface GameWithPlayers extends Game {
+  players: { user: User }[];
+}
+
+export function ScoreEntry({ game }: { game: GameWithPlayers }) {
+  console.log(game);
   const [playerScores, setPlayerScores] = useState(
     game.players.map((player) => ({
       userId: player.user.id,
-      email: player.user.email,
+      email: player.user.email || "",
       blitzPileRemaining: 0,
       totalCardsPlayed: 0,
     }))
   );
 
   const handleBlitzPileChange = (userId: string, value: number) => {
-    setPlayerScores((prevScores) =>
+    setPlayerScores((prevScores: Player[]) =>
       prevScores.map((player) =>
         player.userId === userId
           ? { ...player, blitzPileRemaining: value }
@@ -37,7 +43,7 @@ export function ScoreEntry({ game }: { game: Game }) {
   };
 
   const handleTotalCardsChange = (userId: string, value: number) => {
-    setPlayerScores((prevScores) =>
+    setPlayerScores((prevScores: Player[]) =>
       prevScores.map((player) =>
         player.userId === userId
           ? { ...player, totalCardsPlayed: value }

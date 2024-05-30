@@ -21,6 +21,5 @@ export default async function createScoresForGame(
     })),
   });
 
-  console.log(scoreEntries);
   revalidatePath(`/app/games/${gameId}`);
 }

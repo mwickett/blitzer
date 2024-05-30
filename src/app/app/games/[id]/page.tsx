@@ -24,8 +24,6 @@ export default async function Game({ params }: { params: { id: string } }) {
     );
   }
 
-  console.log(game);
-
   // TODO: Handle scoring logic
 
   return (
