@@ -34,7 +34,5 @@ export default async function NewGame() {
     );
   }
 
-  console.log(users);
-
   return <NewGameChooser users={users} />;
 }
