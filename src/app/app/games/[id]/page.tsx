@@ -1,7 +1,21 @@
 import prisma from "@/db";
-import { ScoreEntry } from "./scoreEntry";
+import ScoreEntry from "./scoreEntry";
+import ScoreDisplay from "./scoreDisplay";
+import { Game, User, Score } from "@prisma/client";
 
-export default async function Game({ params }: { params: { id: string } }) {
+export interface GameWithPlayersAndScores extends Game {
+  players: { user: User; gameId: string; userId: string }[];
+  scores: Score[];
+}
+
+export interface Player {
+  userId: string;
+  email: string;
+  blitzPileRemaining: number;
+  totalCardsPlayed: number;
+}
+
+export default async function GameView({ params }: { params: { id: string } }) {
   const game = await prisma.game.findUnique({
     where: {
       id: params.id,
@@ -12,7 +26,11 @@ export default async function Game({ params }: { params: { id: string } }) {
           user: true,
         },
       },
-      scores: true,
+      scores: {
+        include: {
+          user: true,
+        },
+      },
     },
   });
 
@@ -28,9 +46,7 @@ export default async function Game({ params }: { params: { id: string } }) {
 
   return (
     <section>
-      <div>
-        <pre>{JSON.stringify(game.scores, null, 2)}</pre>
-      </div>
+      <ScoreDisplay game={game} />
       <ScoreEntry game={game} />
     </section>
   );
