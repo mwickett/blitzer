@@ -59,7 +59,11 @@ export default async function GamesList() {
         <TableBody>
           {games.map((game) => (
             <TableRow key={game.id}>
-              <TableCell>{game.id}</TableCell>
+              <TableCell>
+                <Link href={`/app/games/${game.id}`}>
+                  <Button>View</Button>
+                </Link>
+              </TableCell>
               <TableCell>{new Date(game.createdAt).toLocaleString()}</TableCell>
               <TableCell>
                 {game.endedAt
