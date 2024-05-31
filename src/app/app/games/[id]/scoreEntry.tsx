@@ -5,24 +5,17 @@ import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Game } from "@prisma/client";
-import { User } from "@prisma/client";
 
 import createScoresForGame from "./newScoreAction";
 
-interface Player {
-  userId: string;
-  email: string;
-  blitzPileRemaining: number;
-  totalCardsPlayed: number;
-}
+import { GameWithPlayersAndScores } from "./page";
+import { Player } from "./page";
 
-interface GameWithPlayers extends Game {
-  players: { user: User }[];
-}
-
-export function ScoreEntry({ game }: { game: GameWithPlayers }) {
-  console.log(game);
+export default function ScoreEntry({
+  game,
+}: {
+  game: GameWithPlayersAndScores;
+}) {
   const [playerScores, setPlayerScores] = useState(
     game.players.map((player) => ({
       userId: player.user.id,
@@ -57,7 +50,7 @@ export function ScoreEntry({ game }: { game: GameWithPlayers }) {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-950 rounded-lg shadow-sm p-6 max-w-md mx-auto">
+    <div className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto">
       <h1 className="text-2xl font-bold mb-6">Scores</h1>
       <div className="grid gap-4">
         <div className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 bg-slate-50">

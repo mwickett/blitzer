@@ -8,6 +8,7 @@
 6. [x] Decide whether or not to use an ORM?
 7. [x] Add Clerk
 8. [ ] Setup staging (local DB) and prod DB
+9. [ ]
 
 ### Data fetching
 
@@ -22,7 +23,7 @@ Maybe that's it? hmm.
 
 ### Using API routes
 
-I think a REST API approach here makes more sense. What do we need to do:
+~I think a REST API approach here makes more sense. What do we need to do:~
 
 1. Create game 2. Choose players - select players from list of available players 3. Start - mark start time 4. Enter scores each round 5. New score entry for each player, and each score is associated with the gameId 5. Option to pause 6. Complete once someone hits 75 1. Mark game as finished 2. Set winnerID
 2. Resume game
