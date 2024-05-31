@@ -5,13 +5,26 @@ This is a project to build a web app for scoring the card game [Dutch Blitz](htt
 - NextJS
 - Vercel
 - Vercel Postgres
+- Prisma as an ORM
 - Clerk for auth
 
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
+## Background
+
+This project is really about creating a wonderful personal data set of Dutch Blitz scores, so that you can see cool trends and just generally nerd out about it. It's not practically very useful at all, but it's an itch that myself, and some friends really wanted to scratch. And those kind of itches make for the best side projects, right?
+
 ## Getting Started
 
-First, run the development server:
+Ask a team member for a copy of the `.env` file (still need to get envs sorted out in Vercel)
+
+You'll need [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed for local development.
+
+First, run `docker-compose up -d` to start your local postgres container.
+
+_Note:_ If this is the first time, you'll need to run `npx prisma migrate dev` to get the database initalized, migrated and seeded. You'll only need to run this command the first time (or if you ever delete the docker container)
+
+Then, run the development server:
 
 ```bash
 npm run dev
@@ -25,9 +38,20 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Test user
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+You can login to Clerk development by using the following credentials:
+
+- User: alice@dutchblitz.io
+- pass: eeX@pzZsGrHQXT3
+
+You _can_ also create new users by signing up, but you'll need to be exposing a local API route to the internet so that Clerk's webhook can fire with the user update. Details on this are [available here](https://ngrok.com/docs/integrations/clerk/webhooks/)
+
+## Making schema changes / Using Prisma
+
+If you make changes to the schema, you'll need to run `npx prisma migrate dev` to create and apply a migration to your local DB. You should ensure you commit those migration files so that they can be applied to production as well (this will happen automatically as part of the build).
+
+You can also run `npx prisma studio` to spin up a nice little data viewer to inspect data in the DB.
 
 ## Learn More
 
