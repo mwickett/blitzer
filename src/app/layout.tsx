@@ -13,7 +13,7 @@ const PostHogPageView = dynamic(() => import("./PostHogPageView"), {
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Blitz",
+  title: "Blitzer",
   description: "Scores and statistics for Dutch Blitz",
 };
 
@@ -26,7 +26,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <CSPostHogProvider>
-          <body className={inter.className}>
+          <body className={`${inter.className} bg-brand`}>
             <PostHogPageView />
             {children}
           </body>
