@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
+import { SignInButton, SignedIn, SignedOut, SignUpButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
@@ -18,12 +18,19 @@ export default function Home() {
         </Link>
       </SignedIn>
       <SignedOut>
-        <SignInButton />
+        <div className="flex gap-2">
+          <Button>
+            <SignInButton />
+          </Button>
+          <Button>
+            <SignUpButton>Sign up</SignUpButton>
+          </Button>
+        </div>
       </SignedOut>
-      <p>
-        This is a major WIP. The goal is to create an app that makes scoring
-        Dutch Blitz games easy, and also allows you to see cool stats about your
-        performance as a player.
+      <p className="text-center">
+        This is a major WIP. All you can do right now is make a new game and
+        keep track of scores. Nothing else works, yet! Get started by signing in
+        or making an account, then go to Games to start a new game.
       </p>
     </main>
   );
