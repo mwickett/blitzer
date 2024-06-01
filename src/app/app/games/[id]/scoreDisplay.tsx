@@ -17,7 +17,6 @@ export default function ScoreDisplay({
 }: {
   game: GameWithPlayersAndScores;
 }) {
-  console.log(game);
   return (
     <div>
       <Table className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto my-10">
@@ -49,8 +48,4 @@ export default function ScoreDisplay({
       </Table>
     </div>
   );
-}
-
-function computeScore(blitzPileRemaining: number, totalCardsPlayed: number) {
-  return -(blitzPileRemaining * 2) + totalCardsPlayed;
 }

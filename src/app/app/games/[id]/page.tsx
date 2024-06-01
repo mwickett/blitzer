@@ -15,6 +15,13 @@ export interface Player {
   totalCardsPlayed: number;
 }
 
+interface Output {
+  userId: string;
+  email: string | null;
+  scores: number[];
+  total: number;
+}
+
 export default async function GameView({ params }: { params: { id: string } }) {
   const game = await prisma.game.findUnique({
     where: {
@@ -44,6 +51,9 @@ export default async function GameView({ params }: { params: { id: string } }) {
 
   // TODO: Handle scoring logic
 
+  const scoreMatrix = createScoreMatrix(game);
+
+  console.log(scoreMatrix);
   return (
     <section>
       <ScoreDisplay game={game} />
@@ -51,3 +61,41 @@ export default async function GameView({ params }: { params: { id: string } }) {
     </section>
   );
 }
+
+const createScoreMatrix = (game: GameWithPlayersAndScores): Output[] => {
+  // Do I need to encode the concept of rounds?
+
+  const userScoresMap: {
+    [key: string]: { email: string | null; scores: number[]; total: number };
+  } = {};
+
+  // Initialize the map with players
+  game.players.forEach((player) => {
+    userScoresMap[player.userId] = {
+      email: player.user.email,
+      scores: [],
+      total: 0,
+    };
+  });
+
+  // Populate the scores and calculate the total
+  game.scores.forEach((score) => {
+    const userScore = userScoresMap[score.userId];
+    const { blitzPileRemaining, totalCardsPlayed } = score;
+    if (userScore) {
+      const scoreValue = -(blitzPileRemaining * 2) + totalCardsPlayed;
+      userScore.scores.push(scoreValue);
+      userScore.total += scoreValue;
+    }
+  });
+
+  // Transform the map into the output array
+  return Object.entries(userScoresMap).map(
+    ([userId, { email, scores, total }]) => ({
+      userId,
+      email,
+      scores,
+      total,
+    })
+  );
+};
