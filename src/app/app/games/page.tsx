@@ -44,7 +44,7 @@ export default async function GamesList() {
   });
 
   return (
-    <section className="mx-40 my-20">
+    <section className="p-6">
       <Button>
         <Link href="/app/games/new">New game</Link>
       </Button>
@@ -54,7 +54,6 @@ export default async function GamesList() {
           <TableHead>Created At</TableHead>
           <TableHead>Ended At</TableHead>
           <TableHead>Players</TableHead>
-          <TableHead>Scores</TableHead>
         </TableHeader>
         <TableBody>
           {games.map((game) => (
@@ -72,16 +71,6 @@ export default async function GamesList() {
               </TableCell>
               <TableCell>
                 {game.players.map((player) => player.user.email).join(", ")}
-              </TableCell>
-              <TableCell>
-                {game.scores
-                  .map(
-                    (score) =>
-                      `Player: ${score.userId}, Score: ${
-                        score.totalCardsPlayed - score.blitzPileRemaining
-                      }`
-                  )
-                  .join(", ")}
               </TableCell>
             </TableRow>
           ))}
