@@ -8,7 +8,7 @@
 6. [x] Decide whether or not to use an ORM?
 7. [x] Add Clerk
 8. [x] Setup staging (local DB) and prod DB
-9. [ ] Add PostHog for analytics
+9. [x] Add PostHog for analytics
 
 ### Data fetching
 
