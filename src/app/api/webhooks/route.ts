@@ -115,12 +115,17 @@ function getPrimaryEmail(user: UserJSON) {
     !user.email_addresses ||
     user.email_addresses.length === 0
   ) {
-    return null; // No primary email ID or email addresses available
+    throw new Error("No primary email found for user");
+    return "no email"; // No primary email ID or email addresses available
   }
 
   const primaryEmailObject = user.email_addresses.find(
     (email) => email.id === primaryEmailId
   );
 
-  return primaryEmailObject ? primaryEmailObject.email_address : null;
+  if (!primaryEmailObject) {
+    throw new Error("Primary email not found in email addresses");
+  }
+
+  return primaryEmailObject.email_address;
 }
