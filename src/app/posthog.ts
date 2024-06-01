@@ -5,7 +5,7 @@ export default function PostHogClient() {
   const posthogClient = new PostHog(
     process.env.NEXT_PUBLIC_POSTHOG_KEY as string,
     {
-      host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+      host: "/ingest",
       flushAt: 1,
       flushInterval: 0,
     }
