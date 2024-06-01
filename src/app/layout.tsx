@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { CSPostHogProvider } from "./providers";
 import { Inter } from "next/font/google";
 import "./globals.css";
+
+import dynamic from "next/dynamic";
+
+const PostHogPageView = dynamic(() => import("./PostHogPageView"), {
+  ssr: false,
+});
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,7 +25,12 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={inter.className}>{children}</body>
+        <CSPostHogProvider>
+          <body className={inter.className}>
+            <PostHogPageView />
+            {children}
+          </body>
+        </CSPostHogProvider>
       </html>
     </ClerkProvider>
   );
