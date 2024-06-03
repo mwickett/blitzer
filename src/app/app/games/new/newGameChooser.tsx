@@ -37,7 +37,7 @@ export default function NewGameChooser({ users }: { users: userSubset[] }) {
   const gameFull = inGameUsers.length >= 4;
 
   return (
-    <div className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto">
+    <div className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto my-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Select Players</h2>
         <Button

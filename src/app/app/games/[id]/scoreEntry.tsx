@@ -91,7 +91,7 @@ export default function ScoreEntry({
     <form className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto">
       <h1 className="text-2xl font-bold mb-6">Scores</h1>
       <div className="grid gap-4">
-        <div className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 bg-slate-50">
+        <div className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2">
           <p>Player</p>
           <p>Blitz pile left</p>
           <p>Cards played</p>
