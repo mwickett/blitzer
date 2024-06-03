@@ -13,7 +13,7 @@ export default function Home() {
         alt="Blitzer logo - line drawing windmill with hearts"
       />
       <SignedIn>
-        <Link href="/app">
+        <Link href="/dashboard">
           <Button>Go to Dashboard</Button>
         </Link>
       </SignedIn>
