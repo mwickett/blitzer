@@ -46,7 +46,7 @@ export default async function GamesList() {
   return (
     <section className="p-6">
       <Button>
-        <Link href="/app/games/new">New game</Link>
+        <Link href="/games/new">New game</Link>
       </Button>
       <Table>
         <TableHeader>
@@ -59,7 +59,7 @@ export default async function GamesList() {
           {games.map((game) => (
             <TableRow key={game.id}>
               <TableCell>
-                <Link href={`/app/games/${game.id}`}>
+                <Link href={`/games/${game.id}`}>
                   <Button>View</Button>
                 </Link>
               </TableCell>

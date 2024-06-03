@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, WalletCards, Search } from "lucide-react";
 
-import { SignedIn, UserButton } from "@clerk/nextjs";
+import { SignedIn, UserButton, SignedOut, SignUpButton } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,19 +13,19 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 const navData = [
   {
     label: "Dashboard",
-    href: "/app",
+    href: "/dashboard",
   },
   {
     label: "Games",
-    href: "/app/games",
+    href: "/games",
   },
   {
     label: "Friends",
-    href: "/app/friends",
+    href: "/friends",
   },
   {
     label: "Stats",
-    href: "/app/stats",
+    href: "/stats",
   },
 ];
 
@@ -37,7 +37,7 @@ export default function NavBar({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
         <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
           <Link
-            href="/app"
+            href="/"
             className="flex items-center gap-2 text-lg font-semibold md:text-base"
           >
             <WalletCards className="h-6 w-6" />
@@ -72,23 +72,23 @@ export default function NavBar({ children }: { children: React.ReactNode }) {
                 <WalletCards className="h-6 w-6" />
                 <span className="sr-only">Blitz Keeper</span>
               </Link>
-              <Link href="/app" className="hover:text-foreground">
+              <Link href="/dashboard" className="hover:text-foreground">
                 Dashboard
               </Link>
               <Link
-                href="/app/games"
+                href="/games"
                 className="text-muted-foreground hover:text-foreground"
               >
                 Games
               </Link>
               <Link
-                href="/app/friends"
+                href="/friends"
                 className="text-muted-foreground hover:text-foreground"
               >
                 Friends
               </Link>
               <Link
-                href="/app/stats"
+                href="/stats"
                 className="text-muted-foreground hover:text-foreground"
               >
                 Stats
@@ -111,6 +111,9 @@ export default function NavBar({ children }: { children: React.ReactNode }) {
           <SignedIn>
             <UserButton />
           </SignedIn>
+          <SignedOut>
+            <SignUpButton>Sign up</SignUpButton>
+          </SignedOut>
         </div>
       </header>
       {children}
@@ -131,7 +134,7 @@ function NavLink({
     <Link
       href={href}
       className={`${
-        pathName.includes(href) ? "text-foreground" : "text-muted-foreground"
+        pathName?.startsWith(href) ? "text-foreground" : "text-muted-foreground"
       } transition-colors hover:text-foreground`}
     >
       {label}
