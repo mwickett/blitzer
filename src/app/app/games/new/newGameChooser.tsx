@@ -29,7 +29,7 @@ export default function NewGameChooser({ users }: { users: userSubset[] }) {
         !inGameUsers.some((user) => user.id === selectedUserId)
       ) {
         setInGameUsers((prev) => [...prev, userToAdd]);
-        setSelectedUserId(null); // Clear the selection after adding
+        setSelectedUserId(""); // Clear the selection after adding
       }
     }
   };
