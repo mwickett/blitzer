@@ -2,8 +2,6 @@
 import prisma from "@/db";
 import { revalidatePath } from "next/cache";
 
-// TODO: Check if a player has passed 75 points played and if so, end the game
-
 export default async function createScoresForGame(
   gameId: string,
   scores: {
@@ -12,7 +10,7 @@ export default async function createScoresForGame(
     totalCardsPlayed: number;
   }[]
 ) {
-  const scoreEntries = await prisma.score.createMany({
+  await prisma.score.createMany({
     data: scores.map((score) => ({
       gameId: gameId,
       userId: score.userId,
