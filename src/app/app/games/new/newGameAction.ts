@@ -26,7 +26,6 @@ export async function createNewGame(users: { id: string }[]) {
     },
   });
 
-  // TODO: change route to game view /app/games/:gameId
   revalidatePath("/app/games");
   redirect(`/app/games/${game.id}`);
 }
