@@ -19,5 +19,5 @@ export default async function createScoresForGame(
     })),
   });
 
-  revalidatePath(`/app/games/${gameId}`);
+  revalidatePath(`/games/${gameId}`);
 }
