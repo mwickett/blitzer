@@ -10,6 +10,8 @@
 8. [x] Setup staging (local DB) and prod DB
 9. [x] Add PostHog for analytics
 
+- [ ] Consider using `next/router` `router.refresh`
+
 ### Data fetching
 
 I'm kind of at a crossroads around whether I use something like react-query, or just keep direct Prisma access in my server components. [This article](https://frontendmasters.com/blog/combining-react-server-components-with-react-query-for-easy-data-management/) has some interesting tradeoffs.
