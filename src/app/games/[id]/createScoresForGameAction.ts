@@ -1,5 +1,5 @@
 "use server";
-import prisma from "@/db";
+import prisma from "@/prisma/db";
 import { revalidatePath } from "next/cache";
 
 export default async function createScoresForGame(

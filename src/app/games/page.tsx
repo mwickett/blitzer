@@ -1,6 +1,6 @@
 // components/GamesList.server.tsx
 import { auth } from "@clerk/nextjs/server";
-import prisma from "@/db";
+import prisma from "@/prisma/db";
 import {
   Table,
   TableBody,

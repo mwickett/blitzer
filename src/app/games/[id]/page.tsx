@@ -1,4 +1,4 @@
-import prisma from "@/db";
+import prisma from "@/prisma/db";
 import ScoreEntry from "./scoreEntry";
 import ScoreDisplay from "./scoreDisplay";
 import { Game, User, Score } from "@prisma/client";

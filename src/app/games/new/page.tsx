@@ -4,7 +4,7 @@
  * Documentation: https://v0.dev/docs#integrating-generated-code-into-your-nextjs-app
  */
 
-import prisma from "@/db";
+import prisma from "@/prisma/db";
 import { auth } from "@clerk/nextjs/server";
 import NewGameChooser from "./newGameChooser";
 
