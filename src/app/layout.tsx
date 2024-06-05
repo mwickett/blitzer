@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { CSPostHogProvider } from "./providers";
+import { Analytics } from "@vercel/analytics/react";
 import { Inter } from "next/font/google";
 import NavBar from "./NavBar";
 import "./globals.css";
@@ -29,7 +30,10 @@ export default function RootLayout({
         <CSPostHogProvider>
           <body className={`${inter.className} bg-brand`}>
             <PostHogPageView />
-            <NavBar>{children}</NavBar>
+            <NavBar>
+              {children}
+              <Analytics />
+            </NavBar>
           </body>
         </CSPostHogProvider>
       </html>
