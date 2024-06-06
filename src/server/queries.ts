@@ -81,11 +81,12 @@ export async function getGameById(id: string) {
 // This assumes that only one player blitzed per round (edge case)
 // Maybe move this to some kind of computed property on the user model?
 // https://www.prisma.io/docs/orm/prisma-client/queries/computed-fields
-export async function getPlayerWinRate() {
+export async function getPlayerBattingAverage() {
   const user = auth();
 
   if (!user.userId) throw new Error("Unauthorized");
 
+  // TODO: Figure out how to lookup with Clerk ID to avoid an extran DB call
   const prismaId = await prisma.user.findUnique({
     where: {
       clerk_user_id: user.userId,
@@ -111,14 +112,14 @@ export async function getPlayerWinRate() {
     },
   });
 
-  const winRate =
-    totalHandsPlayed === 0 ? 0 : (totalHandsWon / totalHandsPlayed) * 100;
+  const rawBattingAverage =
+    totalHandsPlayed === 0 ? 0 : totalHandsWon / totalHandsPlayed;
+
+  const battingAverage = rawBattingAverage.toFixed(3);
 
   return {
-    userId: prismaId.id,
-    email: prismaId.email,
     totalHandsPlayed,
     totalHandsWon,
-    winRate,
+    battingAverage,
   };
 }
