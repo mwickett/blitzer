@@ -76,3 +76,49 @@ export async function getGameById(id: string) {
 
   return game;
 }
+
+// Fetch players total rounds and rounds won
+// This assumes that only one player blitzed per round (edge case)
+// Maybe move this to some kind of computed property on the user model?
+// https://www.prisma.io/docs/orm/prisma-client/queries/computed-fields
+export async function getPlayerWinRate() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+      email: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const totalHandsPlayed = await prisma.score.count({
+    where: {
+      userId: prismaId.id,
+    },
+  });
+
+  const totalHandsWon = await prisma.score.count({
+    where: {
+      userId: prismaId.id,
+      blitzPileRemaining: 0,
+    },
+  });
+
+  const winRate =
+    totalHandsPlayed === 0 ? 0 : (totalHandsWon / totalHandsPlayed) * 100;
+
+  return {
+    userId: prismaId.id,
+    email: prismaId.email,
+    totalHandsPlayed,
+    totalHandsWon,
+    winRate,
+  };
+}
