@@ -58,3 +58,19 @@ export async function createScoresForGame(
 
   revalidatePath(`/games/${gameId}`);
 }
+
+// Update game as finished
+export async function updateGameAsFinished(gameId: string, winnerId: string) {
+  await prisma.game.update({
+    where: {
+      id: gameId,
+    },
+    data: {
+      isFinished: true,
+      winnerId: winnerId,
+      endedAt: new Date(),
+    },
+  });
+
+  revalidatePath(`/games/${gameId}`);
+}

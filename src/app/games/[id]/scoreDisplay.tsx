@@ -26,8 +26,11 @@ export default function ScoreDisplay({
           <TableRow>
             <TableHead>Round</TableHead>
             {displayScores.map((player) => (
-              <TableHead key={player.userId} className="">
-                {player.email}
+              <TableHead
+                key={player.userId}
+                className={`text-xs ${player.isWinner ? "bg-green-50" : ""}`}
+              >
+                {player.isWinner ? `⭐ ${player.email} ⭐` : player.email}
               </TableHead>
             ))}
           </TableRow>
@@ -52,7 +55,12 @@ export default function ScoreDisplay({
           <TableRow>
             <TableCell>Total</TableCell>
             {displayScores.map((player) => (
-              <TableCell key={player.userId}>{player.total}</TableCell>
+              <TableCell
+                className={player.isInLead ? "bg-green-100" : ""}
+                key={player.userId}
+              >
+                {player.total}
+              </TableCell>
             ))}
           </TableRow>
         </TableFooter>
