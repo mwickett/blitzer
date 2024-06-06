@@ -1,7 +1,12 @@
-export default function Dashboard() {
+import { getPlayerBattingAverage } from "@/server/queries";
+import BattingAverage from "./_components/BattingAverage";
+
+export default async function Dashboard() {
+  const battingAverage = await getPlayerBattingAverage();
+
   return (
-    <div>
-      <h2>This is the dashboard</h2>
-    </div>
+    <section className="border-zinc-500 p-5">
+      <BattingAverage battingAverage={battingAverage} />
+    </section>
   );
 }
