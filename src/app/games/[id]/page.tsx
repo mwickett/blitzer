@@ -1,7 +1,7 @@
-import prisma from "@/prisma/db";
 import ScoreEntry from "./scoreEntry";
 import ScoreDisplay from "./scoreDisplay";
 import { Game, User, Score } from "@prisma/client";
+import { getGameById } from "@/server/queries";
 
 export interface GameWithPlayersAndScores extends Game {
   players: { user: User; gameId: string; userId: string }[];
@@ -23,31 +23,9 @@ export interface DisplayScores {
 }
 
 export default async function GameView({ params }: { params: { id: string } }) {
-  const game = await prisma.game.findUnique({
-    where: {
-      id: params.id,
-    },
-    include: {
-      players: {
-        include: {
-          user: true,
-        },
-      },
-      scores: {
-        include: {
-          user: true,
-        },
-      },
-    },
-  });
-
-  if (!game) {
-    return (
-      <div>
-        <h2>No game found.</h2>
-      </div>
-    );
-  }
+  const game = await getGameById(params.id);
+  if (!game) return <div>Game not found</div>;
+  // TODO: Throw an error if the game is not found
 
   // TODO: Handle scoring logic
 

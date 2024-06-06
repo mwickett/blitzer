@@ -1,6 +1,3 @@
-// components/GamesList.server.tsx
-import { auth } from "@clerk/nextjs/server";
-import prisma from "@/prisma/db";
 import {
   Table,
   TableBody,
@@ -12,36 +9,10 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
+import { getGames } from "@/server/queries";
+
 export default async function GamesList() {
-  const { userId } = auth();
-
-  if (!userId) {
-    return (
-      <div>
-        <h2>You must be logged in to view this page.</h2>
-      </div>
-    );
-  }
-
-  const games = await prisma.game.findMany({
-    where: {
-      players: {
-        some: {
-          user: {
-            clerk_user_id: userId,
-          },
-        },
-      },
-    },
-    include: {
-      players: {
-        include: {
-          user: true,
-        },
-      },
-      scores: true,
-    },
-  });
+  const games = await getGames();
 
   return (
     <section className="p-6">
