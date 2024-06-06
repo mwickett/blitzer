@@ -10,7 +10,8 @@
     "vercel-build": "prisma generate && prisma migrate deploy && next build"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} seed.ts"
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} src/server/db/seed.ts",
+    "schema": "src/server/db/schema.prisma"
   },
   "dependencies": {
     "@clerk/nextjs": "^5.1.2",
@@ -35,6 +36,7 @@
     "prisma": "^5.14.0",
     "react": "^18",
     "react-dom": "^18",
+    "server-only": "^0.0.1",
     "svix": "^1.24.0",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7"
