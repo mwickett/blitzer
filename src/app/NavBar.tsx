@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, WalletCards, Search } from "lucide-react";
@@ -31,6 +32,7 @@ const navData = [
 
 export default function NavBar({ children }: { children: React.ReactNode }) {
   const pathName = usePathname();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen w-full flex-col">
@@ -52,7 +54,7 @@ export default function NavBar({ children }: { children: React.ReactNode }) {
             />
           ))}
         </nav>
-        <Sheet>
+        <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
           <SheetTrigger asChild>
             <Button
               variant="outline"
@@ -66,33 +68,27 @@ export default function NavBar({ children }: { children: React.ReactNode }) {
           <SheetContent side="left">
             <nav className="grid gap-6 text-lg font-medium">
               <Link
-                href="#"
+                href="/"
                 className="flex items-center gap-2 text-lg font-semibold"
+                onClick={() => setIsMenuOpen(false)}
               >
                 <WalletCards className="h-6 w-6" />
                 <span className="sr-only">Blitz Keeper</span>
               </Link>
-              <Link href="/dashboard" className="hover:text-foreground">
-                Dashboard
-              </Link>
-              <Link
-                href="/games"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Games
-              </Link>
-              <Link
-                href="/friends"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Friends
-              </Link>
-              <Link
-                href="/stats"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Stats
-              </Link>
+              {navData.map((navItem) => (
+                <MobileNavLink
+                  href={navItem.href}
+                  label={navItem.label}
+                  onClick={() => setIsMenuOpen(false)}
+                  pathName={pathName}
+                  key={navItem.href}
+                />
+              ))}
+              <Button variant="outline" asChild>
+                <Link href="/games/new" onClick={() => setIsMenuOpen(false)}>
+                  New game
+                </Link>
+              </Button>
             </nav>
           </SheetContent>
         </Sheet>
@@ -108,6 +104,9 @@ export default function NavBar({ children }: { children: React.ReactNode }) {
               />
             </div>
           </form>
+          <Button variant="outline" asChild>
+            <Link href="/games/new">New game</Link>
+          </Button>
           <SignedIn>
             <UserButton />
           </SignedIn>
@@ -133,6 +132,30 @@ function NavLink({
   return (
     <Link
       href={href}
+      className={`${
+        pathName?.startsWith(href) ? "text-foreground" : "text-muted-foreground"
+      } transition-colors hover:text-foreground`}
+    >
+      {label}
+    </Link>
+  );
+}
+
+function MobileNavLink({
+  href,
+  label,
+  onClick,
+  pathName,
+}: {
+  href: string;
+  label: string;
+  onClick: () => void;
+  pathName: string;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={() => onClick()}
       className={`${
         pathName?.startsWith(href) ? "text-foreground" : "text-muted-foreground"
       } transition-colors hover:text-foreground`}
