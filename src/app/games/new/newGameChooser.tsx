@@ -13,7 +13,7 @@ import {
   Select,
 } from "@/components/ui/select";
 import { AvatarImage, AvatarFallback, Avatar } from "@/components/ui/avatar";
-import { createNewGame } from "./newGameAction";
+import { createGame } from "@/server/mutations";
 
 type userSubset = Pick<User, "id" | "email">;
 
@@ -41,7 +41,7 @@ export default function NewGameChooser({ users }: { users: userSubset[] }) {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Select Players</h2>
         <Button
-          onClick={() => createNewGame(inGameUsers)}
+          onClick={() => createGame(inGameUsers)}
           size="sm"
           variant="outline"
         >

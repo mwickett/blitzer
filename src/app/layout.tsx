@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { CSPostHogProvider } from "./providers";
 import { Analytics } from "@vercel/analytics/react";
+import { CSPostHogProvider } from "./PostHogProvider";
 import { Inter } from "next/font/google";
 import NavBar from "./NavBar";
 import "./globals.css";
