@@ -28,9 +28,13 @@ export default function Home() {
         </div>
       </SignedOut>
       <p className="text-center">
-        This is a major WIP. All you can do right now is make a new game and
-        keep track of scores. Nothing else works, yet! Get started by signing in
-        or making an account, then go to Games to start a new game.
+        🏗️ This project is a work in progress. Currently you can score a game of
+        Dutch Blitz, but more features are coming. The idea is to create a stats
+        tool for people who are <i>really</i> into{" "}
+        <a href="https://dutchblitz.com/">Dutch Blitz</a>. Note: all players are
+        currently global, meaning that when you sign-up, your email address will
+        be visible to other users. Adding a friends mechanism is high on the
+        list
       </p>
     </main>
   );
