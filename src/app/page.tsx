@@ -27,15 +27,17 @@ export default function Home() {
           </Button>
         </div>
       </SignedOut>
-      <p className="text-center">
-        🏗️ This project is a work in progress. Currently you can score a game of
-        Dutch Blitz, but more features are coming. The idea is to create a stats
-        tool for people who are <i>really</i> into{" "}
-        <a href="https://dutchblitz.com/">Dutch Blitz</a>. Note: all players are
-        currently global, meaning that when you sign-up, your email address will
-        be visible to other users. Adding a friends mechanism is high on the
-        list
-      </p>
+      <div className="max-w-56">
+        <p className="text-center">
+          🏗️ This project is a work in progress. Currently you can score a game
+          of Dutch Blitz, but more features are coming. The idea is to create a
+          stats tool for people who are <i>really</i> into{" "}
+          <a href="https://dutchblitz.com/">Dutch Blitz</a>. Note: all players
+          are currently global, meaning that when you sign-up, your email
+          address will be visible to other users. Adding a friends mechanism is
+          high on the list
+        </p>
+      </div>
     </main>
   );
 }
