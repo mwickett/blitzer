@@ -17,6 +17,12 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Blitzer",
   description: "Scores and statistics for Dutch Blitz",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://www.blitzer.fun",
+    siteName: "Blitzer",
+  },
 };
 
 export default function RootLayout({
