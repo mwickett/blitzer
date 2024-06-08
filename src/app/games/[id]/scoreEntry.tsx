@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
-
+import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
 import { createScoresForGame } from "@/server/mutations";
-
 import { GameWithPlayersAndScores } from "./page";
 import { Player } from "./page";
+
+interface PlayerTouched extends Player {
+  touched: {
+    blitzPileRemaining: boolean;
+    totalCardsPlayed: boolean;
+  };
+}
 
 export default function ScoreEntry({
   game,
@@ -22,70 +26,137 @@ export default function ScoreEntry({
       email: player.user.email || "",
       blitzPileRemaining: 0,
       totalCardsPlayed: 0,
+      touched: {
+        blitzPileRemaining: false,
+        totalCardsPlayed: false,
+      },
     }))
   );
 
   const [scoresValid, setScoresValid] = useState(false);
 
-  // TODO: Abstract this into an input component
-  const handleBlitzPileChange = (userId: string, value: number) => {
+  // Utility function to remove leading zeros
+  const stripLeadingZeros = (value: string) => {
+    return value.replace(/^0+(?=\d)/, "");
+  };
+
+  const handleBlitzPileChange = (userId: string, value: string) => {
+    const strippedValue = stripLeadingZeros(value);
+    const intValue = parseInt(strippedValue, 10);
+
     const min = 0;
     const max = 10;
-    if (Number(value) >= min && Number(value) <= max) {
-      setPlayerScores((prevScores: Player[]) =>
-        prevScores.map((player) =>
-          player.userId === userId
-            ? { ...player, blitzPileRemaining: value }
-            : player
-        )
-      );
-    }
+    setPlayerScores((prevScores: PlayerTouched[]) =>
+      prevScores.map((player) =>
+        player.userId === userId
+          ? {
+              ...player,
+              blitzPileRemaining:
+                !isNaN(intValue) && intValue >= min && intValue <= max
+                  ? intValue
+                  : 0,
+              touched: { ...player.touched, blitzPileRemaining: true },
+            }
+          : player
+      )
+    );
     validateScores();
   };
 
-  const handleTotalCardsChange = (userId: string, value: number) => {
+  const handleTotalCardsChange = (userId: string, value: string) => {
+    const strippedValue = stripLeadingZeros(value);
+    const intValue = parseInt(strippedValue, 10);
+
     const min = 0;
     const max = 40;
-    if (Number(value) >= min && Number(value) <= max) {
-      setPlayerScores((prevScores: Player[]) =>
-        prevScores.map((player) =>
-          player.userId === userId
-            ? { ...player, totalCardsPlayed: value }
-            : player
-        )
-      );
-    }
+    setPlayerScores((prevScores: PlayerTouched[]) =>
+      prevScores.map((player) =>
+        player.userId === userId
+          ? {
+              ...player,
+              totalCardsPlayed:
+                !isNaN(intValue) && intValue >= min && intValue <= max
+                  ? intValue
+                  : 0,
+              touched: { ...player.touched, totalCardsPlayed: true },
+            }
+          : player
+      )
+    );
     validateScores();
+  };
+
+  const handleBlitzPileBlur = (userId: string) => {
+    setPlayerScores((prevScores: PlayerTouched[]) =>
+      prevScores.map((player) =>
+        player.userId === userId
+          ? {
+              ...player,
+              blitzPileRemaining:
+                parseInt(
+                  stripLeadingZeros(player.blitzPileRemaining.toString()),
+                  10
+                ) || 0,
+              touched: { ...player.touched, blitzPileRemaining: true },
+            }
+          : player
+      )
+    );
+  };
+
+  const handleTotalCardsBlur = (userId: string) => {
+    setPlayerScores((prevScores: PlayerTouched[]) =>
+      prevScores.map((player) =>
+        player.userId === userId
+          ? {
+              ...player,
+              totalCardsPlayed:
+                parseInt(
+                  stripLeadingZeros(player.totalCardsPlayed.toString()),
+                  10
+                ) || 0,
+              touched: { ...player.touched, totalCardsPlayed: true },
+            }
+          : player
+      )
+    );
   };
 
   const handleSubmit = async () => {
     await createScoresForGame(game.id, playerScores);
     // reset form state
-    setPlayerScores((prevScores: Player[]) =>
+    setPlayerScores((prevScores: PlayerTouched[]) =>
       prevScores.map((player) => ({
         ...player,
         blitzPileRemaining: 0,
         totalCardsPlayed: 0,
+        touched: {
+          blitzPileRemaining: false,
+          totalCardsPlayed: false,
+        },
       }))
     );
     setScoresValid(false);
   };
 
   const validateScores = () => {
-    const isValid = playerScores.every(
+    const allFieldsTouched = playerScores.every(
       (player) =>
-        player.blitzPileRemaining >= 0 &&
-        player.blitzPileRemaining <= 10 &&
-        player.totalCardsPlayed >= 0 &&
-        player.totalCardsPlayed <= 40
+        player.touched.blitzPileRemaining && player.touched.totalCardsPlayed
+    );
+    const atLeastOneBlitzed = playerScores.some(
+      (player) => player.blitzPileRemaining === 0
     );
 
-    if (isValid) {
-      setScoresValid(true);
-    } else {
-      setScoresValid(false);
-    }
+    const isValid = allFieldsTouched && atLeastOneBlitzed;
+
+    setScoresValid(isValid);
   };
+
+  // useEffect to validate scores when playerScores state changes
+  useEffect(() => {
+    validateScores();
+  }, [playerScores]);
 
   return (
     <form className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto">
@@ -106,13 +177,11 @@ export default function ScoreEntry({
               id={playerScore.userId}
               placeholder="Blitz cards left"
               type="number"
-              value={playerScore.blitzPileRemaining}
+              value={playerScore.blitzPileRemaining.toString()}
               onChange={(e) =>
-                handleBlitzPileChange(
-                  playerScore.userId,
-                  parseInt(e.target.value, 10) || 0
-                )
+                handleBlitzPileChange(playerScore.userId, e.target.value)
               }
+              onBlur={() => handleBlitzPileBlur(playerScore.userId)}
               min={0}
               max={10}
               required
@@ -123,13 +192,11 @@ export default function ScoreEntry({
               id="player1-cards"
               placeholder="Total cards"
               type="number"
-              value={playerScore.totalCardsPlayed}
+              value={playerScore.totalCardsPlayed.toString()}
               onChange={(e) =>
-                handleTotalCardsChange(
-                  playerScore.userId,
-                  parseInt(e.target.value, 10) || 0
-                )
+                handleTotalCardsChange(playerScore.userId, e.target.value)
               }
+              onBlur={() => handleTotalCardsBlur(playerScore.userId)}
               min={0}
               max={40}
               required
