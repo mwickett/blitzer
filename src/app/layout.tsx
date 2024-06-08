@@ -22,6 +22,27 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://www.blitzer.fun",
     siteName: "Blitzer",
+    images: [
+      {
+        url: "/img/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Blitzer",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@blitzerfun",
+    creator: "@mwickett",
+    title: "Blitzer",
+    description: "Scoring and stats for serious Dutch Blitz players",
+    images: [
+      {
+        url: "/img/twitter-image.png",
+        alt: "Blitzer",
+      },
+    ],
   },
 };
 
