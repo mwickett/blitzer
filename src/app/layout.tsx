@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     siteName: "Blitzer",
     images: [
       {
-        url: "/img/opengraph-image.png",
+        url: "/img/og-image.png",
         width: 1200,
         height: 630,
         alt: "Blitzer",
