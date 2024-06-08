@@ -15,6 +15,9 @@ const PostHogPageView = dynamic(() => import("./PostHogPageView"), {
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: process.env.VERCEL_URL
+    ? new URL(`https://${process.env.VERCEL_URL}`)
+    : new URL(`http://localhost:3000`),
   title: "Blitzer",
   description: "Scores and statistics for Dutch Blitz",
   openGraph: {
