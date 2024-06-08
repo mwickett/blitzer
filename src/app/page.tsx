@@ -27,15 +27,27 @@ export default function Home() {
           </Button>
         </div>
       </SignedOut>
-      <div className="max-w-56">
-        <p className="text-center">
-          🏗️ This project is a work in progress. Currently you can score a game
-          of Dutch Blitz, but more features are coming. The idea is to create a
-          stats tool for people who are <i>really</i> into{" "}
-          <a href="https://dutchblitz.com/">Dutch Blitz</a>. Note: all players
-          are currently global, meaning that when you sign-up, your email
-          address will be visible to other users. Adding a friends mechanism is
-          high on the list
+      <div className="flex flex-col m-8 text-center">
+        <h3 className="pb-4">🏗️ This project is a work in progress.</h3>
+        <p className="pb-4">
+          Currently you can score a game of{" "}
+          <a href="https://www.dutchblitz.com">Dutch Blitz</a>, but more
+          features are coming. The idea is to create a stats tool for people who
+          are <i>really</i> into Dutch Blitz.
+        </p>
+        <p className="pb-4">
+          Note: all players are currently global, meaning that when you sign-up,
+          your email address will be visible to other users. Adding a friends
+          mechanism is high on the list!
+        </p>
+        <p className="">
+          You can{" "}
+          <a
+            className="underline"
+            href="https://wickett.notion.site/Vision-for-Blitzer-a802db0123d54ef6881598c67cd4a147?pvs=4"
+          >
+            read more about the vision and future plans.
+          </a>
         </p>
       </div>
     </main>
