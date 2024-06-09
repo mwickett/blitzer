@@ -1,19 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createScoresForGame } from "@/server/mutations";
 import { GameWithPlayersAndScores } from "./page";
 import { Player } from "./page";
+import { z } from "zod";
 
 interface PlayerTouched extends Player {
   touched: {
-    blitzPileRemaining: boolean;
     totalCardsPlayed: boolean;
   };
 }
+
+const playerScoreSchema = z.object({
+  userId: z.string(),
+  email: z.string(),
+  blitzPileRemaining: z.number().min(0).max(10),
+  totalCardsPlayed: z.number().min(0).max(40),
+  touched: z.object({
+    totalCardsPlayed: z.boolean(),
+  }),
+});
+
+const scoresSchema = z.array(playerScoreSchema);
 
 export default function ScoreEntry({
   game,
@@ -27,13 +39,13 @@ export default function ScoreEntry({
       blitzPileRemaining: 0,
       totalCardsPlayed: 0,
       touched: {
-        blitzPileRemaining: false,
         totalCardsPlayed: false,
       },
     }))
   );
 
   const [scoresValid, setScoresValid] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Utility function to remove leading zeros
   const stripLeadingZeros = (value: string) => {
@@ -55,7 +67,6 @@ export default function ScoreEntry({
                 !isNaN(intValue) && intValue >= min && intValue <= max
                   ? intValue
                   : 0,
-              touched: { ...player.touched, blitzPileRemaining: true },
             }
           : player
       )
@@ -97,7 +108,6 @@ export default function ScoreEntry({
                   stripLeadingZeros(player.blitzPileRemaining.toString()),
                   10
                 ) || 0,
-              touched: { ...player.touched, blitzPileRemaining: true },
             }
           : player
       )
@@ -131,7 +141,6 @@ export default function ScoreEntry({
         blitzPileRemaining: 0,
         totalCardsPlayed: 0,
         touched: {
-          blitzPileRemaining: false,
           totalCardsPlayed: false,
         },
       }))
@@ -139,24 +148,37 @@ export default function ScoreEntry({
     setScoresValid(false);
   };
 
-  const validateScores = () => {
-    const allFieldsTouched = playerScores.every(
-      (player) =>
-        player.touched.blitzPileRemaining && player.touched.totalCardsPlayed
-    );
-    const atLeastOneBlitzed = playerScores.some(
-      (player) => player.blitzPileRemaining === 0
-    );
+  const validateScores = useCallback(() => {
+    try {
+      scoresSchema.parse(playerScores);
+      const allFieldsTouched = playerScores.every(
+        (player) => player.touched.totalCardsPlayed
+      );
+      const atLeastOneBlitzed = playerScores.some(
+        (player) => player.blitzPileRemaining === 0
+      );
 
-    const isValid = allFieldsTouched && atLeastOneBlitzed;
+      const isValid = allFieldsTouched && atLeastOneBlitzed;
 
-    setScoresValid(isValid);
-  };
+      setScoresValid(isValid);
+    } catch (e) {
+      const validationErrors: { [key: string]: string } = {};
+      (e as z.ZodError).errors.forEach((error: any) => {
+        validationErrors[error.path[0]] = error.message;
+      });
+      // e.errors.forEach((error: any) => {
+      //   const path = error.path.join(".");
+      //   validationErrors[path] = error.message;
+      // });
+      setErrors(validationErrors);
+      setScoresValid(false);
+    }
+  }, [playerScores]);
 
   // useEffect to validate scores when playerScores state changes
   useEffect(() => {
     validateScores();
-  }, [playerScores]);
+  }, [playerScores, validateScores]);
 
   return (
     <form className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto">
