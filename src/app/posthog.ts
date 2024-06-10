@@ -1,8 +1,8 @@
 // app/posthog.js
 import { PostHog } from "posthog-node";
 
-const host = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}/ingest`
+const host = process.env.NEXT_PUBLIC_VERCEL_URL
+  ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/ingest`
   : `http://localhost:3000/ingest`;
 
 export default function PostHogClient() {
