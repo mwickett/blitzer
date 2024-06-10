@@ -2,6 +2,7 @@
 
 import prisma from "@/server/db/db";
 import { auth } from "@clerk/nextjs/server";
+import posthogClient from "@/app/posthog";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -10,6 +11,7 @@ import { redirect } from "next/navigation";
 
 export async function createGame(users: { id: string }[]) {
   const user = auth();
+  const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
 
@@ -34,6 +36,8 @@ export async function createGame(users: { id: string }[]) {
     },
   });
 
+  posthog.capture({ distinctId: user.userId, event: "create_game" });
+
   revalidatePath("/games");
   redirect(`/games/${game.id}`);
 }
@@ -47,6 +51,11 @@ export async function createScoresForGame(
     totalCardsPlayed: number;
   }[]
 ) {
+  const user = auth();
+  const posthog = posthogClient();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
   await prisma.score.createMany({
     data: scores.map((score) => ({
       gameId: gameId,
@@ -56,11 +65,18 @@ export async function createScoresForGame(
     })),
   });
 
+  posthog.capture({ distinctId: user.userId, event: "create_scores" });
+
   revalidatePath(`/games/${gameId}`);
 }
 
 // Update game as finished
 export async function updateGameAsFinished(gameId: string, winnerId: string) {
+  const user = auth();
+  const posthog = posthogClient();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
   await prisma.game.update({
     where: {
       id: gameId,
@@ -70,6 +86,11 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
       winnerId: winnerId,
       endedAt: new Date(),
     },
+  });
+
+  posthog.capture({
+    distinctId: user.userId,
+    event: "update_game_as_finished",
   });
 
   revalidatePath(`/games/${gameId}`);
