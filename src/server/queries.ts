@@ -2,10 +2,12 @@ import "server-only";
 
 import prisma from "@/server/db/db";
 import { auth } from "@clerk/nextjs/server";
+import posthogClient from "@/app/posthog";
 
 // Fetch all games that the current user is a part of
 export async function getGames() {
   const user = auth();
+  const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
 
@@ -28,6 +30,8 @@ export async function getGames() {
       scores: true,
     },
   });
+
+  posthog.capture({ distinctId: user.userId, event: "get_games" });
 
   return games;
 }
