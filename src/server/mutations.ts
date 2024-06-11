@@ -4,7 +4,6 @@ import prisma from "@/server/db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 // Create a new game
@@ -38,7 +37,6 @@ export async function createGame(users: { id: string }[]) {
 
   posthog.capture({ distinctId: user.userId, event: "create_game" });
 
-  revalidatePath("/games");
   redirect(`/games/${game.id}`);
 }
 
@@ -66,8 +64,6 @@ export async function createScoresForGame(
   });
 
   posthog.capture({ distinctId: user.userId, event: "create_scores" });
-
-  revalidatePath(`/games/${gameId}`);
 }
 
 // Update game as finished
@@ -96,6 +92,4 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
       winnerId: winnerId,
     },
   });
-
-  revalidatePath(`/games/${gameId}`);
 }
