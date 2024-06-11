@@ -10,8 +10,19 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 import { getGames } from "@/server/queries";
+import { auth } from "@clerk/nextjs/server";
+
+import posthogClient from "@/app/posthog";
 
 export default async function GamesList() {
+  const user = auth();
+  const posthog = posthogClient();
+
+  posthog.capture({
+    distinctId: user.userId ?? "anonymous",
+    event: "games_list_view",
+  });
+
   const games = await getGames();
 
   return (
