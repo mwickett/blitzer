@@ -15,10 +15,10 @@ export default function PostHogClient() {
     }
   );
 
-  posthogClient.on("error", (error) => {
-    console.error(error);
-  });
+  // posthogClient.on("error", (error) => {
+  //   console.error(error);
+  // });
 
-  posthogClient.debug();
+  // posthogClient.debug();
   return posthogClient;
 }
