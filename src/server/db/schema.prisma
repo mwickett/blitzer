@@ -11,6 +11,11 @@ datasource db {
   // directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
+generator erd {
+  provider = "prisma-erd-generator"
+  theme = "forest"
+}
+
 model User {
   id            String   @id @default(uuid())
   clerk_user_id String   @unique
