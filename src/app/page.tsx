@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
 export default function Home() {
-  console.log(process.env.NEXT_PUBLIC_VERCEL_URL);
   return (
     <main className="flex min-h-screen flex-col items-center p-6 justify-around bg-brand">
       <Image
