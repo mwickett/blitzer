@@ -8,6 +8,7 @@ import { createScoresForGame } from "@/server/mutations";
 import { GameWithPlayersAndScores } from "./page";
 import { Player } from "./page";
 import { z } from "zod";
+import { useRouter } from "next/navigation";
 
 interface PlayerTouched extends Player {
   touched: {
@@ -32,6 +33,8 @@ export default function ScoreEntry({
 }: {
   game: GameWithPlayersAndScores;
 }) {
+  const router = useRouter();
+
   const [playerScores, setPlayerScores] = useState(
     game.players.map((player) => ({
       userId: player.user.id,
@@ -133,19 +136,25 @@ export default function ScoreEntry({
   };
 
   const handleSubmit = async () => {
-    await createScoresForGame(game.id, playerScores);
-    // reset form state
-    setPlayerScores((prevScores: PlayerTouched[]) =>
-      prevScores.map((player) => ({
-        ...player,
-        blitzPileRemaining: 0,
-        totalCardsPlayed: 0,
-        touched: {
-          totalCardsPlayed: false,
-        },
-      }))
-    );
-    setScoresValid(false);
+    try {
+      await createScoresForGame(game.id, playerScores);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      // reset form state
+      setPlayerScores((prevScores: PlayerTouched[]) =>
+        prevScores.map((player) => ({
+          ...player,
+          blitzPileRemaining: 0,
+          totalCardsPlayed: 0,
+          touched: {
+            totalCardsPlayed: false,
+          },
+        }))
+      );
+      setScoresValid(false);
+      router.refresh();
+    }
   };
 
   const validateScores = useCallback(() => {
