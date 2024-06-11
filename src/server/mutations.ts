@@ -91,6 +91,10 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
   posthog.capture({
     distinctId: user.userId,
     event: "update_game_as_finished",
+    properties: {
+      gameId: gameId,
+      winnerId: winnerId,
+    },
   });
 
   revalidatePath(`/games/${gameId}`);
