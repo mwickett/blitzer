@@ -135,7 +135,8 @@ export default function ScoreEntry({
     );
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     try {
       await createScoresForGame(game.id, playerScores);
     } catch (e) {
@@ -190,7 +191,10 @@ export default function ScoreEntry({
   }, [playerScores, validateScores]);
 
   return (
-    <form className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto">
+    <form
+      className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto"
+      onSubmit={handleSubmit}
+    >
       <h1 className="text-2xl font-bold mb-6">Scores</h1>
       <div className="grid gap-4">
         <div className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2">
@@ -238,7 +242,7 @@ export default function ScoreEntry({
         ))}
       </div>
       <div className="mt-6 flex justify-end">
-        <Button type="submit" onClick={handleSubmit} disabled={!scoresValid}>
+        <Button type="submit" disabled={!scoresValid}>
           Save Scores
         </Button>
       </div>
