@@ -17,7 +17,7 @@ interface PlayerTouched extends Player {
 
 const playerScoreSchema = z.object({
   userId: z.string(),
-  email: z.string(),
+  username: z.string(),
   blitzPileRemaining: z.number().min(0).max(10),
   totalCardsPlayed: z.number().min(0).max(40),
   touched: z.object({
