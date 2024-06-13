@@ -11,14 +11,14 @@ export interface GameWithPlayersAndScores extends Game {
 
 export interface Player {
   userId: string;
-  email: string;
+  username: string;
   blitzPileRemaining: number;
   totalCardsPlayed: number;
 }
 
 export interface DisplayScores {
   userId: string;
-  email: string;
+  username: string;
   scoresByRound: number[][];
   total: number;
   isInLead?: boolean;
@@ -51,7 +51,7 @@ const transformGameData = async (
 ): Promise<DisplayScores[]> => {
   const userScoresMap: {
     [key: string]: {
-      email: string;
+      username: string;
       scoresByRound: number[][];
       total: number;
     };
@@ -63,7 +63,7 @@ const transformGameData = async (
   // Initialize the map with players
   game.players.forEach((player) => {
     userScoresMap[player.userId] = {
-      email: player.user.email,
+      username: player.user.username,
       scoresByRound: [],
       total: 0,
     };
@@ -128,9 +128,9 @@ const transformGameData = async (
 
   // Transform the map into the output array
   return Object.entries(userScoresMap).map(
-    ([userId, { email, scoresByRound, total }]) => ({
+    ([userId, { username, scoresByRound, total }]) => ({
       userId,
-      email,
+      username,
       scoresByRound,
       total,
       isInLead: leaders.includes(userId),

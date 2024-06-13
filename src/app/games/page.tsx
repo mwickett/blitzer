@@ -41,7 +41,7 @@ export default async function GamesList() {
                   : "Ongoing"}
               </TableCell>
               <TableCell>
-                {game.players.map((player) => player.user.email).join(", ")}
+                {game.players.map((player) => player.user.username).join(", ")}
               </TableCell>
             </TableRow>
           ))}

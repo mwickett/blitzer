@@ -36,9 +36,8 @@ export default function Home() {
           are <i>really</i> into Dutch Blitz.
         </p>
         <p className="pb-4">
-          Note: all players are currently global, meaning that when you sign-up,
-          your email address will be visible to other users. Adding a friends
-          mechanism is high on the list!
+          Note: all players are currently global but adding a friends mechanism
+          is high on the list!
         </p>
         <p className="">
           You can{" "}

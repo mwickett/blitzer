@@ -30,7 +30,7 @@ export default function ScoreDisplay({
                 key={player.userId}
                 className={`text-xs ${player.isWinner ? "bg-green-50" : ""}`}
               >
-                {player.isWinner ? `⭐ ${player.email} ⭐` : player.email}
+                {player.isWinner ? `⭐ ${player.username} ⭐` : player.username}
               </TableHead>
             ))}
           </TableRow>

@@ -2,6 +2,7 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent, UserJSON } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
+import { generateRandomUsername } from "@/lib/utils";
 
 export async function POST(req: Request) {
   // You can find this in the Clerk Dashboard -> Webhooks -> choose the endpoint
@@ -61,8 +62,8 @@ export async function POST(req: Request) {
       await prisma.user.create({
         data: {
           clerk_user_id: evt.data.id,
-          // TODO: use primary email ID to pick off address from array
           email: getPrimaryEmail(evt.data),
+          username: evt.data.username || generateRandomUsername(),
         },
       });
     } catch (e) {
@@ -73,16 +74,7 @@ export async function POST(req: Request) {
 
   if (eventType === "user.deleted") {
     console.log("user deleted event");
-    try {
-      const deleteUser = await prisma.user.delete({
-        where: {
-          clerk_user_id: evt.data.id,
-        },
-      });
-    } catch (e) {
-      console.error("failed to delete user", e);
-      return new Response("Failed to delete user", { status: 500 });
-    }
+    // Doing nothing with this for now because I don't want to delete users from the database as it leaves holes in the game history
   }
 
   if (eventType === "user.updated") {
@@ -94,6 +86,7 @@ export async function POST(req: Request) {
         },
         data: {
           email: getPrimaryEmail(evt.data),
+          username: evt.data.username || generateRandomUsername(),
         },
       });
       console.log("update user resulted in: ", updateUser);

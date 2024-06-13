@@ -9,6 +9,7 @@ async function main() {
     create: {
       email: "alice@dutchblitz.io",
       clerk_user_id: "user_2hFXRby6XxRdTErvZauatSBku33",
+      username: "alice",
     },
   });
 
@@ -18,6 +19,7 @@ async function main() {
     create: {
       email: "mike@wickett.ca",
       clerk_user_id: "user_2gtFRHlopGWSPKDCdUA275VTCrn",
+      username: "mike",
     },
   });
 
@@ -27,6 +29,7 @@ async function main() {
     create: {
       email: "bob@prisma.io",
       clerk_user_id: "sdf9sdf9",
+      username: "bob",
     },
   });
 
@@ -36,6 +39,7 @@ async function main() {
     create: {
       email: "terry@prisma.io",
       clerk_user_id: "sdf9sdfsi8df9",
+      username: "terry",
     },
   });
 
