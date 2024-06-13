@@ -15,7 +15,7 @@ import {
 import { AvatarImage, AvatarFallback, Avatar } from "@/components/ui/avatar";
 import { createGame } from "@/server/mutations";
 
-type userSubset = Pick<User, "id" | "email">;
+type userSubset = Pick<User, "id" | "username">;
 
 export default function NewGameChooser({ users }: { users: userSubset[] }) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export default function NewGameChooser({ users }: { users: userSubset[] }) {
                     key={user.id}
                     value={user.id}
                   >
-                    {user.email}
+                    {user.username}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -84,10 +84,10 @@ export default function NewGameChooser({ users }: { users: userSubset[] }) {
               <div key={user.id} className="flex flex-col items-center">
                 <Avatar>
                   <AvatarFallback>
-                    {user.email ? user.email.toUpperCase() : ""}
+                    {user.username ? user.username.toUpperCase() : ""}
                   </AvatarFallback>
                 </Avatar>
-                <p className="text-sm font-medium mt-2">{user.email}</p>
+                <p className="text-sm font-medium mt-2">{user.username}</p>
                 <Button
                   className="mt-2"
                   size="sm"

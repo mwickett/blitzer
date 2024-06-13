@@ -43,7 +43,7 @@ export async function getAllUsers() {
   const users = await prisma.user.findMany({
     select: {
       id: true,
-      email: true,
+      username: true,
     },
   });
 
@@ -93,7 +93,6 @@ export async function getPlayerBattingAverage() {
     },
     select: {
       id: true,
-      email: true,
     },
   });
 

@@ -35,7 +35,7 @@ export default function ScoreEntry({
   const [playerScores, setPlayerScores] = useState(
     game.players.map((player) => ({
       userId: player.user.id,
-      email: player.user.email || "",
+      username: player.user.username,
       blitzPileRemaining: 0,
       totalCardsPlayed: 0,
       touched: {
@@ -194,7 +194,7 @@ export default function ScoreEntry({
             className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2"
             key={playerScore.userId}
           >
-            <Label htmlFor={playerScore.userId}>{playerScore.email}</Label>
+            <Label htmlFor={playerScore.userId}>{playerScore.username}</Label>
             <Input
               id={playerScore.userId}
               placeholder="Blitz cards left"
