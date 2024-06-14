@@ -1,8 +1,8 @@
 import NewGameChooser from "./newGameChooser";
-import { getAllUsers } from "@/server/queries";
+import { getFriends } from "@/server/queries";
 
 export default async function NewGame() {
-  const users = await getAllUsers();
+  const users = await getFriends();
 
   return <NewGameChooser users={users} />;
 }
