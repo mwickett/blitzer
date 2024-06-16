@@ -185,3 +185,51 @@ export async function acceptFriendRequest(friendRequestId: string) {
     properties: { friendRequestId: friendRequestId },
   });
 }
+
+// Reject friend request
+export async function rejectFriendRequest(friendRequestId: string) {
+  const user = auth();
+  const posthog = posthogClient();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const friendRequest = await prisma.friendRequest.findUnique({
+    where: {
+      id: friendRequestId,
+    },
+    select: {
+      receiverId: true,
+    },
+  });
+
+  if (!friendRequest) throw new Error("Friend request not found");
+  if (friendRequest.receiverId !== prismaId.id) throw new Error("Unauthorized");
+
+  await prisma.friendRequest.update({
+    where: {
+      id: friendRequestId,
+    },
+    data: {
+      status: "REJECTED",
+    },
+  });
+
+  posthog.capture({
+    distinctId: user.userId,
+    event: "reject_friend_request",
+    properties: { friendRequestId: friendRequestId },
+  });
+}
+
+
