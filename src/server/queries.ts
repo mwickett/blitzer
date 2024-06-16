@@ -4,6 +4,9 @@ import prisma from "@/server/db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
 
+
+// Fetches users who are friends of the current user but excludes the current
+// user 
 export async function getFilteredUsers() {
   const user = auth();
 
@@ -173,10 +176,7 @@ export async function getFriends() {
   const prismaId = await prisma.user.findUnique({
     where: {
       clerk_user_id: user.userId,
-    },
-    select: {
-      id: true,
-    },
+    }
   });
 
   if (!prismaId) throw new Error("User not found");
@@ -194,6 +194,41 @@ export async function getFriends() {
   const result = friends.map((friend) => {
     return friend.user1Id === prismaId.id ? friend.user2 : friend.user1;
   });
+
+  return result;
+}
+
+// Get all friends of the current user and include the current user
+// Used when creating a new game
+export async function getFriendsForNewGame() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    }
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const friends = await prisma.friend.findMany({
+    where: {
+      OR: [{ user1Id: prismaId.id }, { user2Id: prismaId.id }],
+    },
+    include: {
+      user1: true,
+      user2: true,
+    },
+  });
+
+  const result = friends.map((friend) => {
+    return friend.user1Id === prismaId.id ? friend.user2 : friend.user1;
+  });
+
+  // Include user so they can add themselves
+  result.unshift(prismaId)
 
   return result;
 }
