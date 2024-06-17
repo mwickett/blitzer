@@ -11,13 +11,49 @@ model User {
   id            String   @id @default(uuid())
   clerk_user_id String   @unique
   email         String   @unique
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
   username      String   @unique
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @map("updated_at")
 
   // Relationships
-  games  GamePlayers[]
-  scores Score[]
+  games                  GamePlayers[]
+  scores                 Score[]
+  friendRequestsSent     FriendRequest[] @relation("FriendRequestsSent")
+  friendRequestsReceived FriendRequest[] @relation("FriendRequestsReceived")
+  friends1               Friend[]        @relation("User1Friends")
+  friends2               Friend[]        @relation("User2Friends")
+}
+
+model FriendRequest {
+  id         String              @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     FriendRequestStatus @default(PENDING)
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @default(now()) @map("updated_at")
+
+  sender   User @relation("FriendRequestsSent", fields: [senderId], references: [id])
+  receiver User @relation("FriendRequestsReceived", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId])
+}
+
+model Friend {
+  id        String   @id @default(uuid())
+  user1Id   String
+  user2Id   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user1 User @relation("User1Friends", fields: [user1Id], references: [id])
+  user2 User @relation("User2Friends", fields: [user2Id], references: [id])
+
+  @@unique([user1Id, user2Id])
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
 
 model Game {
@@ -27,7 +63,6 @@ model Game {
   isFinished Boolean   @default(false) @map("is_finished")
   winnerId   String?
 
-  // Relationships
   players GamePlayers[]
   scores  Score[]
 }
@@ -40,7 +75,6 @@ model Score {
   blitzPileRemaining Int
   createdAt          DateTime @default(now()) @map("created_at")
 
-  // Foreign keys
   game Game @relation(fields: [gameId], references: [id])
   user User @relation(fields: [userId], references: [id])
 }
@@ -49,10 +83,8 @@ model GamePlayers {
   gameId String
   userId String
 
-  // Foreign keys
   game Game @relation(fields: [gameId], references: [id])
   user User @relation(fields: [userId], references: [id])
 
-  // Composite primary key
   @@id([gameId, userId])
 }
