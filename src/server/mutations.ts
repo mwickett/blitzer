@@ -7,7 +7,6 @@ import posthogClient from "@/app/posthog";
 import { redirect } from "next/navigation";
 
 // Create a new game
-
 export async function createGame(users: { id: string }[]) {
   const user = auth();
   const posthog = posthogClient();
@@ -93,3 +92,144 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
     },
   });
 }
+
+// Create friend request
+export async function createFriendRequest(userId: string) {
+  const user = auth();
+  const posthog = posthogClient();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const { id } = prismaId;
+
+  await prisma.friendRequest.create({
+    data: {
+      senderId: id,
+      receiverId: userId,
+    },
+  });
+
+  posthog.capture({
+    distinctId: user.userId,
+    event: "create_friend_request",
+    properties: { userId: userId },
+  });
+
+  redirect(`/friends`);
+}
+
+// Accept friend request
+export async function acceptFriendRequest(friendRequestId: string) {
+  const user = auth();
+  const posthog = posthogClient();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const { id } = prismaId;
+
+  const friendRequest = await prisma.friendRequest.findUnique({
+    where: {
+      id: friendRequestId,
+    },
+    select: {
+      senderId: true,
+      receiverId: true,
+    },
+  });
+
+  if (!friendRequest) throw new Error("Friend request not found");
+
+  console.log(friendRequest);
+
+  await prisma.friend.create({
+    data: {
+      user1Id: id,
+      user2Id: friendRequest.senderId,
+    },
+  });
+
+  await prisma.friendRequest.update({
+    where: {
+      id: friendRequestId,
+    },
+    data: {
+      status: "ACCEPTED",
+    },
+  });
+
+  posthog.capture({
+    distinctId: user.userId,
+    event: "accept_friend_request",
+    properties: { friendRequestId: friendRequestId },
+  });
+}
+
+// Reject friend request
+export async function rejectFriendRequest(friendRequestId: string) {
+  const user = auth();
+  const posthog = posthogClient();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const friendRequest = await prisma.friendRequest.findUnique({
+    where: {
+      id: friendRequestId,
+    },
+    select: {
+      receiverId: true,
+    },
+  });
+
+  if (!friendRequest) throw new Error("Friend request not found");
+  if (friendRequest.receiverId !== prismaId.id) throw new Error("Unauthorized");
+
+  await prisma.friendRequest.update({
+    where: {
+      id: friendRequestId,
+    },
+    data: {
+      status: "REJECTED",
+    },
+  });
+
+  posthog.capture({
+    distinctId: user.userId,
+    event: "reject_friend_request",
+    properties: { friendRequestId: friendRequestId },
+  });
+}
+
+

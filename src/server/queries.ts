@@ -4,6 +4,64 @@ import prisma from "@/server/db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
 
+
+// Fetches users who are friends of the current user but excludes the current
+// user 
+export async function getFilteredUsers() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  // TODO: Figure out how to lookup with Clerk ID to avoid an extran DB call
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const { id } = prismaId;
+
+  const users = await prisma.user.findMany({
+    where: {
+      NOT: {
+        OR: [
+          {
+            id: id,
+          },
+          {
+            friends1: {
+              some: {
+                user2Id: id,
+              },
+            },
+          },
+          {
+            friends2: {
+              some: {
+                user1Id: id,
+              },
+            },
+          },
+          {
+            friendRequestsSent: {
+              some: {
+                receiverId: id,
+              },
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  return users;
+}
+
 // Fetch all games that the current user is a part of
 export async function getGames() {
   const user = auth();
@@ -34,24 +92,6 @@ export async function getGames() {
   posthog.capture({ distinctId: user.userId, event: "get_games" });
 
   return games;
-}
-
-// Fetch all users
-// This will be refactored to only fetch users that are friends of the current user
-// But for now, all users are global
-export async function getAllUsers() {
-  const user = auth();
-
-  if (!user.userId) throw new Error("Unauthorized");
-
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      username: true,
-    },
-  });
-
-  return users;
 }
 
 // Fetch a single game by ID
@@ -125,4 +165,130 @@ export async function getPlayerBattingAverage() {
     totalHandsWon,
     battingAverage,
   };
+}
+
+// Get all friends of the current user
+export async function getFriends() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    }
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const friends = await prisma.friend.findMany({
+    where: {
+      OR: [{ user1Id: prismaId.id }, { user2Id: prismaId.id }],
+    },
+    include: {
+      user1: true,
+      user2: true,
+    },
+  });
+
+  const result = friends.map((friend) => {
+    return friend.user1Id === prismaId.id ? friend.user2 : friend.user1;
+  });
+
+  return result;
+}
+
+// Get all friends of the current user and include the current user
+// Used when creating a new game
+export async function getFriendsForNewGame() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    }
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const friends = await prisma.friend.findMany({
+    where: {
+      OR: [{ user1Id: prismaId.id }, { user2Id: prismaId.id }],
+    },
+    include: {
+      user1: true,
+      user2: true,
+    },
+  });
+
+  const result = friends.map((friend) => {
+    return friend.user1Id === prismaId.id ? friend.user2 : friend.user1;
+  });
+
+  // Include user so they can add themselves
+  result.unshift(prismaId)
+
+  return result;
+}
+
+// Get all pending friend requests
+export async function getIncomingFriendRequests() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const pendingFriendRequests = await prisma.friendRequest.findMany({
+    where: {
+      receiverId: prismaId.id,
+      status: "PENDING",
+    },
+    include: {
+      sender: true,
+    },
+  });
+
+  return pendingFriendRequests;
+}
+
+// Get all friend requests that the current user has sent that are pending
+export async function getOutgoingPendingFriendRequests() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const outgoingFriendRequests = await prisma.friendRequest.findMany({
+    where: {
+      senderId: prismaId.id,
+      status: "PENDING",
+    },
+    include: {
+      receiver: true,
+    },
+  });
+
+  return outgoingFriendRequests;
 }
