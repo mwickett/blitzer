@@ -234,7 +234,7 @@ export async function getFriendsForNewGame() {
 }
 
 // Get all pending friend requests
-export async function getPendingFriendRequests() {
+export async function getIncomingFriendRequests() {
   const user = auth();
 
   if (!user.userId) throw new Error("Unauthorized");
@@ -261,4 +261,34 @@ export async function getPendingFriendRequests() {
   });
 
   return pendingFriendRequests;
+}
+
+// Get all friend requests that the current user has sent that are pending
+export async function getOutgoingPendingFriendRequests() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const outgoingFriendRequests = await prisma.friendRequest.findMany({
+    where: {
+      senderId: prismaId.id,
+      status: "PENDING",
+    },
+    include: {
+      receiver: true,
+    },
+  });
+
+  return outgoingFriendRequests;
 }
