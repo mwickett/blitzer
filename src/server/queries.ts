@@ -227,6 +227,11 @@ export async function getFriendsForNewGame() {
     return friend.user1Id === prismaId.id ? friend.user2 : friend.user1;
   });
 
+  // Return an empty array so we can render a message to the user
+  if (result.length === 0) {
+    return []
+  }
+
   // Include user so they can add themselves
   result.unshift(prismaId)
 

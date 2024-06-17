@@ -40,13 +40,6 @@ export default function NewGameChooser({ users }: { users: userSubset[] }) {
     <div className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto my-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Select Players</h2>
-        <Button
-          onClick={() => createGame(inGameUsers)}
-          size="sm"
-          variant="outline"
-        >
-          Start Game
-        </Button>
       </div>
       <div className="space-y-4">
         <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
@@ -104,6 +97,13 @@ export default function NewGameChooser({ users }: { users: userSubset[] }) {
             ))}
           </div>
         </div>
+        <Button
+          className="m-4 bg-green-600"
+          onClick={() => createGame(inGameUsers)}
+          disabled={inGameUsers.length <= 1}
+        >
+          Start Game
+        </Button>
       </div>
     </div>
   );

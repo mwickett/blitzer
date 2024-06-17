@@ -161,8 +161,6 @@ export async function acceptFriendRequest(friendRequestId: string) {
 
   if (!friendRequest) throw new Error("Friend request not found");
 
-  console.log(friendRequest);
-
   await prisma.friend.create({
     data: {
       user1Id: id,

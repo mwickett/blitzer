@@ -16,7 +16,7 @@ import {
 
 import { User, FriendRequest } from "@prisma/client";
 
-import { IncomingFriendRequests } from "./_components/IncomingFriendRequests";
+import IncomingFriendRequests from "./_components/IncomingFriendRequests";
 
 interface FriendRequestWithReceiver extends FriendRequest {
   receiver: User;
@@ -26,8 +26,6 @@ export default async function Friends() {
   const friends = await getFriends();
   const pendingFriends = await getIncomingFriendRequests();
   const pendingFriendRequests = await getOutgoingPendingFriendRequests();
-
-  console.log(pendingFriendRequests);
 
   return (
     <div className="container mx-auto p-6">
@@ -39,7 +37,7 @@ export default async function Friends() {
         </div>
         <div>
           <h2 className="text-2xl font-semibold mb-4">Friend Requests</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-8">
             <div>
               <h3 className="text-lg font-semibold mb-2">Incoming Requests</h3>
               <IncomingFriendRequests friendRequests={pendingFriends} />

@@ -27,7 +27,7 @@ export default function SelectUser({ users }: { users: User[] }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto my-6"
+      className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto my-6 flex flex-col gap-4"
     >
       <h2>Add a friend</h2>
       <Select
