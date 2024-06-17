@@ -35,10 +35,6 @@ export default function Home() {
           features are coming. The idea is to create a stats tool for people who
           are <i>really</i> into Dutch Blitz.
         </p>
-        <p className="pb-4">
-          Note: all players are currently global but adding a friends mechanism
-          is high on the list!
-        </p>
         <p className="">
           You can{" "}
           <a

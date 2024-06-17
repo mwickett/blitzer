@@ -13,7 +13,7 @@ interface FriendRequestWithSender extends FriendRequest {
   sender: User;
 }
 
-export function IncomingFriendRequests({
+export default function IncomingFriendRequests({
   friendRequests,
 }: {
   friendRequests: FriendRequestWithSender[];
