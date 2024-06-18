@@ -18,6 +18,8 @@ import { User, FriendRequest } from "@prisma/client";
 
 import IncomingFriendRequests from "./_components/IncomingFriendRequests";
 
+import ClientLink from "@/components/helpers/ClientLink";
+
 interface FriendRequestWithReceiver extends FriendRequest {
   receiver: User;
 }
@@ -30,6 +32,9 @@ export default async function Friends() {
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Friends Manager</h1>
+      <div className="my-8">
+        <ClientLink href="/friends/add" label="Add friends" />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
           <h2 className="text-2xl font-semibold mb-4">Friends List</h2>
