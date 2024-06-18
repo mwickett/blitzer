@@ -3,7 +3,7 @@ import ScoreDisplay from "./scoreDisplay";
 import { Game, User, Score } from "@prisma/client";
 import { getGameById } from "@/server/queries";
 import { updateGameAsFinished } from "@/server/mutations";
-import ClientLink from "@/components/helpers/ClientLink";
+import GameOver from "./GameOver";
 
 export interface GameWithPlayersAndScores extends Game {
   players: { user: User; gameId: string; userId: string }[];
@@ -36,20 +36,12 @@ export default async function GameView({ params }: { params: { id: string } }) {
   return (
     <section>
       <ScoreDisplay displayScores={displayScores} />
-      {game.isFinished ? <GameOver id={game.id} /> : <ScoreEntry game={game} />}
+      {game.isFinished ? (
+        <GameOver gameId={game.id} />
+      ) : (
+        <ScoreEntry game={game} />
+      )}
     </section>
-  );
-}
-
-function GameOver({ id }: { id: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      <h2 className="flex justify-center">Game over</h2>
-      <ClientLink href={`/api/game/clone/${id}`} label="Play again" />
-      <p className="text-xs">
-        This will start a new game with the same players
-      </p>
-    </div>
   );
 }
 

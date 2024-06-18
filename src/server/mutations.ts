@@ -267,4 +267,6 @@ export async function cloneGame(originalGameId: string) {
   });
 
   posthog.capture({ distinctId: user.userId, event: "clone_game", properties: { originalGameId, newGameId: newGame.id } });
+
+  return newGame.id
 }
