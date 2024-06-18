@@ -54,6 +54,14 @@ export async function getFilteredUsers() {
               },
             },
           },
+          {
+            friendRequestsReceived: {
+              some: {
+                senderId: id,
+                status: "PENDING",
+              },
+            },
+          },
         ],
       },
     },
