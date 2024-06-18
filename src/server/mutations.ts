@@ -230,4 +230,43 @@ export async function rejectFriendRequest(friendRequestId: string) {
   });
 }
 
+// Clone an existing game
+export async function cloneGame(originalGameId: string) {
+  const user = auth();
+  const posthog = posthogClient();
 
+  if (!user.userId) throw new Error("Unauthorized");
+
+  // Fetch the original game with its players
+  const originalGame = await prisma.game.findUnique({
+    where: { id: originalGameId },
+    include: { players: true }
+  });
+
+  if (!originalGame) throw new Error("Original game not found");
+
+  // Extract player IDs from the original game
+  const players = originalGame.players.map(player => ({ id: player.userId }));
+
+  // Create a new game with the same players
+  const newGame = await prisma.game.create({
+    data: {
+      players: {
+        create: players.map(player => ({
+          user: { connect: { id: player.id } }
+        })),
+      },
+    },
+    include: {
+      players: {
+        include: {
+          user: true,
+        },
+      },
+    },
+  });
+
+  posthog.capture({ distinctId: user.userId, event: "clone_game", properties: { originalGameId, newGameId: newGame.id } });
+
+  return newGame.id
+}
