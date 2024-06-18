@@ -3,6 +3,7 @@ import ScoreDisplay from "./scoreDisplay";
 import { Game, User, Score } from "@prisma/client";
 import { getGameById } from "@/server/queries";
 import { updateGameAsFinished } from "@/server/mutations";
+import GameOver from "./GameOver";
 
 export interface GameWithPlayersAndScores extends Game {
   players: { user: User; gameId: string; userId: string }[];
@@ -36,7 +37,7 @@ export default async function GameView({ params }: { params: { id: string } }) {
     <section>
       <ScoreDisplay displayScores={displayScores} />
       {game.isFinished ? (
-        <h2 className="flex justify-center">Game over</h2>
+        <GameOver gameId={game.id} />
       ) : (
         <ScoreEntry game={game} />
       )}
