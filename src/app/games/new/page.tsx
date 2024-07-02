@@ -5,6 +5,8 @@ import ClientLink from "@/components/helpers/ClientLink";
 export default async function NewGame() {
   const users = await getFriendsForNewGame();
 
+  console.log(users);
+
   if (users.length === 0) {
     return (
       <div className="flex flex-col items-center h-screen gap-4 mt-4">

@@ -236,14 +236,14 @@ export async function getFriendsForNewGame() {
   });
 
   // Return an empty array so we can render a message to the user
-  if (result.length === 0) {
-    return []
-  }
+  // if (result.length === 0) {
+  //   return []
+  // }
 
   // Include user so they can add themselves
-  result.unshift(prismaId)
+  // result.unshift(prismaId)
 
-  return result;
+  return [prismaId, ...result];
 }
 
 // Get all pending friend requests
