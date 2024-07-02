@@ -1,5 +1,5 @@
 "use client";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
@@ -51,10 +51,10 @@ export default function IncomingFriendRequests({
           <div className="p-4 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Avatar>
-                  <AvatarImage src="/placeholder-user.jpg" />
-                  <AvatarFallback>BJ</AvatarFallback>
-                </Avatar>
+                <UserAvatar
+                  src={friendRequest.sender.avatarUrl ?? ""}
+                  username={friendRequest.sender.username}
+                />
                 <span className="font-medium">
                   {friendRequest.sender.username}
                 </span>
