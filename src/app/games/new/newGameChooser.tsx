@@ -12,11 +12,11 @@ import {
   SelectContent,
   Select,
 } from "@/components/ui/select";
-import { AvatarImage, AvatarFallback, Avatar } from "@/components/ui/avatar";
 import { createGame } from "@/server/mutations";
 import { useUser } from "@clerk/nextjs";
+import UserAvatar from "@/components/UserAvatar";
 
-type userSubset = Pick<User, "id" | "username" | "clerk_user_id">;
+type userSubset = Pick<User, "id" | "username" | "clerk_user_id" | "avatarUrl">;
 
 export default function NewGameChooser({ users }: { users: userSubset[] }) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -82,7 +82,7 @@ export default function NewGameChooser({ users }: { users: userSubset[] }) {
         <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
           <h3 className="text-lg font-medium mb-2">Selected Players</h3>
           <div className="grid grid-cols-3 gap-4">
-            {inGameUsers.map((user, i) => (
+            {inGameUsers.map((user) => (
               <div
                 key={user.id}
                 className={`flex flex-col items-center p-2 h-full ${
@@ -92,12 +92,10 @@ export default function NewGameChooser({ users }: { users: userSubset[] }) {
                 {user.clerk_user_id === clerkUser?.id ? (
                   <div className="text-xs p-2">You</div>
                 ) : null}
-                <Avatar>
-                  <AvatarImage src={clerkUser?.imageUrl} />
-                  <AvatarFallback>
-                    {user.username ? user.username.toUpperCase() : ""}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar
+                  src={user.avatarUrl ?? ""}
+                  username={user.username}
+                />
                 <p className="text-sm font-medium mt-2">{user.username}</p>
                 <div className="mt-auto">
                   <Button

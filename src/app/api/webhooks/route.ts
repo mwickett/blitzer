@@ -64,6 +64,7 @@ export async function POST(req: Request) {
           clerk_user_id: evt.data.id,
           email: getPrimaryEmail(evt.data),
           username: evt.data.username || generateRandomUsername(),
+          avatarUrl: evt.data.image_url,
         },
       });
     } catch (e) {
@@ -87,6 +88,7 @@ export async function POST(req: Request) {
         data: {
           email: getPrimaryEmail(evt.data),
           username: evt.data.username || generateRandomUsername(),
+          avatarUrl: evt.data.image_url,
         },
       });
       console.log("update user resulted in: ", updateUser);
