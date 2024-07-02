@@ -6,7 +6,6 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 import {
   getFriends,
@@ -19,6 +18,7 @@ import { User, FriendRequest } from "@prisma/client";
 import IncomingFriendRequests from "./_components/IncomingFriendRequests";
 
 import ClientLink from "@/components/helpers/ClientLink";
+import UserAvatar from "@/components/UserAvatar";
 
 interface FriendRequestWithReceiver extends FriendRequest {
   receiver: User;
@@ -79,13 +79,10 @@ function FriendsList({ friends }: { friends: User[] }) {
           {friends.map((friend) => (
             <TableRow key={friend.id}>
               <TableCell>
-                <Avatar>
-                  <AvatarImage src="/placeholder-user.jpg" />
-                  <AvatarFallback>
-                    {friend.username[0].toUpperCase() +
-                      friend.username[friend.username.length - 1].toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar
+                  src={friend.avatarUrl ?? ""}
+                  username={friend.username}
+                />
               </TableCell>
               <TableCell className="font-medium">{friend.username}</TableCell>
               {/* <TableCell>12</TableCell> */}
@@ -115,10 +112,10 @@ function OutgoingFriendRequests({
         >
           <div className="p-4 space-y-4">
             <div className="flex items-center gap-2">
-              <Avatar>
-                <AvatarImage src="/placeholder-user.jpg" />
-                <AvatarFallback>SL</AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                src={pendingFriendRequest.receiver.avatarUrl ?? ""}
+                username={pendingFriendRequest.receiver.username}
+              />
               <span className="font-medium">
                 {pendingFriendRequest.receiver.username}
               </span>
