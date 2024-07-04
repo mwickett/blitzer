@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Prisma } from '@prisma/client';
 import prisma from "@/server/db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
@@ -129,52 +130,6 @@ export async function getGameById(id: string) {
   return game;
 }
 
-// Fetch players total rounds and rounds won
-// This assumes that only one player blitzed per round (edge case)
-// Maybe move this to some kind of computed property on the user model?
-// https://www.prisma.io/docs/orm/prisma-client/queries/computed-fields
-export async function getPlayerBattingAverage() {
-  const user = auth();
-
-  if (!user.userId) throw new Error("Unauthorized");
-
-  // TODO: Figure out how to lookup with Clerk ID to avoid an extran DB call
-  const prismaId = await prisma.user.findUnique({
-    where: {
-      clerk_user_id: user.userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!prismaId) throw new Error("User not found");
-
-  const totalHandsPlayed = await prisma.score.count({
-    where: {
-      userId: prismaId.id,
-    },
-  });
-
-  const totalHandsWon = await prisma.score.count({
-    where: {
-      userId: prismaId.id,
-      blitzPileRemaining: 0,
-    },
-  });
-
-  const rawBattingAverage =
-    totalHandsPlayed === 0 ? 0 : totalHandsWon / totalHandsPlayed;
-
-  const battingAverage = rawBattingAverage.toFixed(3);
-
-  return {
-    totalHandsPlayed,
-    totalHandsWon,
-    battingAverage,
-  };
-}
-
 // Get all friends of the current user
 export async function getFriends() {
   const user = auth();
@@ -296,4 +251,120 @@ export async function getOutgoingPendingFriendRequests() {
   });
 
   return outgoingFriendRequests;
+}
+
+//
+// ---------------- Stats
+//
+
+// Batting average
+// Fetch players total rounds and rounds won
+// This assumes that only one player blitzed per round (edge case)
+// Maybe move this to some kind of computed property on the user model?
+// https://www.prisma.io/docs/orm/prisma-client/queries/computed-fields
+export async function getPlayerBattingAverage() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  // TODO: Figure out how to lookup with Clerk ID to avoid an extran DB call
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const totalHandsPlayed = await prisma.score.count({
+    where: {
+      userId: prismaId.id,
+    },
+  });
+
+  const totalHandsWon = await prisma.score.count({
+    where: {
+      userId: prismaId.id,
+      blitzPileRemaining: 0,
+    },
+  });
+
+  const rawBattingAverage =
+    totalHandsPlayed === 0 ? 0 : totalHandsWon / totalHandsPlayed;
+
+  const battingAverage = rawBattingAverage.toFixed(3);
+
+  return {
+    totalHandsPlayed,
+    totalHandsWon,
+    battingAverage,
+  };
+}
+
+// Highest / lowest score
+export async function getHighestAndLowestScore() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const scores = await prisma.$queryRaw<Array<{ score: number, totalCardsPlayed: number, blitzPileRemaining: number }>>(
+    Prisma.sql`
+      SELECT 
+        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) as score,
+        "totalCardsPlayed",
+        "blitzPileRemaining"
+      FROM "Score"
+      WHERE "userId" = ${prismaId.id}
+      AND (
+        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
+          SELECT MAX("totalCardsPlayed" - ("blitzPileRemaining" * 2))
+          FROM "Score"
+          WHERE "userId" = ${prismaId.id}
+        )
+        OR
+        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
+          SELECT MIN("totalCardsPlayed" - ("blitzPileRemaining" * 2))
+          FROM "Score"
+          WHERE "userId" = ${prismaId.id}
+        )
+      )
+    `
+  );
+
+  const highestScore = scores.reduce((max, score) => max.score > score.score ? max : score, scores[0]);
+  const lowestScore = scores.reduce((min, score) => min.score < score.score ? min : score, scores[0]);
+
+  if (!highestScore) {
+    return { highest: null, lowest: null };
+  }
+
+  const createScoreObject = (score: typeof highestScore) => ({
+    score: score.score,
+    totalCardsPlayed: score.totalCardsPlayed,
+    blitzPileRemaining: score.blitzPileRemaining,
+  });
+
+  const highest = createScoreObject(highestScore);
+  
+  if (!lowestScore || lowestScore === highestScore) {
+    return { highest, lowest: null };
+  }
+
+  const lowest = createScoreObject(lowestScore);
+
+  return { highest, lowest };
 }
