@@ -7,6 +7,7 @@ This is a project to build a web app for scoring the card game [Dutch Blitz](htt
 - [Neon](https://neon.tech)
 - [Prisma](https://www.prisma.io/)
 - [Clerk](https://www.clerk.com) (for auth)
+- [PostHog](https://posthog.com/) (for analytics)
 
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
