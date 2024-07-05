@@ -20,6 +20,7 @@ const config = {
     extend: {
       colors: {
         brand: "var(--brand)",
+        brandAccent: "var(--brand-accent)",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -42,7 +43,7 @@ const config = {
           foreground: "hsl(var(--muted-foreground))",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
+          DEFAULT: "hsl(var(--brand-accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
         popover: {

@@ -5,6 +5,7 @@
 @layer base {
   :root {
     --brand: #fff7ea;
+    --brand-accent: #290806;
 
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
