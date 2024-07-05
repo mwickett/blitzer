@@ -368,3 +368,42 @@ export async function getHighestAndLowestScore() {
 
   return { highest, lowest };
 }
+
+// Cumulative score
+export async function getCumulativeScore() {
+  const user = auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const prismaId = await prisma.user.findUnique({
+    where: {
+      clerk_user_id: user.userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!prismaId) throw new Error("User not found");
+
+  const cumulativeScore = await prisma.score.aggregate({
+    where: {
+      userId: prismaId.id,
+    },
+    _sum: {
+      totalCardsPlayed: true,
+      blitzPileRemaining: true,
+    },
+  });
+
+  const totalCardsPlayed = cumulativeScore._sum.totalCardsPlayed;
+  const blitzPileRemaining = cumulativeScore._sum.blitzPileRemaining;
+
+  if (!totalCardsPlayed || !blitzPileRemaining) {
+    return 0;
+  }
+
+  const totalScore = totalCardsPlayed - (blitzPileRemaining * 2);
+
+  return totalScore;
+}
