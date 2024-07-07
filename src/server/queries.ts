@@ -4,28 +4,13 @@ import { Prisma } from '@prisma/client';
 import prisma from "@/server/db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
+import { getUserIdFromAuth } from "@/server/utils";
 
 
 // Fetches users who are friends of the current user but excludes the current
 // user 
 export async function getFilteredUsers() {
-  const user = auth();
-
-  if (!user.userId) throw new Error("Unauthorized");
-
-  // TODO: Figure out how to lookup with Clerk ID to avoid an extran DB call
-  const prismaId = await prisma.user.findUnique({
-    where: {
-      clerk_user_id: user.userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!prismaId) throw new Error("User not found");
-
-  const { id } = prismaId;
+  const id = await getUserIdFromAuth();
 
   const users = await prisma.user.findMany({
     where: {
@@ -132,21 +117,11 @@ export async function getGameById(id: string) {
 
 // Get all friends of the current user
 export async function getFriends() {
-  const user = auth();
-
-  if (!user.userId) throw new Error("Unauthorized");
-
-  const prismaId = await prisma.user.findUnique({
-    where: {
-      clerk_user_id: user.userId,
-    }
-  });
-
-  if (!prismaId) throw new Error("User not found");
+  const id = await getUserIdFromAuth();
 
   const friends = await prisma.friend.findMany({
     where: {
-      OR: [{ user1Id: prismaId.id }, { user2Id: prismaId.id }],
+      OR: [{ user1Id: id }, { user2Id: id }],
     },
     include: {
       user1: true,
@@ -155,7 +130,7 @@ export async function getFriends() {
   });
 
   const result = friends.map((friend) => {
-    return friend.user1Id === prismaId.id ? friend.user2 : friend.user1;
+    return friend.user1Id === id ? friend.user2 : friend.user1;
   });
 
   return result;
@@ -195,24 +170,11 @@ export async function getFriendsForNewGame() {
 
 // Get all pending friend requests
 export async function getIncomingFriendRequests() {
-  const user = auth();
-
-  if (!user.userId) throw new Error("Unauthorized");
-
-  const prismaId = await prisma.user.findUnique({
-    where: {
-      clerk_user_id: user.userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!prismaId) throw new Error("User not found");
+  const id = await getUserIdFromAuth();
 
   const pendingFriendRequests = await prisma.friendRequest.findMany({
     where: {
-      receiverId: prismaId.id,
+      receiverId: id,
       status: "PENDING",
     },
     include: {
@@ -225,24 +187,11 @@ export async function getIncomingFriendRequests() {
 
 // Get all friend requests that the current user has sent that are pending
 export async function getOutgoingPendingFriendRequests() {
-  const user = auth();
-
-  if (!user.userId) throw new Error("Unauthorized");
-
-  const prismaId = await prisma.user.findUnique({
-    where: {
-      clerk_user_id: user.userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!prismaId) throw new Error("User not found");
+  const id = await getUserIdFromAuth();
 
   const outgoingFriendRequests = await prisma.friendRequest.findMany({
     where: {
-      senderId: prismaId.id,
+      senderId: id,
       status: "PENDING",
     },
     include: {
@@ -263,31 +212,17 @@ export async function getOutgoingPendingFriendRequests() {
 // Maybe move this to some kind of computed property on the user model?
 // https://www.prisma.io/docs/orm/prisma-client/queries/computed-fields
 export async function getPlayerBattingAverage() {
-  const user = auth();
-
-  if (!user.userId) throw new Error("Unauthorized");
-
-  // TODO: Figure out how to lookup with Clerk ID to avoid an extran DB call
-  const prismaId = await prisma.user.findUnique({
-    where: {
-      clerk_user_id: user.userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!prismaId) throw new Error("User not found");
+  const id = await getUserIdFromAuth();
 
   const totalHandsPlayed = await prisma.score.count({
     where: {
-      userId: prismaId.id,
+      userId: id,
     },
   });
 
   const totalHandsWon = await prisma.score.count({
     where: {
-      userId: prismaId.id,
+      userId: id,
       blitzPileRemaining: 0,
     },
   });
@@ -306,20 +241,7 @@ export async function getPlayerBattingAverage() {
 
 // Highest / lowest score
 export async function getHighestAndLowestScore() {
-  const user = auth();
-
-  if (!user.userId) throw new Error("Unauthorized");
-
-  const prismaId = await prisma.user.findUnique({
-    where: {
-      clerk_user_id: user.userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!prismaId) throw new Error("User not found");
+  const id = await getUserIdFromAuth();
 
   const scores = await prisma.$queryRaw<Array<{ score: number, totalCardsPlayed: number, blitzPileRemaining: number }>>(
     Prisma.sql`
@@ -328,18 +250,18 @@ export async function getHighestAndLowestScore() {
         "totalCardsPlayed",
         "blitzPileRemaining"
       FROM "Score"
-      WHERE "userId" = ${prismaId.id}
+      WHERE "userId" = ${id}
       AND (
         ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
           SELECT MAX("totalCardsPlayed" - ("blitzPileRemaining" * 2))
           FROM "Score"
-          WHERE "userId" = ${prismaId.id}
+          WHERE "userId" = ${id}
         )
         OR
         ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
           SELECT MIN("totalCardsPlayed" - ("blitzPileRemaining" * 2))
           FROM "Score"
-          WHERE "userId" = ${prismaId.id}
+          WHERE "userId" = ${id}
         )
       )
     `
@@ -371,24 +293,11 @@ export async function getHighestAndLowestScore() {
 
 // Cumulative score
 export async function getCumulativeScore() {
-  const user = auth();
-
-  if (!user.userId) throw new Error("Unauthorized");
-
-  const prismaId = await prisma.user.findUnique({
-    where: {
-      clerk_user_id: user.userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!prismaId) throw new Error("User not found");
+  const id = await getUserIdFromAuth();
 
   const cumulativeScore = await prisma.score.aggregate({
     where: {
-      userId: prismaId.id,
+      userId: id,
     },
     _sum: {
       totalCardsPlayed: true,
