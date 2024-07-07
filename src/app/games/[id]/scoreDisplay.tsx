@@ -8,6 +8,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import UserAvatar from "@/components/UserAvatar";
+
 import { DisplayScores } from "./page";
 
 export default function ScoreDisplay({
@@ -23,14 +25,22 @@ export default function ScoreDisplay({
     <div>
       <Table className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto my-10">
         <TableHeader>
-          <TableRow>
+          <TableRow className="text-xs">
             <TableHead>Round</TableHead>
             {displayScores.map((player) => (
               <TableHead
                 key={player.userId}
                 className={`text-xs ${player.isWinner ? "bg-green-50" : ""}`}
               >
-                {player.isWinner ? `⭐ ${player.username} ⭐` : player.username}
+                <div className="flex flex-col gap-2">
+                  <UserAvatar
+                    src={player.user.avatarUrl ?? ""}
+                    username={player.user.username}
+                  />
+                  {player.isWinner
+                    ? `⭐ ${player.username} ⭐`
+                    : player.username}
+                </div>
               </TableHead>
             ))}
           </TableRow>

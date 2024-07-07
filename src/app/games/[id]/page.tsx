@@ -15,6 +15,7 @@ export interface Player {
   username: string;
   blitzPileRemaining: number;
   totalCardsPlayed: number;
+
 }
 
 export interface DisplayScores {
@@ -24,6 +25,7 @@ export interface DisplayScores {
   total: number;
   isInLead?: boolean;
   isWinner?: boolean;
+  user: User;
 }
 
 export default async function GameView({ params }: { params: { id: string } }) {
@@ -55,6 +57,7 @@ const transformGameData = async (
       username: string;
       scoresByRound: number[][];
       total: number;
+      user: User;
     };
   } = {};
 
@@ -67,6 +70,7 @@ const transformGameData = async (
       username: player.user.username,
       scoresByRound: [],
       total: 0,
+      user: player.user,
     };
   });
 
@@ -129,13 +133,14 @@ const transformGameData = async (
 
   // Transform the map into the output array
   return Object.entries(userScoresMap).map(
-    ([userId, { username, scoresByRound, total }]) => ({
+    ([userId, { username, scoresByRound, total, user }]) => ({
       userId,
       username,
       scoresByRound,
       total,
       isInLead: leaders.includes(userId),
       isWinner: userId === winnerId,
+      user,
     })
   );
 };
