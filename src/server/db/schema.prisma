@@ -66,6 +66,18 @@ model Game {
 
   players GamePlayers[]
   scores  Score[]
+  Rounds  Round[]
+}
+
+// Rounds model
+model Round {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  gameId    String
+  round     Int
+
+  game   Game    @relation(fields: [gameId], references: [id])
+  scores Score[]
 }
 
 model Score {
@@ -76,8 +88,10 @@ model Score {
   blitzPileRemaining Int
   createdAt          DateTime @default(now()) @map("created_at")
 
-  game Game @relation(fields: [gameId], references: [id])
-  user User @relation(fields: [userId], references: [id])
+  game     Game    @relation(fields: [gameId], references: [id])
+  user     User    @relation(fields: [userId], references: [id])
+  Rounds   Round?  @relation(fields: [roundsId], references: [id])
+  roundsId String?
 }
 
 model GamePlayers {
