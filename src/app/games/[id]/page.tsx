@@ -3,6 +3,7 @@ import ScoreDisplay from "./scoreDisplay";
 import { Game, User, Score } from "@prisma/client";
 import { getGameById } from "@/server/queries";
 import { updateGameAsFinished } from "@/server/mutations";
+import { notFound } from "next/navigation";
 import GameOver from "./GameOver";
 
 export interface GameWithPlayersAndScores extends Game {
@@ -28,7 +29,9 @@ export interface DisplayScores {
 
 export default async function GameView({ params }: { params: { id: string } }) {
   const game = await getGameById(params.id);
-  if (!game) return <div>Game not found</div>;
+  if (!game) {
+    notFound();
+  }
   // TODO: Throw an error if the game is not found
 
   const displayScores = await transformGameData(game);
