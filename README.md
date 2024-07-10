@@ -19,22 +19,14 @@ This project is really about creating a wonderful personal data set of Dutch Bli
 
 Ask a team member for a copy of the `.env` file (still need to get envs sorted out in Vercel)
 
-You'll need [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed for local development.
+You'll also need access to Neon to get a DB branch setup for your local development.
 
-First, run `docker-compose up -d` to start your local postgres container.
-
-_Note:_ If this is the first time, you'll need to run `npx prisma migrate dev` to get the database initalized, migrated and seeded. You'll only need to run this command the first time (or if you ever delete the docker container)
+Once you've cloned the repo, run `npm install` to install dependencies.
 
 Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
