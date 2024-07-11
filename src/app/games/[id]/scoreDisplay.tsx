@@ -8,7 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { DisplayScores } from "./page";
+import { DisplayScores } from "@/lib/gameLogic";
 
 export default function ScoreDisplay({
   displayScores,
