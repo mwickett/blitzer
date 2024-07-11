@@ -24,9 +24,15 @@ export interface GameWithPlayersAndScores extends Game {
 
 // This function is doing _a lot of work_ 😬
 // needs some refactoring / cleanup
-const transformGameData = async (
+// And it'd benefit from some tests
+export default async function transformGameData(
     game: GameWithPlayersAndScores
-  ): Promise<DisplayScores[]> => {
+  ): Promise<DisplayScores[]>{
+
+    // Number of players in the game
+    const numberOfPlayers = game.players.length;
+
+    // Create the map of scores
     const userScoresMap: {
       [key: string]: {
         username: string;
@@ -34,9 +40,6 @@ const transformGameData = async (
         total: number;
       };
     } = {};
-  
-    // Number of players in the game
-    const numberOfPlayers = game.players.length;
   
     // Initialize the map with players
     game.players.forEach((player) => {
@@ -116,5 +119,3 @@ const transformGameData = async (
       })
     );
   };
-
-  export default transformGameData
