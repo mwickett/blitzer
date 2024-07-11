@@ -5,8 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createScoresForGame } from "@/server/mutations";
-import { GameWithPlayersAndScores } from "./page";
-import { Player } from "./page";
+import { GameWithPlayersAndScores } from "@/lib/gameLogic";
+import { Player } from "@/lib/gameLogic";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 
