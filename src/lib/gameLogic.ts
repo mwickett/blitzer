@@ -1,9 +1,9 @@
-import { Game, User, Score } from "@prisma/client";
+import { Game, User, Score, Round } from "@prisma/client";
 import { updateGameAsFinished } from "@/server/mutations";
 
 export interface GameWithPlayersAndScores extends Game {
   players: { user: User; gameId: string; userId: string }[];
-  scores: Score[];
+  rounds: (Round & { scores: Score[] })[];
 }
 
 export interface Player {
@@ -16,7 +16,7 @@ export interface Player {
 export interface DisplayScores {
   userId: string;
   username: string;
-  scoresByRound: number[][];
+  scoresByRound: number[];
   total: number;
   isInLead?: boolean;
   isWinner?: boolean;
@@ -25,7 +25,7 @@ export interface DisplayScores {
 export interface ProcessedPlayerScore {
   userId: string;
   username: string;
-  scoresByRound: number[][];
+  scoresByRound: number[];
   total: number;
 }
 
@@ -44,40 +44,42 @@ function initializeUserScoresMap(players: { userId: string, username: string }[]
 }
 
 // Function to process game scores
-function processGameScores(scores: Score[], numberOfPlayers: number, userScoresMap: Record<string, ProcessedPlayerScore>): { maxScore: number, leaders: string[], playersAboveThreshold: { userId: string; total: number }[] } {
+function processGameScores(rounds: (Round & { scores: Score[] })[], userScoresMap: Record<string, ProcessedPlayerScore>): { maxScore: number, leaders: string[], playersAboveThreshold: { userId: string; total: number }[] } {
   let maxScore = -Infinity;
   let leaders: string[] = [];
   const playersAboveThreshold: { userId: string; total: number }[] = [];
 
-  scores.forEach((score, index) => {
-    const userScore = userScoresMap[score.userId];
-    const { totalCardsPlayed, blitzPileRemaining } = score;
+  rounds.forEach((round, roundIndex) => {
+    round.scores.forEach((score) => {
+      const userScore = userScoresMap[score.userId];
+      const { totalCardsPlayed, blitzPileRemaining } = score;
 
-    if (userScore) {
-      const scoreValue = -(blitzPileRemaining * 2) + totalCardsPlayed;
-      const roundIndex = Math.floor(index / numberOfPlayers);
+      if (userScore) {
+        const scoreValue = -(blitzPileRemaining * 2) + totalCardsPlayed;
 
-      if (!userScore.scoresByRound[roundIndex]) {
-        userScore.scoresByRound[roundIndex] = [];
+        if (!userScore.scoresByRound[roundIndex]) {
+          userScore.scoresByRound[roundIndex] = scoreValue;
+        } else {
+          userScore.scoresByRound[roundIndex] += scoreValue;
+        }
+
+        userScore.total += scoreValue;
+
+        if (userScore.total > maxScore) {
+          maxScore = userScore.total;
+          leaders = [score.userId];
+        } else if (userScore.total === maxScore) {
+          leaders.push(score.userId);
+        }
+
+        if (userScore.total >= 75) {
+          playersAboveThreshold.push({
+            userId: score.userId,
+            total: userScore.total,
+          });
+        }
       }
-
-      userScore.scoresByRound[roundIndex].push(scoreValue);
-      userScore.total += scoreValue;
-
-      if (userScore.total > maxScore) {
-        maxScore = userScore.total;
-        leaders = [score.userId];
-      } else if (userScore.total === maxScore) {
-        leaders.push(score.userId);
-      }
-
-      if (userScore.total >= 75) {
-        playersAboveThreshold.push({
-          userId: score.userId,
-          total: userScore.total,
-        });
-      }
-    }
+    });
   });
 
   return { maxScore, leaders, playersAboveThreshold };
@@ -91,7 +93,7 @@ async function determineWinner(game: GameWithPlayersAndScores, playersAboveThres
       (player) => player.total === highestScore
     );
 
-    // TODO: sort out multiple winners
+    // TODO: handle multiple winners
     let winnerId = potentialWinners[0].userId; 
     if (!game.isFinished) {
       await updateGameAsFinished(game.id, winnerId);
@@ -103,11 +105,10 @@ async function determineWinner(game: GameWithPlayersAndScores, playersAboveThres
 
 // Main function
 export default async function transformGameData(game: GameWithPlayersAndScores): Promise<DisplayScores[]> {
-  const numberOfPlayers = game.players.length;
   const players = game.players.map(player => ({ userId: player.userId, username: player.user.username }));
   const userScoresMap = initializeUserScoresMap(players);
 
-  const { maxScore, leaders, playersAboveThreshold } = processGameScores(game.scores, numberOfPlayers, userScoresMap);
+  const { maxScore, leaders, playersAboveThreshold } = processGameScores(game.rounds, userScoresMap);
   
   const winnerId = await determineWinner(game, playersAboveThreshold);
 

@@ -15,6 +15,7 @@ export default function ScoreDisplay({
 }: {
   displayScores: DisplayScores[];
 }) {
+  // TODO: Refactor this to use the number of rounds from the game
   const numRounds = Math.max(
     ...displayScores.map((player) => player.scoresByRound.length)
   );
@@ -43,9 +44,9 @@ export default function ScoreDisplay({
               </TableCell>
               {displayScores.map((player) => (
                 <TableCell key={player.userId}>
-                  {player.scoresByRound[roundIndex]
+                  {Array.isArray(player.scoresByRound[roundIndex])
                     ? player.scoresByRound[roundIndex].join(", ")
-                    : "-"}
+                    : player.scoresByRound[roundIndex] ?? "-"}
                 </TableCell>
               ))}
             </TableRow>

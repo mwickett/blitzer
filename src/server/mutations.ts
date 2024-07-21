@@ -40,8 +40,9 @@ export async function createGame(users: { id: string }[]) {
 }
 
 // Create new scores
-export async function createScoresForGame(
+export async function createRoundForGame(
   gameId: string,
+  roundNumber: number,
   scores: {
     userId: string;
     blitzPileRemaining: number;
@@ -53,16 +54,28 @@ export async function createScoresForGame(
 
   if (!user.userId) throw new Error("Unauthorized");
 
-  await prisma.score.createMany({
-    data: scores.map((score) => ({
-      gameId: gameId,
-      userId: score.userId,
-      blitzPileRemaining: score.blitzPileRemaining,
-      totalCardsPlayed: score.totalCardsPlayed,
-    })),
-  });
+  const round = await prisma.round.create({
+    data: {
+      gameId,
+      round: roundNumber,
+      scores: {
+        create: scores.map((score) => ({
+          blitzPileRemaining: score.blitzPileRemaining,
+          totalCardsPlayed: score.totalCardsPlayed,
+          game: {
+            connect: { id: gameId }
+          },
+          user: {
+            connect: { id: score.userId }
+          },
+        })),
+      },
+    },
+  })
 
   posthog.capture({ distinctId: user.userId, event: "create_scores" });
+
+  return round;
 }
 
 // Update game as finished

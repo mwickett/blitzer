@@ -104,9 +104,9 @@ export async function getGameById(id: string) {
           user: true,
         },
       },
-      scores: {
+      rounds: {
         include: {
-          user: true,
+          scores: true,
         },
       },
     },

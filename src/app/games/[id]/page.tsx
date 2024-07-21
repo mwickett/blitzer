@@ -14,13 +14,16 @@ export default async function GameView({ params }: { params: { id: string } }) {
 
   const displayScores = await transformGameData(game);
 
+  // calculate the current round number
+  const currentRoundNumber = game.rounds.length + 1;
+
   return (
     <section>
       <ScoreDisplay displayScores={displayScores} />
       {game.isFinished ? (
         <GameOver gameId={game.id} />
       ) : (
-        <ScoreEntry game={game} />
+        <ScoreEntry game={game} currentRoundNumber={currentRoundNumber} />
       )}
     </section>
   );
