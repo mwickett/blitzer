@@ -65,11 +65,9 @@ model Game {
   winnerId   String?
 
   players GamePlayers[]
-  scores  Score[]
   rounds  Round[]
 }
 
-// Rounds model
 model Round {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now()) @map("created_at")
@@ -82,16 +80,14 @@ model Round {
 
 model Score {
   id                 String   @id @default(uuid())
-  gameId             String
   userId             String
   totalCardsPlayed   Int
   blitzPileRemaining Int
   createdAt          DateTime @default(now()) @map("created_at")
-  roundId            String?
+  roundId            String
 
-  game  Game   @relation(fields: [gameId], references: [id])
-  user  User   @relation(fields: [userId], references: [id])
-  round Round? @relation(fields: [roundId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+  round Round @relation(fields: [roundId], references: [id])
 }
 
 model GamePlayers {

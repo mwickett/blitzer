@@ -79,7 +79,7 @@ export async function getGames() {
           user: true,
         },
       },
-      scores: true,
+      rounds: true,
     },
   });
 
