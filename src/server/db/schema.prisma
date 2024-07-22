@@ -76,6 +76,8 @@ model Round {
 
   game   Game    @relation(fields: [gameId], references: [id])
   scores Score[]
+
+  @@index([gameId])
 }
 
 model Score {

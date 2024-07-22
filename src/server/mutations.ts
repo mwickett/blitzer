@@ -39,7 +39,7 @@ export async function createGame(users: { id: string }[]) {
   redirect(`/games/${game.id}`);
 }
 
-// Create new scores
+// Create new round with scores
 export async function createRoundForGame(
   gameId: string,
   roundNumber: number,
@@ -54,17 +54,22 @@ export async function createRoundForGame(
 
   if (!user.userId) throw new Error("Unauthorized");
 
+  const game = await prisma.game.findUnique({
+    where: { id: gameId },
+  });
+  
+  if (!game) {
+    throw new Error("Game not found");
+  }
+
   const round = await prisma.round.create({
     data: {
-      gameId,
+      gameId: game.id,
       round: roundNumber,
       scores: {
         create: scores.map((score) => ({
           blitzPileRemaining: score.blitzPileRemaining,
           totalCardsPlayed: score.totalCardsPlayed,
-          game: {
-            connect: { id: gameId }
-          },
           user: {
             connect: { id: score.userId }
           },
