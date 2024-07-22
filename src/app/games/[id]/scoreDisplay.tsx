@@ -7,18 +7,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-import { DisplayScores } from "./page";
+import { DisplayScores } from "@/lib/gameLogic";
 
 export default function ScoreDisplay({
   displayScores,
+  numRounds,
 }: {
   displayScores: DisplayScores[];
+  numRounds: number;
 }) {
-  const numRounds = Math.max(
-    ...displayScores.map((player) => player.scoresByRound.length)
-  );
-
   return (
     <div>
       <Table className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto my-10">
@@ -41,13 +38,14 @@ export default function ScoreDisplay({
               <TableCell className="font-medium bg-slate-50">
                 {roundIndex + 1}
               </TableCell>
-              {displayScores.map((player) => (
-                <TableCell key={player.userId}>
-                  {player.scoresByRound[roundIndex]
-                    ? player.scoresByRound[roundIndex].join(", ")
-                    : "-"}
-                </TableCell>
-              ))}
+              {displayScores.map((player) => {
+                const score = player.scoresByRound[roundIndex];
+                return (
+                  <TableCell key={player.userId}>
+                    {Array.isArray(score) ? score.join(", ") : score ?? "-"}
+                  </TableCell>
+                );
+              })}
             </TableRow>
           ))}
         </TableBody>
