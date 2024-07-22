@@ -19,7 +19,10 @@ export default async function GameView({ params }: { params: { id: string } }) {
 
   return (
     <section>
-      <ScoreDisplay displayScores={displayScores} />
+      <ScoreDisplay
+        displayScores={displayScores}
+        numRounds={game.rounds.length}
+      />
       {game.isFinished ? (
         <GameOver gameId={game.id} />
       ) : (
