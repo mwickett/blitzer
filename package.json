@@ -10,7 +10,6 @@
     "vercel-build": "prisma generate && prisma migrate deploy && next build"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} src/server/db/seed.ts",
     "schema": "src/server/db/schema.prisma"
   },
   "dependencies": {

@@ -79,7 +79,7 @@ export async function getGames() {
           user: true,
         },
       },
-      scores: true,
+      rounds: true,
     },
   });
 
@@ -104,9 +104,9 @@ export async function getGameById(id: string) {
           user: true,
         },
       },
-      scores: {
+      rounds: {
         include: {
-          user: true,
+          scores: true,
         },
       },
     },
