@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
+import { redirect } from "next/navigation";
 
 // Helper function to get the user's ID from the auth object
 // and then look up the user from the database to retreive 
@@ -18,7 +19,10 @@ export async function getUserIdFromAuth() {
     },
   });
 
-  if (!prismaId) throw new Error("User not found");
+  if (!prismaId) {
+    console.error("User not found");
+    redirect("/?error=UserNotFound"); // Add query parameter for error
+  }
 
   return prismaId.id;
 }

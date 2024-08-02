@@ -1,9 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import { SignInButton, SignedIn, SignedOut, SignUpButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import useErrorToast from "@/components/hooks/ErrorToast";
 
 export default function Home() {
+  useErrorToast();
+
   return (
     <main className="flex min-h-screen flex-col items-center p-6 justify-around bg-brand">
       <Image

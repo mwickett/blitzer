@@ -5,7 +5,7 @@ import { CSPostHogProvider } from "./PostHogProvider";
 import { Inter } from "next/font/google";
 import NavBar from "./NavBar";
 import "./globals.css";
-
+import { Toaster } from "@/components/ui/toaster";
 import dynamic from "next/dynamic";
 
 const PostHogPageView = dynamic(() => import("./PostHogPageView"), {
@@ -64,6 +64,7 @@ export default function RootLayout({
               {children}
               <Analytics />
             </NavBar>
+            <Toaster />
           </body>
         </CSPostHogProvider>
       </html>
