@@ -9,6 +9,7 @@ import { GameWithPlayersAndScores } from "@/lib/gameLogic";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { Player } from "@/lib/gameLogic";
+import { useToast } from "@/components/ui/use-toast";
 
 interface PlayerTouched extends Player {
   touched: {
@@ -37,6 +38,7 @@ export default function ScoreEntry({
   currentRoundNumber: number;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
 
   const [playerScores, setPlayerScores] = useState(
     game.players.map((player) => ({
@@ -150,8 +152,16 @@ export default function ScoreEntry({
       );
       setScoresValid(false);
       router.refresh();
+      toast({
+        title: "Scores saved",
+        description: "Scores have been saved",
+      });
     } catch (e) {
       console.error(e);
+      toast({
+        title: "Error",
+        description: "There was an error saving the scores",
+      });
     }
   };
 
