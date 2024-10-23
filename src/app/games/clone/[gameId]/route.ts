@@ -2,7 +2,8 @@ import { cloneGame } from "@/server/mutations";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-export async function GET(request: Request, { params }: { params: { gameId: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ gameId: string }> }) {
+  const params = await props.params;
   const user = auth();
   if (!user.userId) {
     return new Response('Unauthorized', { status: 401 });
