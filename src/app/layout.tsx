@@ -56,7 +56,9 @@ export default function RootLayout({
         <CSPostHogProvider>
           <body className={`${inter.className} bg-brand`}>
             <Suspense fallback={null}>
-              <PostHogPageView />
+              <ClerkProvider dynamic>
+                <PostHogPageView />
+              </ClerkProvider>
             </Suspense>
             <NavBar>
               {children}
