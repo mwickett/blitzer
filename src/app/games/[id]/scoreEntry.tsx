@@ -5,16 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createRoundForGame } from "@/server/mutations";
-import { GameWithPlayersAndScores } from "@/lib/gameLogic";
+import { GameWithPlayersAndScores, DisplayScores } from "@/lib/gameLogic";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { Player } from "@/lib/gameLogic";
-
-interface PlayerTouched extends Player {
-  touched: {
-    totalCardsPlayed: boolean;
-  };
-}
+import GameOver from "./GameOver";
 
 const playerScoreSchema = z.object({
   userId: z.string(),
@@ -32,11 +26,18 @@ const scoresSchema = z.array(playerScoreSchema);
 export default function ScoreEntry({
   game,
   currentRoundNumber,
+  displayScores,
 }: {
   game: GameWithPlayersAndScores;
   currentRoundNumber: number;
+  displayScores: DisplayScores[];
 }) {
   const router = useRouter();
+  const winner = displayScores.find((score) => score.isWinner);
+
+  if (winner) {
+    return <GameOver gameId={game.id} winner={winner.username} />;
+  }
 
   const [playerScores, setPlayerScores] = useState(
     game.players.map((player) => ({
