@@ -41,7 +41,7 @@ export default function Home() {
             className="underline"
             href="https://wickett.notion.site/Vision-for-Blitzer-a802db0123d54ef6881598c67cd4a147?pvs=4"
           >
-            read more about the vision and future plans.
+            read more about the vision and future plans for this project.
           </a>
         </p>
       </div>
