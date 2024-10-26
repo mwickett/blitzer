@@ -81,6 +81,9 @@ export async function getGames() {
       },
       rounds: true,
     },
+    orderBy: {
+      createdAt: 'desc'
+    },
   });
 
   posthog.capture({ distinctId: user.userId, event: "get_games" });
