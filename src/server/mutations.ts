@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 
 // Create a new game
 export async function createGame(users: { id: string }[]) {
-  const user = auth();
+  const user = await auth();
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
@@ -49,7 +49,7 @@ export async function createRoundForGame(
     totalCardsPlayed: number;
   }[]
 ) {
-  const user = auth();
+  const user = await auth();
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
@@ -85,7 +85,7 @@ export async function createRoundForGame(
 
 // Update game as finished
 export async function updateGameAsFinished(gameId: string, winnerId: string) {
-  const user = auth();
+  const user = await auth();
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
@@ -113,7 +113,7 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
 
 // Create friend request
 export async function createFriendRequest(userId: string) {
-  const user = auth();
+  const user = await auth();
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
@@ -149,7 +149,7 @@ export async function createFriendRequest(userId: string) {
 
 // Accept friend request
 export async function acceptFriendRequest(friendRequestId: string) {
-  const user = auth();
+  const user = await auth();
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
@@ -204,7 +204,7 @@ export async function acceptFriendRequest(friendRequestId: string) {
 
 // Reject friend request
 export async function rejectFriendRequest(friendRequestId: string) {
-  const user = auth();
+  const user = await auth();
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
@@ -250,7 +250,7 @@ export async function rejectFriendRequest(friendRequestId: string) {
 
 // Clone an existing game
 export async function cloneGame(originalGameId: string) {
-  const user = auth();
+  const user = await auth();
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
