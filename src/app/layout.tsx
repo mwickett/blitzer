@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/react";
@@ -5,12 +6,7 @@ import { CSPostHogProvider } from "./PostHogProvider";
 import { Inter } from "next/font/google";
 import NavBar from "./NavBar";
 import "./globals.css";
-
-import dynamic from "next/dynamic";
-
-const PostHogPageView = dynamic(() => import("./PostHogPageView"), {
-  ssr: false,
-});
+import PostHogPageView from "./PostHogPageView";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -59,7 +55,11 @@ export default function RootLayout({
       <html lang="en">
         <CSPostHogProvider>
           <body className={`${inter.className} bg-brand`}>
-            <PostHogPageView />
+            <Suspense fallback={null}>
+              <ClerkProvider dynamic>
+                <PostHogPageView />
+              </ClerkProvider>
+            </Suspense>
             <NavBar>
               {children}
               <Analytics />

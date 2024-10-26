@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import GameOver from "./GameOver";
 import transformGameData from "@/lib/gameLogic";
 
-export default async function GameView({ params }: { params: { id: string } }) {
+export default async function GameView(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const game = await getGameById(params.id);
   if (!game) {
     notFound();

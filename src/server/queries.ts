@@ -58,7 +58,7 @@ export async function getFilteredUsers() {
 
 // Fetch all games that the current user is a part of
 export async function getGames() {
-  const user = auth();
+  const user = await auth();
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
@@ -90,7 +90,7 @@ export async function getGames() {
 
 // Fetch a single game by ID
 export async function getGameById(id: string) {
-  const user = auth();
+  const user = await auth();
 
   if (!user.userId) throw new Error("Unauthorized");
 
@@ -139,7 +139,7 @@ export async function getFriends() {
 // Get all friends of the current user and include the current user
 // Used when creating a new game
 export async function getFriendsForNewGame() {
-  const user = auth();
+  const user = await auth();
 
   if (!user.userId) throw new Error("Unauthorized");
 
