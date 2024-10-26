@@ -5,16 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createRoundForGame } from "@/server/mutations";
-import { GameWithPlayersAndScores } from "@/lib/gameLogic";
+import { GameWithPlayersAndScores, DisplayScores } from "@/lib/gameLogic";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { Player } from "@/lib/gameLogic";
-
-interface PlayerTouched extends Player {
-  touched: {
-    totalCardsPlayed: boolean;
-  };
-}
+import GameOver from "./GameOver";
 
 const playerScoreSchema = z.object({
   userId: z.string(),
@@ -32,12 +26,13 @@ const scoresSchema = z.array(playerScoreSchema);
 export default function ScoreEntry({
   game,
   currentRoundNumber,
+  displayScores,
 }: {
   game: GameWithPlayersAndScores;
   currentRoundNumber: number;
+  displayScores: DisplayScores[];
 }) {
   const router = useRouter();
-
   const [playerScores, setPlayerScores] = useState(
     game.players.map((player) => ({
       userId: player.user.id,
@@ -50,9 +45,41 @@ export default function ScoreEntry({
       },
     }))
   );
-
   const [scoresValid, setScoresValid] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  const winner = displayScores.find((score) => score.isWinner);
+
+  const validateScores = useCallback(() => {
+    try {
+      scoresSchema.parse(playerScores);
+      const allFieldsTouched = playerScores.every(
+        (player) => player.touched.totalCardsPlayed
+      );
+      const atLeastOneBlitzed = playerScores.some(
+        (player) => player.blitzPileRemaining === 0
+      );
+
+      setScoresValid(allFieldsTouched && atLeastOneBlitzed);
+    } catch (e) {
+      const validationErrors: { [key: string]: string } = {};
+      if (e instanceof z.ZodError) {
+        e.errors.forEach((error) => {
+          validationErrors[error.path.join(".")] = error.message;
+        });
+      }
+      setErrors(validationErrors);
+      setScoresValid(false);
+    }
+  }, [playerScores]);
+
+  useEffect(() => {
+    validateScores();
+  }, [playerScores, validateScores]);
+
+  if (winner) {
+    return <GameOver gameId={game.id} winner={winner.username} />;
+  }
 
   const stripLeadingZeros = (value: string) => {
     return value.replace(/^0+(?=\d)/, "");
@@ -154,33 +181,6 @@ export default function ScoreEntry({
       console.error(e);
     }
   };
-
-  const validateScores = useCallback(() => {
-    try {
-      scoresSchema.parse(playerScores);
-      const allFieldsTouched = playerScores.every(
-        (player) => player.touched.totalCardsPlayed
-      );
-      const atLeastOneBlitzed = playerScores.some(
-        (player) => player.blitzPileRemaining === 0
-      );
-
-      setScoresValid(allFieldsTouched && atLeastOneBlitzed);
-    } catch (e) {
-      const validationErrors: { [key: string]: string } = {};
-      if (e instanceof z.ZodError) {
-        e.errors.forEach((error) => {
-          validationErrors[error.path.join(".")] = error.message;
-        });
-      }
-      setErrors(validationErrors);
-      setScoresValid(false);
-    }
-  }, [playerScores]);
-
-  useEffect(() => {
-    validateScores();
-  }, [playerScores, validateScores]);
 
   return (
     <form
