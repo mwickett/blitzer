@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function GET(request: Request, props: { params: Promise<{ gameId: string }> }) {
   const params = await props.params;
-  const user = auth();
+  const user = await auth();
   if (!user.userId) {
     return new Response('Unauthorized', { status: 401 });
   }

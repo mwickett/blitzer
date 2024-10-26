@@ -5,7 +5,7 @@ import prisma from "@/server/db/db";
 // and then look up the user from the database to retreive 
 
 export async function getUserIdFromAuth() {
-  const user = auth();
+  const user = await auth();
 
   if (!user.userId) throw new Error("Unauthorized");
 
