@@ -21,37 +21,14 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye } from "lucide-react";
 import { formatDistanceToNow, isBefore, subWeeks } from "date-fns";
+import { Game, GamePlayers } from "@prisma/client";
+import { useRouter } from "next/navigation";
 
-type Game = {
-  id: string;
-  dateStarted: Date;
-  dateEnded: Date | null;
-  players: string[];
-};
+type GameWithPlayers = Game & { players: GamePlayers[] };
 
-const games: Game[] = [
-  {
-    id: "1",
-    dateStarted: new Date("2023-05-01"),
-    dateEnded: new Date("2023-05-05"),
-    players: ["player1", "player2"],
-  },
-  {
-    id: "2",
-    dateStarted: new Date("2023-05-10"),
-    dateEnded: null,
-    players: ["player3", "player4", "player5"],
-  },
-  {
-    id: "3",
-    dateStarted: new Date("2023-05-15"),
-    dateEnded: new Date("2023-05-20"),
-    players: ["player1", "player3"],
-  },
-  // Add more game objects as needed
-];
+export default function GameList({ games }: { games: GameWithPlayers[] }) {
+  const router = useRouter();
 
-export default function GameList() {
   const [statusFilter, setStatusFilter] = useState<
     "all" | "completed" | "ongoing"
   >("all");
@@ -60,13 +37,13 @@ export default function GameList() {
   const allPlayers = useMemo(() => {
     const playerSet = new Set<string>();
     games.forEach((game) =>
-      game.players.forEach((player) => playerSet.add(player))
+      game.players.forEach((player) => playerSet.add(player.userId))
     );
     return Array.from(playerSet);
-  }, []);
+  }, [games]);
 
   const handleViewGame = (gameId: string) => {
-    console.log(`Viewing game with ID: ${gameId}`);
+    router.push(`/games/${gameId}`);
   };
 
   const formatGameDate = (date: Date) => {
@@ -81,16 +58,18 @@ export default function GameList() {
     return games.filter((game) => {
       const statusMatch =
         statusFilter === "all" ||
-        (statusFilter === "completed" && game.dateEnded) ||
-        (statusFilter === "ongoing" && !game.dateEnded);
+        (statusFilter === "completed" && game.endedAt) ||
+        (statusFilter === "ongoing" && !game.endedAt);
 
       const playerMatch =
         playerFilters.length === 0 ||
-        playerFilters.some((player) => game.players.includes(player));
+        playerFilters.some((player) =>
+          game.players.some((p) => p.userId === player)
+        );
 
       return statusMatch && playerMatch;
     });
-  }, [statusFilter, playerFilters]);
+  }, [statusFilter, playerFilters, games]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -157,9 +136,9 @@ export default function GameList() {
                     View
                   </Button>
                 </TableCell>
-                <TableCell>{formatGameDate(game.dateStarted)}</TableCell>
+                <TableCell>{formatGameDate(game.createdAt)}</TableCell>
                 <TableCell>
-                  {game.dateEnded ? formatGameDate(game.dateEnded) : "Ongoing"}
+                  {game.endedAt ? formatGameDate(game.endedAt) : "Ongoing"}
                 </TableCell>
                 <TableCell>{game.players.join(", ")}</TableCell>
               </TableRow>
@@ -175,10 +154,10 @@ export default function GameList() {
             <CardContent className="p-4">
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <div className="text-sm font-medium">Date Started:</div>
-                <div>{formatGameDate(game.dateStarted)}</div>
+                <div>{formatGameDate(game.createdAt)}</div>
                 <div className="text-sm font-medium">Date Ended:</div>
                 <div>
-                  {game.dateEnded ? formatGameDate(game.dateEnded) : "Ongoing"}
+                  {game.endedAt ? formatGameDate(game.endedAt) : "Ongoing"}
                 </div>
                 <div className="text-sm font-medium">Players:</div>
                 <div>{game.players.join(", ")}</div>
