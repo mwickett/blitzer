@@ -71,7 +71,7 @@ export default function GameList({
 
   const getGameStatus = (game: GameWithPlayersAndUsers) => {
     if (game.isFinished) {
-      return <Badge variant="secondary">Completed</Badge>;
+      return <Badge variant="success">Completed</Badge>;
     }
     if (game.endedAt) {
       return <Badge variant="destructive">Ended</Badge>;
@@ -154,9 +154,9 @@ export default function GameList({
           <TableHeader>
             <TableRow>
               <TableHead>Status</TableHead>
+              <TableHead>Winner</TableHead>
               <TableHead>Players</TableHead>
               <TableHead>Started</TableHead>
-              <TableHead>Winner</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -164,6 +164,14 @@ export default function GameList({
             {filteredGames.map((game) => (
               <TableRow key={game.id}>
                 <TableCell>{getGameStatus(game)}</TableCell>
+                <TableCell>
+                  {game.winnerId && (
+                    <div className="flex items-center gap-1">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <span>{getWinnerName(game)}</span>
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {game.players.map((player) => (
@@ -178,14 +186,6 @@ export default function GameList({
                   </div>
                 </TableCell>
                 <TableCell>{formatGameDate(game.createdAt)}</TableCell>
-                <TableCell>
-                  {game.winnerId && (
-                    <div className="flex items-center gap-1">
-                      <Trophy className="w-4 h-4 text-yellow-500" />
-                      <span>{getWinnerName(game)}</span>
-                    </div>
-                  )}
-                </TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="outline"
