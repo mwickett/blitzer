@@ -20,7 +20,15 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, Trophy } from "lucide-react";
-import { formatDistanceToNow, isBefore, subWeeks } from "date-fns";
+import {
+  formatDistanceToNow,
+  isToday,
+  isYesterday,
+  isThisWeek,
+  format,
+  differenceInWeeks,
+  isThisYear,
+} from "date-fns";
 import { Game, GamePlayers, User } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -62,11 +70,28 @@ export default function GameList({
   };
 
   const formatGameDate = (date: Date) => {
-    const oneWeekAgo = subWeeks(new Date(), 1);
-    if (isBefore(date, oneWeekAgo)) {
+    if (isToday(date)) {
       return formatDistanceToNow(date, { addSuffix: true });
     }
-    return date.toLocaleDateString();
+
+    if (isYesterday(date)) {
+      return "Yesterday";
+    }
+
+    if (isThisWeek(date)) {
+      return format(date, "EEEE"); // Returns the full day name
+    }
+
+    const weeksAgo = differenceInWeeks(new Date(), date);
+    if (weeksAgo <= 4) {
+      return formatDistanceToNow(date, { addSuffix: true });
+    }
+
+    if (isThisYear(date)) {
+      return format(date, "MMM d"); // e.g. "Jul 15"
+    }
+
+    return format(date, "MMM d, yyyy"); // e.g. "Jul 15, 2023"
   };
 
   const getGameStatus = (game: GameWithPlayersAndUsers) => {
