@@ -19,14 +19,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye } from "lucide-react";
+import { Eye, Trophy } from "lucide-react";
 import { formatDistanceToNow, isBefore, subWeeks } from "date-fns";
-import { Game, GamePlayers } from "@prisma/client";
+import { Game, GamePlayers, User } from "@prisma/client";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 
-type GameWithPlayers = Game & { players: GamePlayers[] };
+type GameWithPlayersAndUsers = Game & {
+  players: (GamePlayers & {
+    user: User;
+  })[];
+};
 
-export default function GameList({ games }: { games: GameWithPlayers[] }) {
+export default function GameList({
+  games,
+}: {
+  games: GameWithPlayersAndUsers[];
+}) {
   const router = useRouter();
 
   const [statusFilter, setStatusFilter] = useState<
@@ -35,11 +44,17 @@ export default function GameList({ games }: { games: GameWithPlayers[] }) {
   const [playerFilters, setPlayerFilters] = useState<string[]>([]);
 
   const allPlayers = useMemo(() => {
-    const playerSet = new Set<string>();
+    const playerMap = new Map();
+
     games.forEach((game) =>
-      game.players.forEach((player) => playerSet.add(player.userId))
+      game.players.forEach((player) =>
+        playerMap.set(player.user.id, {
+          id: player.user.id,
+          username: player.user.username,
+        })
+      )
     );
-    return Array.from(playerSet);
+    return Array.from(playerMap.values());
   }, [games]);
 
   const handleViewGame = (gameId: string) => {
@@ -54,17 +69,33 @@ export default function GameList({ games }: { games: GameWithPlayers[] }) {
     return date.toLocaleDateString();
   };
 
+  const getGameStatus = (game: GameWithPlayersAndUsers) => {
+    if (game.isFinished) {
+      return <Badge variant="secondary">Completed</Badge>;
+    }
+    if (game.endedAt) {
+      return <Badge variant="destructive">Ended</Badge>;
+    }
+    return <Badge variant="default">Ongoing</Badge>;
+  };
+
+  const getWinnerName = (game: GameWithPlayersAndUsers) => {
+    if (!game.winnerId) return null;
+    const winner = game.players.find((p) => p.user.id === game.winnerId);
+    return winner ? winner.user.username : null;
+  };
+
   const filteredGames = useMemo(() => {
     return games.filter((game) => {
       const statusMatch =
         statusFilter === "all" ||
-        (statusFilter === "completed" && game.endedAt) ||
-        (statusFilter === "ongoing" && !game.endedAt);
+        (statusFilter === "completed" && game.isFinished) ||
+        (statusFilter === "ongoing" && !game.isFinished);
 
       const playerMatch =
         playerFilters.length === 0 ||
-        playerFilters.some((player) =>
-          game.players.some((p) => p.userId === player)
+        playerFilters.some((playerId) =>
+          game.players.some((p) => p.user.id === playerId)
         );
 
       return statusMatch && playerMatch;
@@ -73,7 +104,9 @@ export default function GameList({ games }: { games: GameWithPlayers[] }) {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Game List</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Games</h1>
+      </div>
 
       <div className="mb-6 space-y-4">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -94,18 +127,21 @@ export default function GameList({ games }: { games: GameWithPlayers[] }) {
           </Select>
           <div className="flex flex-wrap gap-2">
             {allPlayers.map((player) => (
-              <label key={player} className="flex items-center space-x-2">
+              <label
+                key={player.id}
+                className="flex items-center space-x-2 bg-secondary/20 rounded-lg px-2 py-1"
+              >
                 <Checkbox
-                  checked={playerFilters.includes(player)}
+                  checked={playerFilters.includes(player.id)}
                   onCheckedChange={(checked) => {
                     setPlayerFilters((prev) =>
                       checked
-                        ? [...prev, player]
-                        : prev.filter((p) => p !== player)
+                        ? [...prev, player.id]
+                        : prev.filter((p) => p !== player.id)
                     );
                   }}
                 />
-                <span>{player}</span>
+                <span className="text-sm">{player.username}</span>
               </label>
             ))}
           </div>
@@ -117,16 +153,40 @@ export default function GameList({ games }: { games: GameWithPlayers[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Actions</TableHead>
-              <TableHead>Date Started</TableHead>
-              <TableHead>Date Ended</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Players</TableHead>
+              <TableHead>Started</TableHead>
+              <TableHead>Winner</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredGames.map((game) => (
               <TableRow key={game.id}>
+                <TableCell>{getGameStatus(game)}</TableCell>
                 <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {game.players.map((player) => (
+                      <Badge
+                        key={player.userId}
+                        variant="outline"
+                        className="mr-1"
+                      >
+                        {player.user.username}
+                      </Badge>
+                    ))}
+                  </div>
+                </TableCell>
+                <TableCell>{formatGameDate(game.createdAt)}</TableCell>
+                <TableCell>
+                  {game.winnerId && (
+                    <div className="flex items-center gap-1">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <span>{getWinnerName(game)}</span>
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
                   <Button
                     variant="outline"
                     size="sm"
@@ -136,11 +196,6 @@ export default function GameList({ games }: { games: GameWithPlayers[] }) {
                     View
                   </Button>
                 </TableCell>
-                <TableCell>{formatGameDate(game.createdAt)}</TableCell>
-                <TableCell>
-                  {game.endedAt ? formatGameDate(game.endedAt) : "Ongoing"}
-                </TableCell>
-                <TableCell>{game.players.join(", ")}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -152,29 +207,56 @@ export default function GameList({ games }: { games: GameWithPlayers[] }) {
         {filteredGames.map((game) => (
           <Card key={game.id}>
             <CardContent className="p-4">
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="text-sm font-medium">Date Started:</div>
-                <div>{formatGameDate(game.createdAt)}</div>
-                <div className="text-sm font-medium">Date Ended:</div>
-                <div>
-                  {game.endedAt ? formatGameDate(game.endedAt) : "Ongoing"}
+              <div className="flex justify-between items-start mb-4">
+                <div>{getGameStatus(game)}</div>
+                <div className="text-sm text-muted-foreground">
+                  {formatGameDate(game.createdAt)}
                 </div>
-                <div className="text-sm font-medium">Players:</div>
-                <div>{game.players.join(", ")}</div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => handleViewGame(game.id)}
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                View Game
-              </Button>
+              <div className="space-y-3">
+                <div>
+                  <div className="text-sm font-medium mb-1">Players</div>
+                  <div className="flex flex-wrap gap-1">
+                    {game.players.map((player) => (
+                      <Badge
+                        key={player.userId}
+                        variant="outline"
+                        className="mr-1"
+                      >
+                        {player.user.username}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                {game.winnerId && (
+                  <div>
+                    <div className="text-sm font-medium mb-1">Winner</div>
+                    <div className="flex items-center gap-1">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <span>{getWinnerName(game)}</span>
+                    </div>
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => handleViewGame(game.id)}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Game
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {filteredGames.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          No games found matching your filters
+        </div>
+      )}
     </div>
   );
 }
