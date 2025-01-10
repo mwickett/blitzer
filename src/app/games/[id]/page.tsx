@@ -5,7 +5,9 @@ import { notFound } from "next/navigation";
 import GameOver from "./GameOver";
 import transformGameData from "@/lib/gameLogic";
 
-export default async function GameView(props: { params: Promise<{ id: string }> }) {
+export default async function GameView(props: {
+  params: Promise<{ id: string }>;
+}) {
   const params = await props.params;
   const game = await getGameById(params.id);
   if (!game) {
@@ -23,6 +25,8 @@ export default async function GameView(props: { params: Promise<{ id: string }> 
       <ScoreDisplay
         displayScores={displayScores}
         numRounds={game.rounds.length}
+        gameId={game.id}
+        isFinished={game.isFinished}
       />
       <ScoreEntry
         game={game}

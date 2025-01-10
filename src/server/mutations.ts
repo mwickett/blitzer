@@ -57,7 +57,7 @@ export async function createRoundForGame(
   const game = await prisma.game.findUnique({
     where: { id: gameId },
   });
-  
+
   if (!game) {
     throw new Error("Game not found");
   }
@@ -70,13 +70,14 @@ export async function createRoundForGame(
         create: scores.map((score) => ({
           blitzPileRemaining: score.blitzPileRemaining,
           totalCardsPlayed: score.totalCardsPlayed,
+          updatedAt: new Date(),
           user: {
-            connect: { id: score.userId }
+            connect: { id: score.userId },
           },
         })),
       },
     },
-  })
+  });
 
   posthog.capture({ distinctId: user.userId, event: "create_scores" });
 
@@ -258,20 +259,20 @@ export async function cloneGame(originalGameId: string) {
   // Fetch the original game with its players
   const originalGame = await prisma.game.findUnique({
     where: { id: originalGameId },
-    include: { players: true }
+    include: { players: true },
   });
 
   if (!originalGame) throw new Error("Original game not found");
 
   // Extract player IDs from the original game
-  const players = originalGame.players.map(player => ({ id: player.userId }));
+  const players = originalGame.players.map((player) => ({ id: player.userId }));
 
   // Create a new game with the same players
   const newGame = await prisma.game.create({
     data: {
       players: {
-        create: players.map(player => ({
-          user: { connect: { id: player.id } }
+        create: players.map((player) => ({
+          user: { connect: { id: player.id } },
         })),
       },
     },
@@ -284,7 +285,68 @@ export async function cloneGame(originalGameId: string) {
     },
   });
 
-  posthog.capture({ distinctId: user.userId, event: "clone_game", properties: { originalGameId, newGameId: newGame.id } });
+  posthog.capture({
+    distinctId: user.userId,
+    event: "clone_game",
+    properties: { originalGameId, newGameId: newGame.id },
+  });
 
-  return newGame.id
+  return newGame.id;
+}
+
+// Update scores for a round
+export async function updateRoundScores(
+  gameId: string,
+  roundId: string,
+  scores: {
+    userId: string;
+    blitzPileRemaining: number;
+    totalCardsPlayed: number;
+  }[]
+) {
+  const user = await auth();
+  const posthog = posthogClient();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  // Check if game exists and is not finished
+  const game = await prisma.game.findUnique({
+    where: { id: gameId },
+  });
+
+  if (!game) {
+    throw new Error("Game not found");
+  }
+
+  if (game.isFinished) {
+    throw new Error("Cannot update scores for a finished game");
+  }
+
+  // Update scores in a transaction to ensure consistency
+  const updatedScores = await prisma.$transaction(
+    scores.map((score) =>
+      prisma.score.updateMany({
+        where: {
+          roundId: roundId,
+          userId: score.userId,
+        },
+        data: {
+          blitzPileRemaining: score.blitzPileRemaining,
+          totalCardsPlayed: score.totalCardsPlayed,
+          updatedAt: new Date(),
+        },
+      })
+    )
+  );
+
+  posthog.capture({
+    distinctId: user.userId,
+    event: "update_scores",
+    properties: {
+      gameId: gameId,
+      roundId: roundId,
+    },
+  });
+
+  return updatedScores;
 }
