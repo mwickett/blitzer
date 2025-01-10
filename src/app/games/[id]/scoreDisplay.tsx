@@ -118,6 +118,28 @@ export default function ScoreDisplay({
     field: "blitzPileRemaining" | "totalCardsPlayed",
     value: string
   ) => {
+    // Allow empty string for better typing experience
+    if (value === "") {
+      setEditingScores((prev) =>
+        prev.map((score) =>
+          score.userId === userId
+            ? {
+                ...score,
+                [field]: 0,
+                touched: {
+                  ...score.touched,
+                  totalCardsPlayed:
+                    field === "totalCardsPlayed"
+                      ? true
+                      : score.touched.totalCardsPlayed,
+                },
+              }
+            : score
+        )
+      );
+      return;
+    }
+
     const intValue = parseInt(value, 10);
     if (isNaN(intValue)) return;
 
@@ -177,7 +199,9 @@ export default function ScoreDisplay({
                       <TableCell key={player.userId} className="space-y-2">
                         <Input
                           type="number"
-                          value={editingScore?.blitzPileRemaining || 0}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={editingScore?.blitzPileRemaining ?? ""}
                           onChange={(e) =>
                             handleScoreChange(
                               player.userId,
@@ -188,10 +212,13 @@ export default function ScoreDisplay({
                           min={0}
                           max={10}
                           className="w-full"
+                          placeholder="Blitz"
                         />
                         <Input
                           type="number"
-                          value={editingScore?.totalCardsPlayed || 0}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={editingScore?.totalCardsPlayed ?? ""}
                           onChange={(e) =>
                             handleScoreChange(
                               player.userId,
@@ -202,6 +229,7 @@ export default function ScoreDisplay({
                           min={0}
                           max={40}
                           className="w-full"
+                          placeholder="Total"
                         />
                       </TableCell>
                     );
