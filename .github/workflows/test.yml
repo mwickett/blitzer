@@ -27,6 +27,9 @@ jobs:
       - name: Install Neon CLI
         run: npm install -g neonctl
 
+      - name: Auth neon CLI
+        run: neonctl auth --api-key ${{ secrets.NEON_API_KEY }}
+
       - name: Create database branch
         run: |
           neonctl branches create --name ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }} --parent test
