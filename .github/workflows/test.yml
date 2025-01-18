@@ -57,4 +57,4 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         if: always()
         run: |
-          neonctl branches delete --branch-name ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }} --force
+          neonctl branches delete ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }}
