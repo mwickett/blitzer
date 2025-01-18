@@ -9,34 +9,52 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # We'll create a separate database branch for each GitHub Actions run.
     env:
       BRANCH_NAME: ci-${{ github.run_id }}
 
     steps:
+      # 1. Check out the code
       - uses: actions/checkout@v4
 
+      # 2. Set up Node.js
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
 
+      # 3. Install dependencies
       - name: Install dependencies
         run: npm ci
 
+      # 4. Install the new Neon CLI globally
       - name: Install Neon CLI
-        run: npm install -g neonctl
+        run: npm install -g @neondatabase/cli
 
-      - name: Create database branch
+      # 5. Authenticate CLI with your Neon API key (no interactive login needed).
+      - name: Auth with Neon
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: |
-          neonctl branches create --name ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }} --parent test
-          echo "DATABASE_URL=$(neonctl branches get-endpoint --branch-name ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }})" >> $GITHUB_ENV
+          neon auth --api-key $NEON_API_KEY
 
+      # 6. Create a new database branch from the existing "test" branch
+      #    and fetch the connection URL to store in $GITHUB_ENV as DATABASE_URL.
+      - name: Create database branch
+        run: |
+          neon branches create ${{ env.BRANCH_NAME }} \
+            --project ${{ secrets.NEON_PROJECT_ID }} \
+            --parent test
+
+          echo "DATABASE_URL=$(neon branches get-endpoint ${{ env.BRANCH_NAME }})" >> $GITHUB_ENV
+
+      # 7. Generate Prisma client
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      # 8. Apply migrations (only on pull requests, in this example)
       - name: Apply Migrations
         if: github.event_name == 'pull_request'
         run: |
@@ -47,14 +65,18 @@ jobs:
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
 
+      # 9. Run tests
       - name: Run tests
         run: npm test
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
 
+      # 10. Clean up the Neon branch after tests, whether success or failure
       - name: Cleanup database branch
+        if: always()
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-        if: always()
         run: |
-          neonctl branches delete --branch-name ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }} --force
+          neon branches delete ${{ env.BRANCH_NAME }} \
+            --project ${{ secrets.NEON_PROJECT_ID }} \
+            --force
