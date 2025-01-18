@@ -132,6 +132,49 @@ export async function createFriendRequest(userId: string) {
 
   const { id } = prismaId;
 
+  // Check if target user exists
+  const targetUser = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!targetUser) {
+    throw new Error("Target user not found");
+  }
+
+  // Check if trying to send request to self
+  if (id === userId) {
+    throw new Error("Cannot send friend request to yourself");
+  }
+
+  // Check if already friends
+  const existingFriendship = await prisma.friend.findFirst({
+    where: {
+      OR: [
+        { user1Id: id, user2Id: userId },
+        { user1Id: userId, user2Id: id },
+      ],
+    },
+  });
+
+  if (existingFriendship) {
+    throw new Error("Already friends with this user");
+  }
+
+  // Check if request already exists
+  const existingRequest = await prisma.friendRequest.findFirst({
+    where: {
+      OR: [
+        { senderId: id, receiverId: userId },
+        { senderId: userId, receiverId: id },
+      ],
+      status: "PENDING",
+    },
+  });
+
+  if (existingRequest) {
+    throw new Error("Friend request already exists");
+  }
+
   await prisma.friendRequest.create({
     data: {
       senderId: id,
@@ -179,6 +222,9 @@ export async function acceptFriendRequest(friendRequestId: string) {
   });
 
   if (!friendRequest) throw new Error("Friend request not found");
+  if (friendRequest.receiverId !== id) {
+    throw new Error("Unauthorized - not the receiver");
+  }
 
   await prisma.friend.create({
     data: {
@@ -231,7 +277,8 @@ export async function rejectFriendRequest(friendRequestId: string) {
   });
 
   if (!friendRequest) throw new Error("Friend request not found");
-  if (friendRequest.receiverId !== prismaId.id) throw new Error("Unauthorized");
+  if (friendRequest.receiverId !== prismaId.id)
+    throw new Error("Unauthorized - not the receiver");
 
   await prisma.friendRequest.update({
     where: {
