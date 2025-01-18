@@ -29,7 +29,6 @@ jobs:
 
       - name: Create database branch
         run: |
-          neonctl auth --token ${{ secrets.NEON_API_KEY }}
           neonctl branches create --name ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }} --parent test
           echo "DATABASE_URL=$(neonctl branches get-endpoint --branch-name ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }})" >> $GITHUB_ENV
 
