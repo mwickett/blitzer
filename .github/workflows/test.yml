@@ -27,10 +27,9 @@ jobs:
       - name: Install Neon CLI
         run: npm install -g neonctl
 
-      - name: Auth neon CLI
-        run: neonctl auth --api-key ${{ secrets.NEON_API_KEY }}
-
       - name: Create database branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: |
           neonctl branches create --name ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }} --parent test
           echo "DATABASE_URL=$(neonctl branches get-endpoint --branch-name ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }})" >> $GITHUB_ENV
@@ -54,6 +53,8 @@ jobs:
           DATABASE_URL: ${{ env.DATABASE_URL }}
 
       - name: Cleanup database branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         if: always()
         run: |
           neonctl branches delete --branch-name ${{ env.BRANCH_NAME }} --project-id ${{ secrets.NEON_PROJECT_ID }} --force
