@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DisplayScores } from "@/lib/gameLogic";
 import { useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 import { updateRoundScores } from "@/server/mutations";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -46,24 +49,29 @@ export default function ScoreDisplay({
   const [editingScores, setEditingScores] = useState<any[]>([]);
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [scoresValid, setScoresValid] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const validateScores = (scores: any[]) => {
     try {
+      // Basic structure validation
       scoresSchema.parse(scores);
-      const allFieldsTouched = scores.every(
-        (player) => player.touched.totalCardsPlayed
-      );
-      const atLeastOneBlitzed = scores.some(
-        (player) => player.blitzPileRemaining === 0
-      );
-
-      setScoresValid(allFieldsTouched && atLeastOneBlitzed);
+      // Game rules validation
+      validateGameRules(scores);
+      setScoresValid(true);
+      setError(null);
     } catch (e) {
       setScoresValid(false);
+      if (e instanceof ValidationError) {
+        setError(e.message);
+      } else {
+        setError("Please fill in all fields correctly");
+      }
     }
   };
 
   const handleEdit = async (roundIndex: number) => {
+    setError(null);
     try {
       // Fetch the actual round scores from the server
       const response = await fetch(`/api/rounds/${gameId}/${roundIndex + 1}`);
@@ -87,7 +95,7 @@ export default function ScoreDisplay({
       setEditingRound(roundIndex);
       validateScores(roundScores);
     } catch (error) {
-      console.error("Failed to fetch round scores:", error);
+      setError("Failed to load round scores. Please try again.");
     }
   };
 
@@ -101,6 +109,8 @@ export default function ScoreDisplay({
   const handleSave = async () => {
     if (!scoresValid || !editingRoundId) return;
 
+    setError(null);
+    setIsSaving(true);
     try {
       await updateRoundScores(gameId, editingRoundId, editingScores);
       setEditingRound(null);
@@ -109,7 +119,13 @@ export default function ScoreDisplay({
       setScoresValid(false);
       router.refresh();
     } catch (error) {
-      console.error("Failed to update scores:", error);
+      if (error instanceof ValidationError) {
+        setError(error.message);
+      } else {
+        setError("Failed to save scores. Please try again.");
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -118,6 +134,7 @@ export default function ScoreDisplay({
     field: "blitzPileRemaining" | "totalCardsPlayed",
     value: string
   ) => {
+    setError(null);
     // Allow empty string for better typing experience
     if (value === "") {
       setEditingScores((prev) =>
@@ -167,7 +184,13 @@ export default function ScoreDisplay({
   };
 
   return (
-    <div>
+    <div className="space-y-4">
+      {error && (
+        <Alert variant="destructive" className="max-w-md mx-auto">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
       <Table className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto my-10">
         <TableHeader>
           <TableRow>
@@ -247,11 +270,11 @@ export default function ScoreDisplay({
                     <div className="space-x-2">
                       <Button
                         onClick={handleSave}
-                        disabled={!scoresValid}
+                        disabled={!scoresValid || isSaving}
                         size="sm"
                         variant="outline"
                       >
-                        Save
+                        {isSaving ? "Saving..." : "Save"}
                       </Button>
                       <Button
                         onClick={handleCancel}

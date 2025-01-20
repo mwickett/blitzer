@@ -4,24 +4,25 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 import { createRoundForGame } from "@/server/mutations";
 import { GameWithPlayersAndScores, DisplayScores } from "@/lib/gameLogic";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import GameOver from "./GameOver";
 
+// Basic input validation schema for UX
 const playerScoreSchema = z.object({
   userId: z.string(),
   username: z.string(),
-  roundNumber: z.number().min(1),
-  blitzPileRemaining: z.number().min(0).max(10),
-  totalCardsPlayed: z.number().min(0).max(40),
+  roundNumber: z.number(),
+  blitzPileRemaining: z.number(),
+  totalCardsPlayed: z.number(),
   touched: z.object({
     totalCardsPlayed: z.boolean(),
   }),
 });
-
-const scoresSchema = z.array(playerScoreSchema);
 
 export default function ScoreEntry({
   game,
@@ -46,29 +47,18 @@ export default function ScoreEntry({
     }))
   );
   const [scoresValid, setScoresValid] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-
+  const [error, setError] = useState<string | null>(null);
   const winner = displayScores.find((score) => score.isWinner);
 
+  // Only validate that all fields are filled out
   const validateScores = useCallback(() => {
     try {
-      scoresSchema.parse(playerScores);
+      playerScoreSchema.parse(playerScores[0]); // Validate structure
       const allFieldsTouched = playerScores.every(
         (player) => player.touched.totalCardsPlayed
       );
-      const atLeastOneBlitzed = playerScores.some(
-        (player) => player.blitzPileRemaining === 0
-      );
-
-      setScoresValid(allFieldsTouched && atLeastOneBlitzed);
+      setScoresValid(allFieldsTouched);
     } catch (e) {
-      const validationErrors: { [key: string]: string } = {};
-      if (e instanceof z.ZodError) {
-        e.errors.forEach((error) => {
-          validationErrors[error.path.join(".")] = error.message;
-        });
-      }
-      setErrors(validationErrors);
       setScoresValid(false);
     }
   }, [playerScores]);
@@ -86,6 +76,7 @@ export default function ScoreEntry({
   };
 
   const handleBlitzPileChange = (userId: string, value: string) => {
+    setError(null); // Clear error on input change
     const strippedValue = stripLeadingZeros(value);
     const intValue = parseInt(strippedValue, 10);
 
@@ -106,6 +97,7 @@ export default function ScoreEntry({
   };
 
   const handleTotalCardsChange = (userId: string, value: string) => {
+    setError(null); // Clear error on input change
     const strippedValue = stripLeadingZeros(value);
     const intValue = parseInt(strippedValue, 10);
 
@@ -163,6 +155,7 @@ export default function ScoreEntry({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError(null); // Clear any previous errors
     try {
       await createRoundForGame(game.id, currentRoundNumber, playerScores);
       setPlayerScores((prevScores) =>
@@ -178,7 +171,12 @@ export default function ScoreEntry({
       setScoresValid(false);
       router.refresh();
     } catch (e) {
-      console.error(e);
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        console.error(e);
+        setError("An error occurred while saving scores");
+      }
     }
   };
 
@@ -187,6 +185,12 @@ export default function ScoreEntry({
       className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto"
       onSubmit={handleSubmit}
     >
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
       <h1 className="text-2xl font-bold mb-6">
         Round {currentRoundNumber} Scores
       </h1>

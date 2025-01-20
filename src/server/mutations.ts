@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
 
 import { redirect } from "next/navigation";
+import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 
 // Create a new game
 export async function createGame(users: { id: string }[]) {
@@ -60,6 +61,27 @@ export async function createRoundForGame(
 
   if (!game) {
     throw new Error("Game not found");
+  }
+
+  // Validate scores using centralized validation
+  try {
+    validateGameRules(scores);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      posthog.capture({
+        distinctId: user.userId,
+        event: "validation_error",
+        properties: {
+          error: error.message,
+          scores,
+          gameId,
+          roundNumber,
+          type: "game_rules",
+        },
+      });
+      throw error; // These will have user-friendly messages
+    }
+    throw new Error("Invalid score submission");
   }
 
   const round = await prisma.round.create({
@@ -367,6 +389,27 @@ export async function updateRoundScores(
 
   if (game.isFinished) {
     throw new Error("Cannot update scores for a finished game");
+  }
+
+  // Validate scores using centralized validation
+  try {
+    validateGameRules(scores);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      posthog.capture({
+        distinctId: user.userId,
+        event: "validation_error",
+        properties: {
+          error: error.message,
+          scores,
+          gameId,
+          roundId,
+          type: "game_rules",
+        },
+      });
+      throw error; // These will have user-friendly messages
+    }
+    throw new Error("Invalid score submission");
   }
 
   // Update scores in a transaction to ensure consistency
