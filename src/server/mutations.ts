@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
 
 import { redirect } from "next/navigation";
+import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 
 // Create a new game
 export async function createGame(users: { id: string }[]) {
@@ -62,35 +63,25 @@ export async function createRoundForGame(
     throw new Error("Game not found");
   }
 
-  // Validate scores
-  // Validate min/max values for each score
-  const invalidScores = scores.some(
-    (score) =>
-      score.blitzPileRemaining < 0 ||
-      score.blitzPileRemaining > 10 ||
-      score.totalCardsPlayed < 0 ||
-      score.totalCardsPlayed > 40
-  );
-  if (invalidScores) {
-    throw new Error(
-      "Invalid scores: Blitz pile must be 0-10 cards, total cards played must be 0-40"
-    );
-  }
-
-  // Validate at least one player has blitzed
-  const atLeastOneBlitzed = scores.some(
-    (score) => score.blitzPileRemaining === 0
-  );
-  if (!atLeastOneBlitzed) {
-    throw new Error("At least one player must blitz (have 0 cards remaining)");
-  }
-
-  // Validate players who blitz have played enough cards
-  const invalidBlitzScores = scores.some(
-    (score) => score.blitzPileRemaining === 0 && score.totalCardsPlayed < 6
-  );
-  if (invalidBlitzScores) {
-    throw new Error("Players who blitz must play at least 6 cards");
+  // Validate scores using centralized validation
+  try {
+    validateGameRules(scores);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      posthog.capture({
+        distinctId: user.userId,
+        event: "validation_error",
+        properties: {
+          error: error.message,
+          scores,
+          gameId,
+          roundNumber,
+          type: "game_rules",
+        },
+      });
+      throw error; // These will have user-friendly messages
+    }
+    throw new Error("Invalid score submission");
   }
 
   const round = await prisma.round.create({
@@ -400,35 +391,25 @@ export async function updateRoundScores(
     throw new Error("Cannot update scores for a finished game");
   }
 
-  // Validate scores
-  // Validate min/max values for each score
-  const invalidScores = scores.some(
-    (score) =>
-      score.blitzPileRemaining < 0 ||
-      score.blitzPileRemaining > 10 ||
-      score.totalCardsPlayed < 0 ||
-      score.totalCardsPlayed > 40
-  );
-  if (invalidScores) {
-    throw new Error(
-      "Invalid scores: Blitz pile must be 0-10 cards, total cards played must be 0-40"
-    );
-  }
-
-  // Validate at least one player has blitzed
-  const atLeastOneBlitzed = scores.some(
-    (score) => score.blitzPileRemaining === 0
-  );
-  if (!atLeastOneBlitzed) {
-    throw new Error("At least one player must blitz (have 0 cards remaining)");
-  }
-
-  // Validate players who blitz have played enough cards
-  const invalidBlitzScores = scores.some(
-    (score) => score.blitzPileRemaining === 0 && score.totalCardsPlayed < 6
-  );
-  if (invalidBlitzScores) {
-    throw new Error("Players who blitz must play at least 6 cards");
+  // Validate scores using centralized validation
+  try {
+    validateGameRules(scores);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      posthog.capture({
+        distinctId: user.userId,
+        event: "validation_error",
+        properties: {
+          error: error.message,
+          scores,
+          gameId,
+          roundId,
+          type: "game_rules",
+        },
+      });
+      throw error; // These will have user-friendly messages
+    }
+    throw new Error("Invalid score submission");
   }
 
   // Update scores in a transaction to ensure consistency

@@ -1,5 +1,6 @@
 import { Game, User, Score, Round } from "@prisma/client";
 import { updateGameAsFinished } from "@/server/mutations";
+import { calculateRoundScore, isWinningScore } from "./validation/gameRules";
 
 export interface GameWithPlayersAndScores extends Game {
   players: { user: User; gameId: string; userId: string }[];
@@ -30,9 +31,11 @@ export interface ProcessedPlayerScore {
 }
 
 // Function to initialize user scores map
-function initializeUserScoresMap(players: { userId: string, username: string }[]): Record<string, ProcessedPlayerScore> {
+function initializeUserScoresMap(
+  players: { userId: string; username: string }[]
+): Record<string, ProcessedPlayerScore> {
   const userScoresMap: Record<string, ProcessedPlayerScore> = {};
-  players.forEach(player => {
+  players.forEach((player) => {
     userScoresMap[player.userId] = {
       userId: player.userId,
       username: player.username,
@@ -44,7 +47,14 @@ function initializeUserScoresMap(players: { userId: string, username: string }[]
 }
 
 // Function to process game scores
-function processGameScores(rounds: (Round & { scores: Score[] })[], userScoresMap: Record<string, ProcessedPlayerScore>): { maxScore: number, leaders: string[], playersAboveThreshold: { userId: string; total: number }[] } {
+function processGameScores(
+  rounds: (Round & { scores: Score[] })[],
+  userScoresMap: Record<string, ProcessedPlayerScore>
+): {
+  maxScore: number;
+  leaders: string[];
+  playersAboveThreshold: { userId: string; total: number }[];
+} {
   let maxScore = -Infinity;
   let leaders: string[] = [];
   const playersAboveThreshold: { userId: string; total: number }[] = [];
@@ -55,7 +65,10 @@ function processGameScores(rounds: (Round & { scores: Score[] })[], userScoresMa
       const { totalCardsPlayed, blitzPileRemaining } = score;
 
       if (userScore) {
-        const scoreValue = -(blitzPileRemaining * 2) + totalCardsPlayed;
+        const scoreValue = calculateRoundScore({
+          blitzPileRemaining,
+          totalCardsPlayed,
+        });
 
         if (!userScore.scoresByRound[roundIndex]) {
           userScore.scoresByRound[roundIndex] = scoreValue;
@@ -72,7 +85,7 @@ function processGameScores(rounds: (Round & { scores: Score[] })[], userScoresMa
           leaders.push(score.userId);
         }
 
-        if (userScore.total >= 75) {
+        if (isWinningScore(userScore.total)) {
           playersAboveThreshold.push({
             userId: score.userId,
             total: userScore.total,
@@ -86,15 +99,20 @@ function processGameScores(rounds: (Round & { scores: Score[] })[], userScoresMa
 }
 
 // Function to determine the winner
-async function determineWinner(game: GameWithPlayersAndScores, playersAboveThreshold: { userId: string; total: number }[]): Promise<string | null> {
+async function determineWinner(
+  game: GameWithPlayersAndScores,
+  playersAboveThreshold: { userId: string; total: number }[]
+): Promise<string | null> {
   if (playersAboveThreshold.length > 0) {
-    const highestScore = Math.max(...playersAboveThreshold.map((player) => player.total));
+    const highestScore = Math.max(
+      ...playersAboveThreshold.map((player) => player.total)
+    );
     const potentialWinners = playersAboveThreshold.filter(
       (player) => player.total === highestScore
     );
 
     // TODO: handle multiple winners
-    let winnerId = potentialWinners[0].userId; 
+    let winnerId = potentialWinners[0].userId;
     if (!game.isFinished) {
       await updateGameAsFinished(game.id, winnerId);
     }
@@ -104,12 +122,20 @@ async function determineWinner(game: GameWithPlayersAndScores, playersAboveThres
 }
 
 // Main function
-export default async function transformGameData(game: GameWithPlayersAndScores): Promise<DisplayScores[]> {
-  const players = game.players.map(player => ({ userId: player.userId, username: player.user.username }));
+export default async function transformGameData(
+  game: GameWithPlayersAndScores
+): Promise<DisplayScores[]> {
+  const players = game.players.map((player) => ({
+    userId: player.userId,
+    username: player.user.username,
+  }));
   const userScoresMap = initializeUserScoresMap(players);
 
-  const { maxScore, leaders, playersAboveThreshold } = processGameScores(game.rounds, userScoresMap);
-  
+  const { maxScore, leaders, playersAboveThreshold } = processGameScores(
+    game.rounds,
+    userScoresMap
+  );
+
   const winnerId = await determineWinner(game, playersAboveThreshold);
 
   return Object.entries(userScoresMap).map(
