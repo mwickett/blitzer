@@ -62,6 +62,37 @@ export async function createRoundForGame(
     throw new Error("Game not found");
   }
 
+  // Validate scores
+  // Validate min/max values for each score
+  const invalidScores = scores.some(
+    (score) =>
+      score.blitzPileRemaining < 0 ||
+      score.blitzPileRemaining > 10 ||
+      score.totalCardsPlayed < 0 ||
+      score.totalCardsPlayed > 40
+  );
+  if (invalidScores) {
+    throw new Error(
+      "Invalid scores: Blitz pile must be 0-10 cards, total cards played must be 0-40"
+    );
+  }
+
+  // Validate at least one player has blitzed
+  const atLeastOneBlitzed = scores.some(
+    (score) => score.blitzPileRemaining === 0
+  );
+  if (!atLeastOneBlitzed) {
+    throw new Error("At least one player must blitz (have 0 cards remaining)");
+  }
+
+  // Validate players who blitz have played enough cards
+  const invalidBlitzScores = scores.some(
+    (score) => score.blitzPileRemaining === 0 && score.totalCardsPlayed < 6
+  );
+  if (invalidBlitzScores) {
+    throw new Error("Players who blitz must play at least 6 cards");
+  }
+
   const round = await prisma.round.create({
     data: {
       gameId: game.id,
@@ -367,6 +398,37 @@ export async function updateRoundScores(
 
   if (game.isFinished) {
     throw new Error("Cannot update scores for a finished game");
+  }
+
+  // Validate scores
+  // Validate min/max values for each score
+  const invalidScores = scores.some(
+    (score) =>
+      score.blitzPileRemaining < 0 ||
+      score.blitzPileRemaining > 10 ||
+      score.totalCardsPlayed < 0 ||
+      score.totalCardsPlayed > 40
+  );
+  if (invalidScores) {
+    throw new Error(
+      "Invalid scores: Blitz pile must be 0-10 cards, total cards played must be 0-40"
+    );
+  }
+
+  // Validate at least one player has blitzed
+  const atLeastOneBlitzed = scores.some(
+    (score) => score.blitzPileRemaining === 0
+  );
+  if (!atLeastOneBlitzed) {
+    throw new Error("At least one player must blitz (have 0 cards remaining)");
+  }
+
+  // Validate players who blitz have played enough cards
+  const invalidBlitzScores = scores.some(
+    (score) => score.blitzPileRemaining === 0 && score.totalCardsPlayed < 6
+  );
+  if (invalidBlitzScores) {
+    throw new Error("Players who blitz must play at least 6 cards");
   }
 
   // Update scores in a transaction to ensure consistency

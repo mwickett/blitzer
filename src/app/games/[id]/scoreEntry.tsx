@@ -46,8 +46,6 @@ export default function ScoreEntry({
     }))
   );
   const [scoresValid, setScoresValid] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-
   const winner = displayScores.find((score) => score.isWinner);
 
   const validateScores = useCallback(() => {
@@ -60,15 +58,16 @@ export default function ScoreEntry({
         (player) => player.blitzPileRemaining === 0
       );
 
-      setScoresValid(allFieldsTouched && atLeastOneBlitzed);
+      // Check if any player has blitzed (0 remaining) but played less than 6 cards
+      const invalidBlitzScores = playerScores.some(
+        (player) =>
+          player.blitzPileRemaining === 0 && player.totalCardsPlayed < 6
+      );
+
+      setScoresValid(
+        allFieldsTouched && atLeastOneBlitzed && !invalidBlitzScores
+      );
     } catch (e) {
-      const validationErrors: { [key: string]: string } = {};
-      if (e instanceof z.ZodError) {
-        e.errors.forEach((error) => {
-          validationErrors[error.path.join(".")] = error.message;
-        });
-      }
-      setErrors(validationErrors);
       setScoresValid(false);
     }
   }, [playerScores]);
