@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, WalletCards, Search } from "lucide-react";
 
-import { SignedIn, UserButton, SignedOut, SignUpButton } from "@clerk/nextjs";
+import { SignedIn, UserButton, SignedOut, SignInButton } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,10 +23,6 @@ const navData = [
   {
     label: "Friends",
     href: "/friends",
-  },
-  {
-    label: "Stats",
-    href: "/stats",
   },
 ];
 
@@ -92,26 +88,15 @@ export default function NavBar({ children }: { children: React.ReactNode }) {
             </nav>
           </SheetContent>
         </Sheet>
-        <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-          <form className="ml-auto flex-1 sm:flex-initial">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                disabled
-                placeholder="Search coming soon..."
-                className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px]"
-              />
-            </div>
-          </form>
-          <Button variant="outline" asChild>
-            <Link href="/games/new">New game</Link>
-          </Button>
+        <div className="flex w-full justify-end items-center gap-4 md:gap-2 lg:gap-4">
           <SignedIn>
+            <Button variant="outline" asChild>
+              <Link href="/games/new">New game</Link>
+            </Button>
             <UserButton />
           </SignedIn>
           <SignedOut>
-            <SignUpButton>Sign up</SignUpButton>
+            <SignInButton>Sign In</SignInButton>
           </SignedOut>
         </div>
       </header>
