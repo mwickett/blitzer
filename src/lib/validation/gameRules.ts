@@ -3,7 +3,7 @@ import { type Score, type ScoreValidation } from "./schema";
 
 // Game constants
 export const GAME_RULES = {
-  MIN_CARDS_FOR_BLITZ: 6,
+  MIN_CARDS_FOR_BLITZ: 4,
   POINTS_TO_WIN: 75,
   BLITZ_PENALTY_MULTIPLIER: 2,
   MAX_BLITZ_PILE: 10,
@@ -13,7 +13,7 @@ export const GAME_RULES = {
 // Game error messages
 export const ERROR_MESSAGES = {
   NO_BLITZ: "At least one player must blitz (have 0 cards remaining)",
-  INVALID_BLITZ: "Players who blitz must play at least 6 cards",
+  INVALID_BLITZ: "Players who blitz must play at least 4 cards",
   INVALID_SCORE:
     "Invalid scores: Blitz pile must be 0-10 cards, total cards played must be 0-40",
 } as const;

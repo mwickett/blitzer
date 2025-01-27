@@ -47,12 +47,12 @@ describe("Game Rules", () => {
 
     it("should require blitzed players to play minimum cards", () => {
       const invalidBlitzScores = createValidScores([
-        { blitzPile: 0, cardsPlayed: 5 }, // Invalid: Blitzed but not enough cards
+        { blitzPile: 0, cardsPlayed: 3 }, // Invalid: Blitzed but not enough cards
         { blitzPile: 5, cardsPlayed: 10 }, // Valid non-blitz score
       ]);
 
       expect(() => validateGameRules(invalidBlitzScores)).toThrow(
-        "Players who blitz must play at least 6 cards"
+        "Players who blitz must play at least 4 cards"
       );
     });
 
@@ -67,7 +67,7 @@ describe("Game Rules", () => {
 
     it("should handle edge cases", () => {
       const edgeCaseScores = createValidScores([
-        { blitzPile: 0, cardsPlayed: 6 }, // Minimum valid blitz
+        { blitzPile: 0, cardsPlayed: 4 }, // Minimum valid blitz
         { blitzPile: 0, cardsPlayed: 40 }, // Maximum cards played
         { blitzPile: 10, cardsPlayed: 0 }, // No cards played
       ]);
@@ -101,10 +101,10 @@ describe("Game Rules", () => {
     });
 
     it("should identify valid blitz scores", () => {
-      expect(isValidBlitz({ blitzPileRemaining: 0, totalCardsPlayed: 6 })).toBe(
+      expect(isValidBlitz({ blitzPileRemaining: 0, totalCardsPlayed: 4 })).toBe(
         true
       );
-      expect(isValidBlitz({ blitzPileRemaining: 0, totalCardsPlayed: 5 })).toBe(
+      expect(isValidBlitz({ blitzPileRemaining: 0, totalCardsPlayed: 3 })).toBe(
         false
       );
       expect(isValidBlitz({ blitzPileRemaining: 5, totalCardsPlayed: 0 })).toBe(
