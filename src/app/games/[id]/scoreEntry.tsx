@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ const playerScoreSchema = z.object({
   }),
 });
 
-export default function ScoreEntry({
+function ScoreEntry({
   game,
   currentRoundNumber,
   displayScores,
@@ -245,5 +246,18 @@ export default function ScoreEntry({
         </Button>
       </div>
     </form>
+  );
+}
+
+// Wrap with ErrorBoundary and export
+export default function ScoreEntryWithErrorBoundary(props: {
+  game: GameWithPlayersAndScores;
+  currentRoundNumber: number;
+  displayScores: DisplayScores[];
+}) {
+  return (
+    <ErrorBoundary>
+      <ScoreEntry {...props} />
+    </ErrorBoundary>
   );
 }

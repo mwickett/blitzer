@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   Table,
   TableBody,
@@ -33,7 +34,7 @@ const playerScoreSchema = z.object({
 
 const scoresSchema = z.array(playerScoreSchema);
 
-export default function ScoreDisplay({
+function ScoreDisplay({
   displayScores,
   numRounds,
   gameId,
@@ -314,5 +315,19 @@ export default function ScoreDisplay({
         </TableFooter>
       </Table>
     </div>
+  );
+}
+
+// Wrap with ErrorBoundary and export
+export default function ScoreDisplayWithErrorBoundary(props: {
+  displayScores: DisplayScores[];
+  numRounds: number;
+  gameId: string;
+  isFinished: boolean;
+}) {
+  return (
+    <ErrorBoundary>
+      <ScoreDisplay {...props} />
+    </ErrorBoundary>
   );
 }
