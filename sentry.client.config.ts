@@ -19,6 +19,30 @@ Sentry.init({
   // in development and sample at a lower rate in production
   replaysSessionSampleRate: 0.1,
 
+  // Enhanced error context
+  beforeSend(event) {
+    // Don't send errors in development
+    if (process.env.NODE_ENV === "development") {
+      return null;
+    }
+
+    // Clean error messages and add additional context
+    if (event.exception) {
+      // Add React error boundary context if available
+      const errorInfo = (event.extra && event.extra.componentStack) 
+        ? `React Component Stack: ${event.extra.componentStack}\n` 
+        : "";
+
+      // Enhance error message
+      event.exception.values = event.exception.values?.map(value => ({
+        ...value,
+        value: `${value.value}\n${errorInfo}`
+      }));
+    }
+
+    return event;
+  },
+
   // You can remove this option if you're not planning to use the Sentry Session Replay feature:
   integrations: [
     Sentry.replayIntegration({
@@ -28,3 +52,17 @@ Sentry.init({
     }),
   ],
 });
+
+// Add user context when available
+export const setUserContext = (user: { id: string; email?: string; username?: string }) => {
+  Sentry.setUser({
+    id: user.id,
+    email: user.email,
+    username: user.username,
+  });
+};
+
+// Clear user context on logout
+export const clearUserContext = () => {
+  Sentry.setUser(null);
+};
