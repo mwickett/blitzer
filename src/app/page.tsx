@@ -19,12 +19,12 @@ export default function Home() {
       </SignedIn>
       <SignedOut>
         <div className="flex gap-2">
-          <Button>
-            <SignInButton />
-          </Button>
-          <Button>
-            <SignUpButton>Sign up</SignUpButton>
-          </Button>
+          <SignInButton>
+            <Button>Sign in</Button>
+          </SignInButton>
+          <SignUpButton>
+            <Button>Sign up</Button>
+          </SignUpButton>
         </div>
       </SignedOut>
       <div className="flex flex-col m-8 text-center">
