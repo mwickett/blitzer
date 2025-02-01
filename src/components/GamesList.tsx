@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -39,11 +40,7 @@ type GameWithPlayersAndUsers = Game & {
   })[];
 };
 
-export default function GameList({
-  games,
-}: {
-  games: GameWithPlayersAndUsers[];
-}) {
+function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
   const router = useRouter();
 
   const [statusFilter, setStatusFilter] = useState<
@@ -283,5 +280,16 @@ export default function GameList({
         </div>
       )}
     </div>
+  );
+}
+
+// Wrap with ErrorBoundary and export
+export default function GameListWithErrorBoundary(props: {
+  games: GameWithPlayersAndUsers[];
+}) {
+  return (
+    <ErrorBoundary>
+      <GameList {...props} />
+    </ErrorBoundary>
   );
 }
