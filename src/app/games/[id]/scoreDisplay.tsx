@@ -1,6 +1,7 @@
 "use client";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ScoreLineGraph } from "@/components/ScoreLineGraph";
 import {
   Table,
   TableBody,
@@ -76,6 +77,7 @@ function ScoreDisplay({
     try {
       // Fetch the actual round scores from the server
       const response = await fetch(`/api/rounds/${gameId}/${roundIndex + 1}`);
+      console.log(response);
       if (!response.ok) throw new Error("Failed to fetch round scores");
       const roundData = await response.json();
 
@@ -96,6 +98,7 @@ function ScoreDisplay({
       setEditingRound(roundIndex);
       validateScores(roundScores);
     } catch (error) {
+      console.error(error);
       setError("Failed to load round scores. Please try again.");
     }
   };
@@ -314,6 +317,9 @@ function ScoreDisplay({
           </TableRow>
         </TableFooter>
       </Table>
+      <div className="mb-4">
+        <ScoreLineGraph displayScores={displayScores} />
+      </div>
     </div>
   );
 }
