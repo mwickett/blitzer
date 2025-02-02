@@ -24,6 +24,7 @@ export async function GET(
     });
 
     if (!round) {
+      console.log("round not found for gameId:", params.gameId);
       return NextResponse.json({ error: "Round not found" }, { status: 404 });
     }
 
