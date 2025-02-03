@@ -320,7 +320,7 @@ function ScoreDisplay({
         </TableFooter>
       </Table>
       {showCharts && (
-        <div className="mb-4">
+        <div className="mb-4 mx-20">
           <ScoreLineGraph displayScores={displayScores} />
         </div>
       )}
