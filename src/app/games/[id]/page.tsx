@@ -2,18 +2,18 @@ import ScoreEntry from "./scoreEntry";
 import ScoreDisplay from "./scoreDisplay";
 import { getGameById } from "@/server/queries";
 import { notFound } from "next/navigation";
-import GameOver from "./GameOver";
 import transformGameData from "@/lib/gameLogic";
+import { chartFlag } from "@/flags";
 
 export default async function GameView(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
   const game = await getGameById(params.id);
+  const showCharts = await chartFlag();
   if (!game) {
     notFound();
   }
-  // TODO: Throw an error if the game is not found
 
   const displayScores = await transformGameData(game);
 
@@ -27,6 +27,7 @@ export default async function GameView(props: {
         numRounds={game.rounds.length}
         gameId={game.id}
         isFinished={game.isFinished}
+        showCharts={showCharts}
       />
       <ScoreEntry
         game={game}

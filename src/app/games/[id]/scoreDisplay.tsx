@@ -40,11 +40,13 @@ function ScoreDisplay({
   numRounds,
   gameId,
   isFinished,
+  showCharts,
 }: {
   displayScores: DisplayScores[];
   numRounds: number;
   gameId: string;
   isFinished: boolean;
+  showCharts: boolean;
 }) {
   const router = useRouter();
   const [editingRound, setEditingRound] = useState<number | null>(null);
@@ -317,9 +319,11 @@ function ScoreDisplay({
           </TableRow>
         </TableFooter>
       </Table>
-      <div className="mb-4">
-        <ScoreLineGraph displayScores={displayScores} />
-      </div>
+      {showCharts && (
+        <div className="mb-4">
+          <ScoreLineGraph displayScores={displayScores} />
+        </div>
+      )}
     </div>
   );
 }
@@ -330,6 +334,7 @@ export default function ScoreDisplayWithErrorBoundary(props: {
   numRounds: number;
   gameId: string;
   isFinished: boolean;
+  showCharts: boolean;
 }) {
   return (
     <ErrorBoundary>
