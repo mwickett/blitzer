@@ -10,17 +10,11 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 
 // Array of colors for different players' lines
-const lineColors = [
-  "#2563eb",
-  "#dc2626",
-  "#16a34a",
-  "#9333ea",
-  "#ea580c",
-  "#0891b2",
-];
+const lineColors = ["#FD4C4E", "#0168C7", "#049746", "#FDD605"];
 
 interface ScoreLineGraphProps {
   displayScores: DisplayScores[];
@@ -56,6 +50,7 @@ export function ScoreLineGraph({ displayScores }: ScoreLineGraphProps) {
           }}
         >
           <CartesianGrid strokeDasharray="3 3" />
+          <ReferenceLine y={0} stroke="#666" strokeWidth={1} />
           <XAxis
             dataKey="round"
             label={{ value: "Round", position: "insideBottom", offset: -5 }}
