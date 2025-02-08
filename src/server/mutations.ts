@@ -6,7 +6,7 @@ import posthogClient from "@/app/posthog";
 
 import { redirect } from "next/navigation";
 import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
-import { sendFriendRequestEmail } from "./email";
+import { sendFriendRequestEmail, sendGameCompleteEmail } from "./email";
 
 // Create a new game
 export async function createGame(users: { id: string }[]) {
@@ -114,6 +114,41 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
 
   if (!user.userId) throw new Error("Unauthorized");
 
+  // Fetch game with all player details
+  const game = await prisma.game.findUnique({
+    where: {
+      id: gameId,
+    },
+    include: {
+      players: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              username: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!game) throw new Error("Game not found");
+
+  // Get winner's details
+  const winner = await prisma.user.findUnique({
+    where: {
+      id: winnerId,
+    },
+    select: {
+      username: true,
+    },
+  });
+
+  if (!winner) throw new Error("Winner not found");
+
+  // Update game as finished
   await prisma.game.update({
     where: {
       id: gameId,
@@ -124,6 +159,19 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
       endedAt: new Date(),
     },
   });
+
+  // Send emails to all players
+  await Promise.all(
+    game.players.map((player) =>
+      sendGameCompleteEmail({
+        email: player.user.email,
+        username: player.user.username,
+        winnerUsername: winner.username,
+        isWinner: player.user.id === winnerId,
+        gameId,
+      })
+    )
+  );
 
   posthog.capture({
     distinctId: user.userId,
