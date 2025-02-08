@@ -38,15 +38,15 @@ export function ScoreLineGraph({ displayScores }: ScoreLineGraphProps) {
   if (!chartData?.length) return null;
 
   return (
-    <div className="w-full h-[400px] bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 my-10">
+    <div className="w-full h-[300px] sm:h-[400px] bg-white dark:bg-gray-950 rounded-lg shadow-lg p-4 sm:p-6 my-6">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={chartData}
           margin={{
-            top: 5,
-            right: 30,
-            left: 20,
-            bottom: 5,
+            top: 16,
+            right: 24,
+            left: 8,
+            bottom: 16,
           }}
         >
           <CartesianGrid strokeDasharray="3 3" />
