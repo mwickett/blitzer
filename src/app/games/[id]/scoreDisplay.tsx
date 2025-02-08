@@ -190,14 +190,14 @@ function ScoreDisplay({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {error && (
         <Alert variant="destructive" className="max-w-md mx-auto">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <Table className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto my-10">
+      <Table className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-4 sm:p-6 max-w-md mx-auto mb-4">
         <TableHeader>
           <TableRow>
             <TableHead className="w-24">Round</TableHead>
@@ -320,7 +320,7 @@ function ScoreDisplay({
         </TableFooter>
       </Table>
       {showCharts && (
-        <div className="mb-4 mx-20">
+        <div className="max-w-5xl mx-auto mb-4">
           <ScoreLineGraph displayScores={displayScores} />
         </div>
       )}
