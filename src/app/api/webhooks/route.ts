@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { WebhookEvent, UserJSON } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
 import { generateRandomUsername } from "@/lib/utils";
+import { sendWelcomeEmail } from "@/server/email";
 
 export async function POST(req: Request) {
   // You can find this in the Clerk Dashboard -> Webhooks -> choose the endpoint
@@ -50,36 +51,84 @@ export async function POST(req: Request) {
     });
   }
 
-  // Do something with the payload
-  // For this guide, you simply log the payload to the console
   const eventType = evt.type;
-  //   console.log(`Webhook with and ID of ${id} and type of ${eventType}`);
-  //   console.log("Webhook body:", body);
 
   if (eventType === "user.created") {
-    console.log("user created event");
+    console.log("Processing user.created event", {
+      id: evt.data.id,
+      username: evt.data.username,
+    });
     try {
-      await prisma.user.create({
-        data: {
-          clerk_user_id: evt.data.id,
-          email: getPrimaryEmail(evt.data),
-          username: evt.data.username || generateRandomUsername(),
-          avatarUrl: evt.data.image_url,
-        },
+      // Get user info
+      const email = getPrimaryEmail(evt.data);
+      const username = evt.data.username || generateRandomUsername();
+
+      // Check if user with this email already exists
+      let user = await prisma.user.findUnique({
+        where: { email },
       });
+
+      if (user) {
+        // Update existing user with new Clerk ID
+        user = await prisma.user.update({
+          where: { email },
+          data: {
+            clerk_user_id: evt.data.id,
+            username, // Update username in case it changed
+            avatarUrl: evt.data.image_url,
+          },
+        });
+        console.log("Updated existing user with new Clerk ID:", {
+          id: user.id,
+          email: user.email,
+        });
+      } else {
+        // Create new user
+        user = await prisma.user.create({
+          data: {
+            clerk_user_id: evt.data.id,
+            email,
+            username,
+            avatarUrl: evt.data.image_url,
+          },
+        });
+        console.log("Created new user:", {
+          id: user.id,
+          email: user.email,
+        });
+      }
+
+      // Send welcome email after user is created
+      const emailResult = await sendWelcomeEmail({
+        email,
+        username,
+      });
+
+      if (!emailResult.success) {
+        console.error("Welcome email failed:", emailResult.error);
+        // Continue since user creation was successful
+      }
     } catch (e) {
-      console.error("failed to create user", e);
+      console.error("Failed to create user:", {
+        error: e instanceof Error ? e.message : "Unknown error",
+        userId: evt.data.id,
+      });
       return new Response("Failed to create user", { status: 500 });
     }
   }
 
   if (eventType === "user.deleted") {
-    console.log("user deleted event");
+    console.log("Processing user.deleted event", {
+      id: evt.data.id,
+    });
     // Doing nothing with this for now because I don't want to delete users from the database as it leaves holes in the game history
   }
 
   if (eventType === "user.updated") {
-    console.log("user updated event");
+    console.log("Processing user.updated event", {
+      id: evt.data.id,
+      username: evt.data.username,
+    });
     try {
       const updateUser = await prisma.user.update({
         where: {
@@ -91,9 +140,15 @@ export async function POST(req: Request) {
           avatarUrl: evt.data.image_url,
         },
       });
-      console.log("update user resulted in: ", updateUser);
+      console.log("User updated successfully:", {
+        id: updateUser.id,
+        username: updateUser.username,
+      });
     } catch (e) {
-      console.error("failed to update user", e);
+      console.error("Failed to update user:", {
+        error: e instanceof Error ? e.message : "Unknown error",
+        userId: evt.data.id,
+      });
       return new Response("Failed to update user", { status: 500 });
     }
   }
@@ -111,7 +166,6 @@ function getPrimaryEmail(user: UserJSON) {
     user.email_addresses.length === 0
   ) {
     throw new Error("No primary email found for user");
-    return "no email"; // No primary email ID or email addresses available
   }
 
   const primaryEmailObject = user.email_addresses.find(
