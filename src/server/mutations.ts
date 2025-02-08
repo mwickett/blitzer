@@ -6,6 +6,7 @@ import posthogClient from "@/app/posthog";
 
 import { redirect } from "next/navigation";
 import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
+import { sendFriendRequestEmail, sendGameCompleteEmail } from "./email";
 
 // Create a new game
 export async function createGame(users: { id: string }[]) {
@@ -113,6 +114,41 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
 
   if (!user.userId) throw new Error("Unauthorized");
 
+  // Fetch game with all player details
+  const game = await prisma.game.findUnique({
+    where: {
+      id: gameId,
+    },
+    include: {
+      players: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              username: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!game) throw new Error("Game not found");
+
+  // Get winner's details
+  const winner = await prisma.user.findUnique({
+    where: {
+      id: winnerId,
+    },
+    select: {
+      username: true,
+    },
+  });
+
+  if (!winner) throw new Error("Winner not found");
+
+  // Update game as finished
   await prisma.game.update({
     where: {
       id: gameId,
@@ -123,6 +159,19 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
       endedAt: new Date(),
     },
   });
+
+  // Send emails to all players
+  await Promise.all(
+    game.players.map((player) =>
+      sendGameCompleteEmail({
+        email: player.user.email,
+        username: player.user.username,
+        winnerUsername: winner.username,
+        isWinner: player.user.id === winnerId,
+        gameId,
+      })
+    )
+  );
 
   posthog.capture({
     distinctId: user.userId,
@@ -154,13 +203,30 @@ export async function createFriendRequest(userId: string) {
 
   const { id } = prismaId;
 
-  // Check if target user exists
+  // Get target user with email
   const targetUser = await prisma.user.findUnique({
     where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+    },
   });
 
   if (!targetUser) {
     throw new Error("Target user not found");
+  }
+
+  // Get sender's username
+  const sender = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      username: true,
+    },
+  });
+
+  if (!sender) {
+    throw new Error("Sender not found");
   }
 
   // Check if trying to send request to self
@@ -197,12 +263,24 @@ export async function createFriendRequest(userId: string) {
     throw new Error("Friend request already exists");
   }
 
-  await prisma.friendRequest.create({
+  const friendRequest = await prisma.friendRequest.create({
     data: {
       senderId: id,
       receiverId: userId,
     },
   });
+
+  // Send friend request email
+  const emailResult = await sendFriendRequestEmail({
+    email: targetUser.email,
+    username: targetUser.username,
+    fromUsername: sender.username,
+  });
+
+  if (!emailResult.success) {
+    console.error("Friend request email failed:", emailResult.error);
+    // Continue since friend request was created successfully
+  }
 
   posthog.capture({
     distinctId: user.userId,
