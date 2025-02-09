@@ -9,14 +9,15 @@ import {
   Button,
   Hr,
 } from "@react-email/components";
+import { render } from "@react-email/render";
 import * as React from "react";
 
 interface WelcomeEmailProps {
   username: string;
 }
 
-export const WelcomeEmail = ({ username }: WelcomeEmailProps) => {
-  const previewText = `Welcome to Blitzer - Let&apos;s start scoring!`;
+const WelcomeEmailTemplate = ({ username }: WelcomeEmailProps) => {
+  const previewText = `Welcome to Blitzer - Let's start scoring!`;
 
   return (
     <Html>
@@ -42,8 +43,7 @@ export const WelcomeEmail = ({ username }: WelcomeEmailProps) => {
             </Section>
             <Hr style={hr} />
             <Text style={footer}>
-              If you have any questions, just reply to this email - we&apos;re
-              always happy to help.
+              This inbox isn&apos;t monitored, replies won&apos;t be read.
             </Text>
           </Section>
         </Container>
@@ -111,4 +111,16 @@ const footer = {
   color: "#8898aa",
   fontSize: "14px",
   lineHeight: "24px",
+};
+
+export const WelcomeEmail = (props: WelcomeEmailProps) => {
+  const component = <WelcomeEmailTemplate {...props} />;
+  const text = render(component, {
+    plainText: true,
+  });
+
+  return {
+    component,
+    text,
+  };
 };
