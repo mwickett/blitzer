@@ -21,7 +21,8 @@ export async function sendWelcomeEmail(params: {
       from: sender,
       to: [params.email],
       subject: "Welcome to Blitzer!",
-      react: WelcomeEmail({ username: params.username }),
+      react: WelcomeEmail({ username: params.username }).component,
+      text: await WelcomeEmail({ username: params.username }).text,
     });
 
     if (error) {
@@ -58,7 +59,13 @@ export async function sendGameCompleteEmail(params: {
         winnerUsername: params.winnerUsername,
         isWinner: params.isWinner,
         gameId: params.gameId,
-      }),
+      }).component,
+      text: await GameCompleteEmail({
+        username: params.username,
+        winnerUsername: params.winnerUsername,
+        isWinner: params.isWinner,
+        gameId: params.gameId,
+      }).text,
     });
 
     if (error) {
@@ -89,7 +96,11 @@ export async function sendFriendRequestEmail(params: {
       react: FriendRequestEmail({
         username: params.username,
         fromUsername: params.fromUsername,
-      }),
+      }).component,
+      text: await FriendRequestEmail({
+        username: params.username,
+        fromUsername: params.fromUsername,
+      }).text,
     });
 
     if (error) {

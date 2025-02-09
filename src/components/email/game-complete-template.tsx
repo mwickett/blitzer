@@ -9,6 +9,8 @@ import {
   Section,
   Heading,
 } from "@react-email/components";
+import { render } from "@react-email/render";
+import * as React from "react";
 
 interface GameCompleteEmailProps {
   username: string;
@@ -17,7 +19,7 @@ interface GameCompleteEmailProps {
   gameId: string;
 }
 
-export const GameCompleteEmail = ({
+const GameCompleteEmailTemplate = ({
   username,
   winnerUsername,
   isWinner,
@@ -47,10 +49,7 @@ export const GameCompleteEmail = ({
             <Text style={text}>
               Want to see the final scores? Check out the game details:
             </Text>
-            <Link
-              href={`${process.env.NEXT_PUBLIC_APP_URL}/games/${gameId}`}
-              style={button}
-            >
+            <Link href={`https://blitzer.fun/games/${gameId}`} style={button}>
               View Game Details
             </Link>
             <Text style={text}>
@@ -110,4 +109,16 @@ const h1 = {
   margin: "48px 0",
   padding: "0",
   textAlign: "center" as const,
+};
+
+export const GameCompleteEmail = (props: GameCompleteEmailProps) => {
+  const component = <GameCompleteEmailTemplate {...props} />;
+  const text = render(component, {
+    plainText: true,
+  });
+
+  return {
+    component,
+    text,
+  };
 };

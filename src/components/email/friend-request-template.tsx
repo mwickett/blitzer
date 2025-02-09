@@ -9,6 +9,7 @@ import {
   Button,
   Hr,
 } from "@react-email/components";
+import { render } from "@react-email/render";
 import * as React from "react";
 
 interface FriendRequestEmailProps {
@@ -16,7 +17,7 @@ interface FriendRequestEmailProps {
   fromUsername: string;
 }
 
-export const FriendRequestEmail = ({
+const FriendRequestEmailTemplate = ({
   username,
   fromUsername,
 }: FriendRequestEmailProps) => {
@@ -114,4 +115,16 @@ const footer = {
   color: "#8898aa",
   fontSize: "14px",
   lineHeight: "24px",
+};
+
+export const FriendRequestEmail = (props: FriendRequestEmailProps) => {
+  const component = <FriendRequestEmailTemplate {...props} />;
+  const text = render(component, {
+    plainText: true,
+  });
+
+  return {
+    component,
+    text,
+  };
 };
