@@ -1,0 +1,120 @@
+# Cline Rules for Blitzer Project
+
+## Project-Specific Patterns
+
+### Dutch Blitz Game Terminology
+
+- **Dutch Blitz**: A fast-paced card game where players race to play their cards
+- **Round**: A single hand of Dutch Blitz, scores are recorded after each round
+- **Game**: A collection of rounds, typically continues until someone reaches a target score
+- **Post Pile**: A scoring mechanism in Dutch Blitz where players stack cards
+- **Deck**: Each player's unique set of cards (Pump, Plow, Carriage, Bucket)
+
+### Codebase Patterns
+
+- **Server Actions vs API Routes**: Project is moving toward a more consistent approach, likely using React Query with API Routes
+- **Feature-based Organization**: Components are organized by feature rather than type
+- **ShadCN UI Components**: UI components are primarily based on ShadCN UI
+- **Clerk Authentication**: User authentication and management is handled by Clerk
+- **Prisma Data Access**: Database operations go through Prisma ORM
+- **Statistical Calculations**: Game statistics are calculated from raw score data
+
+## User Preferences
+
+### Code Style
+
+- **TypeScript**: All new code should be written in TypeScript with proper types
+- **React Server Components**: Use React Server Components where appropriate for better performance
+- **Tailwind CSS**: Styling should be done with Tailwind CSS
+- **Component Structure**: Follow existing component patterns for consistency
+- **File Organization**: Follow feature-based organization for new files
+
+### Communication Style
+
+- **Technical Level**: Communication can be highly technical
+- **Explanations**: Provide reasoning behind architectural and technical decisions
+- **Visualization**: Use diagrams when explaining complex flows or architecture
+
+## Common Challenges
+
+### Performance Optimization
+
+- Database queries should be optimized for efficiency
+- Frontend components should minimize unnecessary renders
+- Consider lazy loading for heavy components
+- Be mindful of bundle size when adding new libraries
+
+### Mobile Responsiveness
+
+- Ensure all UI components work well on mobile
+- Test layouts at multiple breakpoints
+- Consider mobile-first design approach
+- Pay special attention to score entry on mobile
+
+### Authentication Flows
+
+- Remember that authentication is handled by Clerk
+- User data and preferences are stored in the database
+- Authentication state is available through Clerk context
+
+### Data Modeling
+
+- Follow existing schema patterns for consistency
+- Use appropriate relations between models
+- Keep data normalization in mind
+- Consider query performance when designing schema changes
+
+## Learning Patterns
+
+### Dutch Blitz Game Logic
+
+- Observe how the game scoring works
+- Understand the relationship between rounds and games
+- Learn how statistics are calculated from raw scores
+- Identify patterns in player performance over time
+
+### Architectural Evolution
+
+- Notice the transition toward a clearer backend/frontend separation
+- Observe the introduction of React Query for state management
+- Learn from the organizational patterns in the codebase
+- Track how the application architecture evolves
+
+### User Experience Patterns
+
+- Focus on keeping score entry as frictionless as possible
+- Pay attention to the balance between simplicity and data richness
+- Note how statistical insights are presented to users
+- Observe how social features enhance the core game experience
+
+## Tool Usage Patterns
+
+### Dev Environment
+
+- Next.js project runs with `npm run dev`
+- Database migrations with Prisma CLI
+- Local database should be updated with schema changes
+- Environment variables are stored in `.env.local`
+
+### Testing Approach
+
+- Jest for unit tests
+- Playwright for end-to-end tests
+- Focus on critical user flows
+- Test statistical calculations for accuracy
+
+## Key Insights
+
+- The core value of Blitzer is transforming ephemeral gameplay into persistent, analyzable data
+- Low-friction score entry is critical to user adoption
+- The social aspect of the game is enhanced by friend connections
+- Statistical insights should be both accessible and meaningful
+- The application serves as a companion to the physical card game
+
+## Workflow Guidance
+
+- New features should follow the existing architectural patterns
+- UI changes should maintain consistency with existing components
+- Performance should be a consideration for all changes
+- Mobile experience is just as important as desktop
+- Focus on enhancing the core score tracking and analysis functionality
