@@ -9,6 +9,8 @@
 - **Game**: A collection of rounds, typically continues until someone reaches a target score
 - **Post Pile**: A scoring mechanism in Dutch Blitz where players stack cards
 - **Deck**: Each player's unique set of cards (Pump, Plow, Carriage, Bucket)
+- **Blitz**: When a player has 0 cards remaining in their blitz pile
+- **Blitz Pile**: A stack of cards players try to get rid of during the game
 
 ### Codebase Patterns
 
