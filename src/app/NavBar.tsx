@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, WalletCards, Search } from "lucide-react";
+import { Menu, WalletCards } from "lucide-react";
 
 import { SignedIn, UserButton, SignedOut, SignInButton } from "@clerk/nextjs";
 
@@ -25,19 +25,9 @@ const navData = [
   },
 ];
 
-export default function NavBar({
-  children,
-  coolButton,
-}: {
-  children: React.ReactNode;
-  coolButton: boolean;
-}) {
+export default function NavBar({ children }: { children: React.ReactNode }) {
   const pathName = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const coolButtonStyles = coolButton
-    ? "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transform hover:scale-105 transition-all duration-200 hover:shadow-xl"
-    : "";
 
   return (
     <div className="flex min-h-screen w-full flex-col">
@@ -89,11 +79,7 @@ export default function NavBar({
                   key={navItem.href}
                 />
               ))}
-              <Button
-                variant={coolButton ? "ghost" : "default"}
-                className={coolButtonStyles}
-                asChild
-              >
+              <Button asChild>
                 <Link href="/games/new" onClick={() => setIsMenuOpen(false)}>
                   New game
                 </Link>
@@ -103,11 +89,7 @@ export default function NavBar({
         </Sheet>
         <div className="flex w-full justify-end items-center gap-4 md:gap-2 lg:gap-4">
           <SignedIn>
-            <Button
-              variant={coolButton ? "ghost" : "outline"}
-              className={coolButtonStyles}
-              asChild
-            >
+            <Button asChild>
               <Link href="/games/new">New game</Link>
             </Button>
             <UserButton />

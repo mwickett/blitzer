@@ -7,7 +7,6 @@ import { Inter } from "next/font/google";
 import NavBar from "./NavBar";
 import "./globals.css";
 import PostHogPageView from "./PostHogPageView";
-import { coolButtonFlag } from "@/flags";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -51,7 +50,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const coolButton = await coolButtonFlag();
   return (
     <ClerkProvider>
       <html lang="en">
@@ -62,7 +60,7 @@ export default async function RootLayout({
                 <PostHogPageView />
               </ClerkProvider>
             </Suspense>
-            <NavBar coolButton={coolButton}>
+            <NavBar>
               {children}
               <Analytics />
             </NavBar>
