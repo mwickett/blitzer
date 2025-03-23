@@ -8,21 +8,19 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  clerk_user_id String   @unique
-  email         String   @unique
-  username      String   @unique
-  avatarUrl     String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @default(now()) @map("updated_at")
-
-  // Relationships
-  games                  GamePlayers[]
-  scores                 Score[]
-  friendRequestsSent     FriendRequest[] @relation("FriendRequestsSent")
-  friendRequestsReceived FriendRequest[] @relation("FriendRequestsReceived")
+  id                     String          @id @default(uuid())
+  email                  String          @unique
+  clerk_user_id          String          @unique
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @default(now()) @map("updated_at")
+  username               String          @unique
+  avatarUrl              String?
   friends1               Friend[]        @relation("User1Friends")
   friends2               Friend[]        @relation("User2Friends")
+  friendRequestsReceived FriendRequest[] @relation("FriendRequestsReceived")
+  friendRequestsSent     FriendRequest[] @relation("FriendRequestsSent")
+  games                  GamePlayers[]
+  scores                 Score[]
 }
 
 model FriendRequest {
@@ -32,9 +30,8 @@ model FriendRequest {
   status     FriendRequestStatus @default(PENDING)
   createdAt  DateTime            @default(now()) @map("created_at")
   updatedAt  DateTime            @default(now()) @map("updated_at")
-
-  sender   User @relation("FriendRequestsSent", fields: [senderId], references: [id])
-  receiver User @relation("FriendRequestsReceived", fields: [receiverId], references: [id])
+  receiver   User                @relation("FriendRequestsReceived", fields: [receiverId], references: [id])
+  sender     User                @relation("FriendRequestsSent", fields: [senderId], references: [id])
 
   @@unique([senderId, receiverId])
 }
@@ -44,28 +41,20 @@ model Friend {
   user1Id   String
   user2Id   String
   createdAt DateTime @default(now()) @map("created_at")
-
-  user1 User @relation("User1Friends", fields: [user1Id], references: [id])
-  user2 User @relation("User2Friends", fields: [user2Id], references: [id])
+  user1     User     @relation("User1Friends", fields: [user1Id], references: [id])
+  user2     User     @relation("User2Friends", fields: [user2Id], references: [id])
 
   @@unique([user1Id, user2Id])
 }
 
-enum FriendRequestStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}
-
 model Game {
-  id         String    @id @default(uuid())
-  createdAt  DateTime  @default(now()) @map("created_at")
-  endedAt    DateTime? @map("ended_at")
-  isFinished Boolean   @default(false) @map("is_finished")
+  id         String        @id @default(uuid())
+  createdAt  DateTime      @default(now()) @map("created_at")
+  endedAt    DateTime?     @map("ended_at")
+  isFinished Boolean       @default(false) @map("is_finished")
   winnerId   String?
-
-  players GamePlayers[]
-  rounds  Round[]
+  players    GamePlayers[]
+  rounds     Round[]
 }
 
 model Round {
@@ -73,10 +62,10 @@ model Round {
   createdAt DateTime @default(now()) @map("created_at")
   gameId    String
   round     Int
+  game      Game     @relation(fields: [gameId], references: [id])
+  scores    Score[]
 
-  game   Game    @relation(fields: [gameId], references: [id])
-  scores Score[]
-
+  @@unique([gameId, round])
   @@index([gameId])
 }
 
@@ -86,19 +75,23 @@ model Score {
   totalCardsPlayed   Int
   blitzPileRemaining Int
   createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @default(now()) @map("updated_at")
   roundId            String
-
-  user  User  @relation(fields: [userId], references: [id])
-  round Round @relation(fields: [roundId], references: [id])
+  updatedAt          DateTime @default(now()) @map("updated_at")
+  round              Round    @relation(fields: [roundId], references: [id])
+  user               User     @relation(fields: [userId], references: [id])
 }
 
 model GamePlayers {
   gameId String
   userId String
-
-  game Game @relation(fields: [gameId], references: [id])
-  user User @relation(fields: [userId], references: [id])
+  game   Game   @relation(fields: [gameId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
 
   @@id([gameId, userId])
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
