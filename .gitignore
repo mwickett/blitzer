@@ -39,3 +39,7 @@ next-env.d.ts
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Cline MCP settings
+cline_mcp_settings.json
+claude_desktop_config.json
