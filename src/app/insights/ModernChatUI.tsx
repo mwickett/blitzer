@@ -15,11 +15,14 @@ export default function ModernChatUI() {
     input,
     handleInputChange,
     handleSubmit: originalHandleSubmit,
-    isLoading,
+    status,
     error,
   } = useChat({
     api: "/api/chat",
   });
+
+  // Check if the chat is in a loading state (either submitted or streaming)
+  const isLoading = status === "submitted" || status === "streaming";
 
   // Custom submit handler to maintain focus
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -57,13 +60,12 @@ export default function ModernChatUI() {
         >
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground p-8">
-              <p>Ask questions about your game history!</p>
+              <p>Ask basic questions about your game history!</p>
               <p className="text-sm mt-2">Try questions like:</p>
               <ul className="text-sm text-left mt-2 max-w-md mx-auto space-y-1">
-                <li>• How many times have I won against [player]?</li>
-                <li>• What was my highest scoring game?</li>
-                <li>• What&apos;s my average blitz pile size?</li>
-                <li>• When did I last play with [player]?</li>
+                <li>• How many games have I played?</li>
+                <li>• What&apos;s my win-loss record?</li>
+                <li>• Summarize my recent gameplay</li>
               </ul>
             </div>
           )}

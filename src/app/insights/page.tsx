@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import ModernChatUI from "./ModernChatUI";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
+import { Badge } from "@/components/ui/badge";
 
 export default async function InsightsPage() {
   const { userId } = await auth();
@@ -15,7 +16,15 @@ export default async function InsightsPage() {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Game Insights</h1>
+      <div className="flex items-center gap-3 mb-4">
+        <h1 className="text-2xl font-bold">Game Insights</h1>
+        <Badge
+          variant="outline"
+          className="bg-yellow-100 text-yellow-800 border-yellow-300"
+        >
+          Experimental
+        </Badge>
+      </div>
 
       {llmFeaturesEnabled ? (
         <>
