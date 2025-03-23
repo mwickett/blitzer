@@ -29,11 +29,11 @@
 
 ### Monitoring & Observability
 
-| Technology  | Version | Purpose                                   |
-| ----------- | ------- | ----------------------------------------- |
-| Sentry      | N/A     | Error tracking and performance monitoring |
-| PostHog     | N/A     | Product analytics and feature flags       |
-| @posthog/ai | N/A     | LLM observability and monitoring          |
+| Technology  | Version | Purpose                                      |
+| ----------- | ------- | -------------------------------------------- |
+| Sentry      | N/A     | Error tracking and performance monitoring    |
+| PostHog     | N/A     | Product analytics, feature flags, and errors |
+| @posthog/ai | N/A     | LLM observability and monitoring             |
 
 ### Testing
 
@@ -138,6 +138,41 @@ These are configured through a `.env.local` file which is not committed to versi
   - LCP < 2.5s
   - FID < 100ms
   - CLS < 0.1
+
+## Error Tracking Architecture
+
+### Components
+
+The error tracking system has multiple layers:
+
+1. **Global Error Boundary**
+
+   - `src/app/global-error.tsx` - Handles application-level errors
+   - Reports to both Sentry and PostHog with error context
+
+2. **Server-Side Error Tracking**
+
+   - `src/instrumentation.ts` - Captures server errors via `onRequestError`
+   - Extracts user information from cookies when available
+   - Adds context like request path and method
+
+3. **Section-Level Error Boundaries**
+
+   - `src/app/games/error.tsx` - Games list errors
+   - `src/app/games/[id]/error.tsx` - Game detail errors
+   - `src/app/dashboard/error.tsx` - Dashboard errors
+   - Each provides section-specific UI and error context
+
+4. **Component-Level Error Boundary**
+   - `src/components/ErrorBoundary.tsx` - Reusable boundary component
+   - Used to wrap complex UI components (e.g., ScoreEntry)
+   - Captures component-specific context
+
+### Error Testing
+
+- `src/components/ErrorTestTrigger.tsx` - Test component for different error types
+- `src/app/dev/error-test/page.tsx` - Development page for testing error tracking
+- Documentation in `docs/error-tracking.md`
 
 ### Security Considerations
 

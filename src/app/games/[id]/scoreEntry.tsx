@@ -256,7 +256,15 @@ export default function ScoreEntryWithErrorBoundary(props: {
   displayScores: DisplayScores[];
 }) {
   return (
-    <ErrorBoundary>
+    <ErrorBoundary
+      componentName="ScoreEntry"
+      context={{
+        gameId: props.game.id,
+        roundNumber: props.currentRoundNumber,
+        players: props.game.players.length,
+        section: "gameplay",
+      }}
+    >
       <ScoreEntry {...props} />
     </ErrorBoundary>
   );
