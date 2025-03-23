@@ -18,3 +18,8 @@ export async function isFeatureEnabled(flagKey: string): Promise<boolean> {
 export async function isScoreChartsEnabled(): Promise<boolean> {
   return isFeatureEnabled("score-charts");
 }
+
+// Check if LLM features are enabled
+export async function isLlmFeaturesEnabled(): Promise<boolean> {
+  return isFeatureEnabled("llm-features");
+}

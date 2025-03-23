@@ -7,6 +7,7 @@ import { Menu } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useLlmFeaturesFlag } from "@/hooks/useFeatureFlag";
 
 // Mobile nav link component
 function MobileNavLink({
@@ -38,8 +39,9 @@ function MobileNavLink({
 export default function NavBar({ children }: { children: React.ReactNode }) {
   const pathName = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const llmEnabled = useLlmFeaturesFlag();
 
-  // Define navigation items - including the new Insights link
+  // Define navigation items - conditionally include Insights link
   const navData = [
     {
       label: "Dashboard",
@@ -53,10 +55,15 @@ export default function NavBar({ children }: { children: React.ReactNode }) {
       label: "Friends",
       href: "/friends",
     },
-    {
-      label: "Insights",
-      href: "/insights",
-    },
+    // Only include Insights if LLM features are enabled
+    ...(llmEnabled
+      ? [
+          {
+            label: "Insights",
+            href: "/insights",
+          },
+        ]
+      : []),
   ];
 
   return (

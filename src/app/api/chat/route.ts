@@ -3,6 +3,7 @@ import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import prisma from "@/server/db/db";
 import { buildEnhancedSystemPrompt } from "@/server/ai/enhancedSystemPrompt";
+import { llmFeaturesFlag } from "@/flags";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -13,6 +14,19 @@ export async function POST(req: Request) {
   // Check authentication
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  // Check feature flag
+  const llmFeaturesEnabled = await llmFeaturesFlag();
+
+  if (!llmFeaturesEnabled) {
+    return new Response(
+      JSON.stringify({ error: "This feature is currently disabled" }),
+      {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 
   try {
