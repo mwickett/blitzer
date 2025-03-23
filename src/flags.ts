@@ -4,7 +4,6 @@ import { get } from "@vercel/edge-config";
 // Define the flag keys
 const FLAGS = {
   SCORE_CHARTS: "flag-score-charts",
-  COOL_BUTTON: "flag-cool-button",
   // NEW_FEATURE: 'flag-new-feature',
 } as const;
 
@@ -45,13 +44,5 @@ export const chartFlag = flag<boolean>({
   decide: async () => {
     const flags = await getFlags();
     return flags[FLAGS.SCORE_CHARTS] ?? false;
-  },
-});
-
-export const coolButtonFlag = flag<boolean>({
-  key: "cool-button",
-  decide: async () => {
-    const flags = await getFlags();
-    return flags[FLAGS.COOL_BUTTON] ?? false;
   },
 });
