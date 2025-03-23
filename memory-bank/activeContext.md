@@ -39,6 +39,11 @@ The current development focus for Blitzer is on three main areas:
 - Implemented PostHog LLM observability for chat functionality ✅
 - Fixed deprecated `isLoading` property in ModernChatUI component ✅
 - Created documentation for LLM observability implementation ✅
+- Implemented comprehensive error tracking with PostHog ✅
+- Created reusable ErrorBoundary component with context-rich error reporting ✅
+- Added section-level error boundaries for key application areas ✅
+- Enhanced server-side error tracking in instrumentation.ts ✅
+- Built error testing tools and documentation ✅
 
 ## Next Steps
 
@@ -77,6 +82,23 @@ The current development focus for Blitzer is on three main areas:
 - Develop deck preference tracking
 
 ## Active Decisions and Considerations
+
+### Error Tracking Strategy
+
+Current implementation:
+
+- Dual tracking with both PostHog and Sentry ✅
+- Layered error boundaries (global, section, component) ✅
+- Rich context with all error reports ✅
+- Error testing tools for verification ✅
+- Comprehensive documentation ✅
+
+Currently exploring:
+
+- Custom PostHog dashboards for error analysis
+- Error rate monitoring and alerting
+- User feedback collection on error scenarios
+- Additional section-level error boundaries
 
 ### LLM Implementation Strategy
 

@@ -1,6 +1,7 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
+import posthog from "posthog-js";
 import Image from "next/image";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,14 @@ export default function GlobalError({
   error: Error & { digest?: string };
 }) {
   useEffect(() => {
+    // Send to both Sentry and PostHog for now
     Sentry.captureException(error);
+
+    // Track error in PostHog with additional context
+    posthog.captureException(error, {
+      errorType: "global",
+      errorDigest: error.digest,
+    });
   }, [error]);
 
   return (
