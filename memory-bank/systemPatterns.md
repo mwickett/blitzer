@@ -73,6 +73,35 @@ The application uses:
 
 ## Design Patterns in Use
 
+### Pattern: LLM Observability with PostHog
+
+Blitzer implements LLM observability for monitoring and analyzing AI chat interactions using PostHog:
+
+```
+[User Chat Input] --> [ModernChatUI] --> [Chat API Route]
+                                           |
+                                           v
+[PostHog Dashboard] <-- [LLM Metrics] <-- [withTracing Wrapper]
+                                           |
+                                           v
+                                    [OpenAI Model] --> [Response]
+```
+
+This pattern enables:
+
+- Tracking of input/output tokens and costs
+- Measurement of LLM response latency
+- Analysis of user queries and AI responses
+- Error monitoring for LLM interactions
+- Addition of user context to AI interactions
+
+Implementation details:
+
+- PostHog's `@posthog/ai` package with `withTracing` wrapper
+- User and conversation context enrichment
+- Error capture with comprehensive context
+- Asynchronous metric collection
+
 ### Pattern: Server-Side Rendering with Hydration
 
 Blitzer uses Server Components for initial page renders with client hydration for interactive elements:

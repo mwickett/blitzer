@@ -28,3 +28,8 @@ export function useFeatureFlag(flagKey: string): boolean {
 export function useScoreChartsFlag(): boolean {
   return useFeatureFlag("score-charts");
 }
+
+// Convenience hook for the llm-features flag
+export function useLlmFeaturesFlag(): boolean {
+  return useFeatureFlag("llm-features");
+}
