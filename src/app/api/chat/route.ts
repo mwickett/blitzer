@@ -3,7 +3,7 @@ import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import prisma from "@/server/db/db";
 import { buildEnhancedSystemPrompt } from "@/server/ai/enhancedSystemPrompt";
-import { llmFeaturesFlag } from "@/flags";
+import { isLlmFeaturesEnabled } from "@/featureFlags";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   }
 
   // Check feature flag
-  const llmFeaturesEnabled = await llmFeaturesFlag();
+  const llmFeaturesEnabled = await isLlmFeaturesEnabled();
 
   if (!llmFeaturesEnabled) {
     return new Response(
