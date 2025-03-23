@@ -26,6 +26,9 @@ The current development focus for Blitzer is on three main areas:
 - Added user avatars
 - Created rounds model to better track round-by-round gameplay
 - Added updated_at field to score model for improved timestamp tracking
+- Migrated from homegrown Vercel Edge Config flag system to PostHog feature flags
+- Fixed database migration issues related to unique constraints in the Round model
+- Added documentation for feature flag usage in `src/FEATURE_FLAGS.md`
 
 ## Next Steps
 

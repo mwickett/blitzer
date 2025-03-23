@@ -131,6 +131,35 @@ Benefits:
 - Reduced duplication of styling and behavior
 - Improved maintenance through centralization
 
+### Pattern: Feature Flag Management
+
+Blitzer uses PostHog for feature flag management, with a consistent implementation pattern:
+
+```
+                      ┌───────────────────┐
+                      │   PostHog Dashboard   │
+                      │  (Flag Configuration) │
+                      └─────────┬─────────┘
+                                │
+                 ┌──────────────┴─────────────┐
+                 │                            │
+    ┌────────────▼─────────────┐   ┌─────────▼────────────┐
+    │   Server-side flag API   │   │   Client-side hooks  │
+    │  (PostHog Node client)   │   │   (PostHog React)    │
+    └────────────┬─────────────┘   └─────────┬────────────┘
+                 │                            │
+    ┌────────────▼─────────────┐   ┌─────────▼────────────┐
+    │  Server Components       │   │   Client Components   │
+    └──────────────────────────┘   └──────────────────────┘
+```
+
+Benefits:
+
+- Centralized flag management in PostHog dashboard
+- Consistent API for both server and client components
+- User-based flag targeting using Clerk authentication
+- Type-safe feature flag implementation
+
 ## Component Relationships and Data Flow
 
 ### Core Data Flow
