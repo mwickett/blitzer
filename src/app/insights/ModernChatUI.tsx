@@ -4,18 +4,57 @@ import { useChat } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { useEffect, useRef } from "react";
 
 export default function ModernChatUI() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error } =
-    useChat({
-      api: "/api/chat",
-    });
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit: originalHandleSubmit,
+    isLoading,
+    error,
+  } = useChat({
+    api: "/api/chat",
+  });
+
+  // Custom submit handler to maintain focus
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    originalHandleSubmit(e);
+    // Focus will be handled by useEffect
+  };
+
+  // Function to scroll to bottom of messages
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Maintain input focus after submission
+  useEffect(() => {
+    if (!isLoading && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isLoading]);
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <div className="flex flex-col h-[600px]">
         {/* Chat messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-4"
+        >
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground p-8">
               <p>Ask questions about your game history!</p>
@@ -81,6 +120,7 @@ export default function ModernChatUI() {
         <div className="border-t p-4">
           <form onSubmit={handleSubmit} className="flex space-x-2">
             <Input
+              ref={inputRef}
               value={input}
               onChange={handleInputChange}
               placeholder="Ask about your game data..."
