@@ -1,102 +1,93 @@
 "use client";
 
-import * as React from "react";
+import React, { ErrorInfo, ReactNode } from "react";
+import posthog from "posthog-js";
 import * as Sentry from "@sentry/nextjs";
-import Image from "next/image";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
 
-interface Props {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  componentName: string;
+  fallback?: ReactNode;
+  context?: Record<string, any>;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
-  error?: Error;
+  error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
+export class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    // Update state so the next render will show the fallback UI.
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    const { componentName, context } = this.props;
+
+    // Send to Sentry
     Sentry.captureException(error, {
-      extra: {
-        componentStack: errorInfo.componentStack,
+      tags: { component: componentName },
+      contexts: {
+        react: { ...errorInfo },
+        custom: context || {},
       },
     });
+
+    // Send to PostHog with component information
+    posthog.captureException(error, {
+      errorSource: "component",
+      component: componentName,
+      ...(context || {}),
+    });
+
+    console.error(`Error in ${componentName}:`, error, errorInfo);
   }
 
-  private handleReset = () => {
-    this.setState({ hasError: false, error: undefined });
-  };
+  render(): ReactNode {
+    const { hasError } = this.state;
+    const { children, fallback } = this.props;
 
-  render() {
-    if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback;
+    if (hasError) {
+      if (fallback) {
+        return fallback;
       }
 
       return (
-        <Card className="w-full max-w-md mx-auto my-8">
-          <CardHeader>
-            <div className="flex items-center justify-center mb-4">
-              <Image
-                src="/img/blitzer-logo.png"
-                alt="Blitzer Logo"
-                width={48}
-                height={48}
-              />
-            </div>
-            <CardTitle>Something went wrong</CardTitle>
-            <CardDescription>
-              We&apos;ve been notified and are looking into the issue
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <Card>
+          <CardContent className="pt-6">
+            <p>Something went wrong loading this component.</p>
             {process.env.NODE_ENV === "development" && this.state.error && (
-              <pre className="p-4 mt-4 overflow-auto text-sm bg-muted rounded-md">
+              <pre className="p-2 mt-2 text-xs overflow-auto bg-muted rounded-md">
                 {this.state.error.message}
               </pre>
             )}
           </CardContent>
-          <CardFooter className="flex justify-center">
-            <Button onClick={this.handleReset} variant="default">
-              Try Again
+          <CardFooter>
+            <Button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              variant="outline"
+              className="mt-2"
+            >
+              Try again
             </Button>
           </CardFooter>
         </Card>
       );
     }
 
-    return this.props.children;
+    return children;
   }
 }
 
-// HOC for easier component wrapping
-export function withErrorBoundary<P extends object>(
-  Component: React.ComponentType<P>,
-  fallback?: React.ReactNode
-) {
-  return function WithErrorBoundary(props: P) {
-    return (
-      <ErrorBoundary fallback={fallback}>
-        <Component {...props} />
-      </ErrorBoundary>
-    );
-  };
-}
+export default ErrorBoundary;

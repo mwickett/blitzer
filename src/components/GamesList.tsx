@@ -288,7 +288,14 @@ export default function GameListWithErrorBoundary(props: {
   games: GameWithPlayersAndUsers[];
 }) {
   return (
-    <ErrorBoundary>
+    <ErrorBoundary
+      componentName="GameList"
+      context={{
+        gamesCount: props.games.length,
+        hasCompletedGames: props.games.some((game) => game.isFinished),
+        section: "games-list",
+      }}
+    >
       <GameList {...props} />
     </ErrorBoundary>
   );

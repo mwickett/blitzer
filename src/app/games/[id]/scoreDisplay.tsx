@@ -337,7 +337,15 @@ export default function ScoreDisplayWithErrorBoundary(props: {
   showCharts: boolean;
 }) {
   return (
-    <ErrorBoundary>
+    <ErrorBoundary
+      componentName="ScoreDisplay"
+      context={{
+        gameId: props.gameId,
+        rounds: props.numRounds,
+        players: props.displayScores.length,
+        section: "game-detail",
+      }}
+    >
       <ScoreDisplay {...props} />
     </ErrorBoundary>
   );

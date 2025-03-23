@@ -73,6 +73,61 @@ The application uses:
 
 ## Design Patterns in Use
 
+### Pattern: Error Tracking with PostHog
+
+Blitzer implements a layered error tracking system using both PostHog and Sentry:
+
+```
+                        [Application Error]
+                               |
+                               v
+         ┌───────────────────────────────────────┐
+         │             Error Sources             │
+         └───────────────────────────────────────┘
+                 |             |           |
+                 v             v           v
+         ┌─────────────┐ ┌─────────┐ ┌───────────┐
+         │    Global   │ │Component│ │  Server   │
+         │    Error    │ │  Error  │ │   Error   │
+         │   Boundary  │ │ Boundary│ │  Handler  │
+         └──────┬──────┘ └────┬────┘ └─────┬─────┘
+                |              |            |
+                v              v            v
+         ┌───────────────────────────────────────┐
+         │       Context Enrichment Layer        │
+         └──────────────────┬────────────────────┘
+                            |
+                            v
+                 ┌────────────────────┐
+                 │ Error Tracking API │
+                 └─────────┬──────────┘
+                           |
+                 ┌─────────┴──────────┐
+          ┌──────┴──────┐      ┌──────┴──────┐
+          │   PostHog   │      │   Sentry    │
+          │  Exception  │      │  Exception  │
+          │   Capture   │      │   Capture   │
+          └─────────────┘      └─────────────┘
+```
+
+This pattern enables:
+
+- Comprehensive error capture across all application layers
+- Rich context with every error (user, component, game state, etc.)
+- Dual tracking in both PostHog and Sentry
+- User-friendly error recovery interfaces
+- Centralized error monitoring and analysis
+
+Implementation details:
+
+- Global error boundary in `global-error.tsx`
+- Section-level error boundaries for key application areas
+- Component error boundaries with context enrichment
+- Server-side error tracking in `instrumentation.ts`
+- Extraction of user identity from cookies when available
+- Context-specific error recovery UIs
+- Detailed error tracking documentation
+
 ### Pattern: LLM Observability with PostHog
 
 Blitzer implements LLM observability for monitoring and analyzing AI chat interactions using PostHog:
