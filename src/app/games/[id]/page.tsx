@@ -3,14 +3,14 @@ import ScoreDisplay from "./scoreDisplay";
 import { getGameById } from "@/server/queries";
 import { notFound } from "next/navigation";
 import transformGameData from "@/lib/gameLogic";
-import { chartFlag } from "@/flags";
+import { isScoreChartsEnabled } from "@/featureFlags";
 
 export default async function GameView(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
   const game = await getGameById(params.id);
-  const showCharts = await chartFlag();
+  const showCharts = await isScoreChartsEnabled();
   if (!game) {
     notFound();
   }
