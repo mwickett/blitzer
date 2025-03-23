@@ -32,7 +32,7 @@
 | Technology | Version | Purpose                                   |
 | ---------- | ------- | ----------------------------------------- |
 | Sentry     | N/A     | Error tracking and performance monitoring |
-| PostHog    | N/A     | Product analytics                         |
+| PostHog    | N/A     | Product analytics and feature flags       |
 
 ### Testing
 
@@ -70,6 +70,16 @@ This launches the application at `http://localhost:3000` with:
 - Auto-refresh for server components
 - Automatic TypeScript type checking
 
+### Feature Flags
+
+The application uses PostHog for feature flags:
+
+- Server-side feature flags with PostHog Node.js client
+- Client-side feature flags with PostHog React hooks
+- Documented usage patterns in `src/FEATURE_FLAGS.md`
+- Current flags:
+  - `score-charts`: Controls visibility of score charts in game view
+
 ### Environment Variables
 
 The application requires several environment variables to function correctly:
@@ -82,7 +92,7 @@ The application requires several environment variables to function correctly:
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
 ***REMOVED***
 
-# Analytics
+# PostHog Analytics and Feature Flags
 ***REMOVED***
 POSTHOG_HOST=https://app.posthog.com
 
@@ -147,7 +157,8 @@ These are configured through a `.env.local` file which is not committed to versi
 - `@prisma/client`: Prisma client for database access
 - `@radix-ui/*`: Primitive UI components
 - `@sentry/nextjs`: Sentry integration for error tracking
-- `posthog-js`: PostHog analytics client
+- `posthog-js`: PostHog analytics and feature flags client
+- `posthog-node`: PostHog server-side client for feature flags
 - `tailwindcss`: CSS utility framework
 - `typescript`: TypeScript language
 
