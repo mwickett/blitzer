@@ -1,3 +1,12 @@
+// Mock Resend before any imports that might use it
+jest.mock("resend", () => ({
+  Resend: jest.fn().mockImplementation(() => ({
+    emails: {
+      send: jest.fn().mockResolvedValue({ data: {}, error: null }),
+    },
+  })),
+}));
+
 import {
   createGame,
   createRoundForGame,
