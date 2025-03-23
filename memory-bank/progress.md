@@ -26,6 +26,9 @@
 - ✅ Enhanced system prompts with user game statistics
 - ✅ Modern chat UI using AI SDK
 - ✅ Streaming responses for natural conversation feel
+- ✅ PostHog LLM observability integration
+- ✅ Fixed deprecated APIs in ModernChatUI component
+- ✅ LLM observability documentation
 
 ## In Progress
 

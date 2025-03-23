@@ -29,10 +29,11 @@
 
 ### Monitoring & Observability
 
-| Technology | Version | Purpose                                   |
-| ---------- | ------- | ----------------------------------------- |
-| Sentry     | N/A     | Error tracking and performance monitoring |
-| PostHog    | N/A     | Product analytics and feature flags       |
+| Technology  | Version | Purpose                                   |
+| ----------- | ------- | ----------------------------------------- |
+| Sentry      | N/A     | Error tracking and performance monitoring |
+| PostHog     | N/A     | Product analytics and feature flags       |
+| @posthog/ai | N/A     | LLM observability and monitoring          |
 
 ### Testing
 
@@ -159,6 +160,10 @@ These are configured through a `.env.local` file which is not committed to versi
 - `@sentry/nextjs`: Sentry integration for error tracking
 - `posthog-js`: PostHog analytics and feature flags client
 - `posthog-node`: PostHog server-side client for feature flags
+- `@posthog/ai`: PostHog LLM observability integration
+- `ai`: Vercel AI SDK utilities
+- `@ai-sdk/react`: React hooks for AI interactions
+- `@ai-sdk/openai`: OpenAI integration for AI SDK
 - `tailwindcss`: CSS utility framework
 - `typescript`: TypeScript language
 

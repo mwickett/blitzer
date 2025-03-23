@@ -36,6 +36,9 @@ The current development focus for Blitzer is on three main areas:
 - Created API endpoint for LLM-powered chat ✅
 - Implemented proper streaming responses for the chat interface ✅
 - Added user statistics in prompt for personalized responses ✅
+- Implemented PostHog LLM observability for chat functionality ✅
+- Fixed deprecated `isLoading` property in ModernChatUI component ✅
+- Created documentation for LLM observability implementation ✅
 
 ## Next Steps
 
@@ -52,6 +55,8 @@ The current development focus for Blitzer is on three main areas:
    - Add visualization support for query results
    - Add more advanced user queries based on game data
    - Implement caching for common queries
+   - Add user feedback mechanisms for LLM responses
+   - Create custom PostHog dashboards for LLM metrics
 
 3. **UI Improvements**
 
@@ -75,14 +80,20 @@ The current development focus for Blitzer is on three main areas:
 
 ### LLM Implementation Strategy
 
+Current implementation:
+
+- Enhanced system prompts with user-specific data ✅
+- Streaming approach for responsive chat functionality ✅
+- PostHog LLM observability for monitoring and analytics ✅
+
 Currently exploring:
 
 - MCP PostgreSQL for flexible database querying
 - Security considerations for data access
 - Prompt engineering for better user experience
 - Visualization of query results
-- Simpler non-streaming approach for chat functionality
-- Enhanced system prompts with user-specific data
+- PostHog monitoring dashboards for LLM usage patterns
+- User feedback collection for LLM responses
 
 ### Architecture Pattern Decision
 
