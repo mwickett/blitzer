@@ -19,6 +19,7 @@
 - ✅ Profile management
 - ✅ Friend connections
 - ✅ User avatars
+- ✅ Enhanced new game screen with improved player selection
 
 ### AI Features
 

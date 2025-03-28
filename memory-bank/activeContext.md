@@ -44,6 +44,7 @@ The current development focus for Blitzer is on three main areas:
 - Added section-level error boundaries for key application areas ✅
 - Enhanced server-side error tracking in instrumentation.ts ✅
 - Built error testing tools and documentation ✅
+- Implemented redesigned new game screen with improved player selection UI ✅
 
 ## Next Steps
 
