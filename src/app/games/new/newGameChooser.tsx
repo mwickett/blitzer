@@ -5,6 +5,7 @@ import { User } from "@prisma/client";
 import { useUser } from "@clerk/nextjs";
 import { createGame } from "@/server/mutations";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 // UI Components
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -29,27 +30,51 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ChevronsUpDown, Plus, X, Users, PlayCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import {
+  ChevronsUpDown,
+  Plus,
+  X,
+  Users,
+  PlayCircle,
+  UserPlus,
+  User as UserIcon,
+} from "lucide-react";
 
 type UserSubset = Pick<User, "id" | "username" | "clerk_user_id" | "avatarUrl">;
 
-export default function NewGameChooser({ users }: { users: UserSubset[] }) {
-  // No longer need selectedUserId state as we use direct user selection via CommandItem
-  const [inGameUsers, setInGameUsers] = useState<UserSubset[]>([]);
+type GamePlayer = UserSubset | { id: string; username: string; isGuest: true };
+
+interface NewGameChooserProps {
+  users: UserSubset[];
+  guestPlayersEnabled?: boolean;
+}
+
+export default function NewGameChooser({
+  users,
+  guestPlayersEnabled = false,
+}: NewGameChooserProps) {
+  const [inGamePlayers, setInGamePlayers] = useState<GamePlayer[]>([]);
   const [open, setOpen] = useState(false);
+  const [addingPlayer, setAddingPlayer] = useState(false);
+  const [activeTab, setActiveTab] = useState("existing");
+  const [guestName, setGuestName] = useState("");
+  const [guestError, setGuestError] = useState("");
 
   const { user: clerkUser } = useUser();
+  const router = useRouter();
 
   // Initialize with current user - only on initial load
   useEffect(() => {
-    if (users.length > 0 && inGameUsers.length === 0) {
+    if (users.length > 0 && inGamePlayers.length === 0) {
       const currentUser = users.find(
         (user) => user.clerk_user_id === clerkUser?.id
       );
       if (currentUser) {
-        setInGameUsers([currentUser]);
+        setInGamePlayers([currentUser]);
       } else if (users.length > 0) {
-        setInGameUsers([users[0]]);
+        setInGamePlayers([users[0]]);
       }
     }
     // Only run this effect once on component mount with the empty dependency array
@@ -57,15 +82,78 @@ export default function NewGameChooser({ users }: { users: UserSubset[] }) {
   }, []);
 
   const handleAddUser = (user: UserSubset) => {
-    if (!inGameUsers.some((p) => p.id === user.id) && inGameUsers.length < 4) {
-      setInGameUsers([...inGameUsers, user]);
+    if (
+      !inGamePlayers.some((p) => p.id === user.id) &&
+      inGamePlayers.length < 4
+    ) {
+      setInGamePlayers([...inGamePlayers, user]);
     }
     setOpen(false);
+    resetAddPlayerState();
+  };
+
+  const handleAddGuest = () => {
+    if (!guestName.trim()) {
+      setGuestError("Please enter a name");
+      return;
+    }
+
+    if (inGamePlayers.length < 4) {
+      // Create a temporary guest object with a client-side ID
+      const tempGuestUser = {
+        id: `guest-${Date.now()}`, // Temporary ID, will be replaced by real UUID on server
+        username: guestName.trim(),
+        isGuest: true as const, // Flag to identify guest users in the UI
+      };
+
+      setInGamePlayers((prev) => [...prev, tempGuestUser]);
+      resetAddPlayerState();
+    }
+  };
+
+  const resetAddPlayerState = () => {
+    setAddingPlayer(false);
+    setGuestName("");
+    setGuestError("");
+    setActiveTab("existing");
+  };
+
+  const startAddingPlayer = () => {
+    setAddingPlayer(true);
   };
 
   const removePlayer = (playerId: string) => {
     // Allow removing any player including yourself
-    setInGameUsers(inGameUsers.filter((player) => player.id !== playerId));
+    setInGamePlayers(inGamePlayers.filter((player) => player.id !== playerId));
+  };
+
+  // Helper to determine if a player is the current user
+  const isCurrentUser = (player: GamePlayer) => {
+    return "clerk_user_id" in player && player.clerk_user_id === clerkUser?.id;
+  };
+
+  // Helper to get player initials
+  const getPlayerInitials = (name: string) => {
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Helper to check if the player is a guest
+  const isGuestPlayer = (
+    player: GamePlayer
+  ): player is { id: string; username: string; isGuest: true } => {
+    return "isGuest" in player && player.isGuest === true;
+  };
+
+  // Handle game creation and redirect
+  const handleCreateGame = async () => {
+    try {
+      const result = await createGame(inGamePlayers);
+      if (result && result.gameId) {
+        router.push(`/games/${result.gameId}`);
+      }
+    } catch (error) {
+      console.error("Error creating game:", error);
+    }
   };
 
   return (
@@ -81,83 +169,21 @@ export default function NewGameChooser({ users }: { users: UserSubset[] }) {
           <div>
             <h2 className="text-base font-medium text-[#2a0e02] mb-3 flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Select Players (Max 4)
+              Select Players
             </h2>
-            <div className="bg-[#f7f2e9] p-3 rounded-lg border border-[#e6d7c3]">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-[#5a341f] text-sm">
-                  Available Players
-                </h3>
-                <Popover open={open} onOpenChange={setOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={open}
-                      className="w-[240px] justify-between border-[#e6d7c3] text-[#2a0e02] h-9 text-sm"
-                      disabled={inGameUsers.length >= 4}
-                    >
-                      {inGameUsers.length >= 4
-                        ? "Max players"
-                        : "Select players..."}
-                      <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[240px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Search players..." />
-                      <CommandList>
-                        <CommandEmpty>No player found.</CommandEmpty>
-                        <CommandGroup>
-                          {users
-                            .filter(
-                              (user) =>
-                                !inGameUsers.some((p) => p.id === user.id)
-                            )
-                            .map((user) => (
-                              <CommandItem
-                                key={user.id}
-                                onSelect={() => handleAddUser(user)}
-                                className="flex items-center gap-2"
-                              >
-                                <Avatar className="h-6 w-6">
-                                  {user.avatarUrl ? (
-                                    <AvatarImage
-                                      src={user.avatarUrl}
-                                      alt={user.username}
-                                    />
-                                  ) : (
-                                    <AvatarFallback className="bg-[#f0e6d2] text-[#2a0e02] text-xs">
-                                      {user.username
-                                        .substring(0, 2)
-                                        .toUpperCase()}
-                                    </AvatarFallback>
-                                  )}
-                                </Avatar>
-                                {user.username}
-                              </CommandItem>
-                            ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
           </div>
 
           <div>
             <h3 className="font-medium text-[#5a341f] text-sm mb-3">
-              Selected Players ({inGameUsers.length}/4)
+              Selected Players ({inGamePlayers.length}/4)
             </h3>
-            <div className="grid grid-cols-2 gap-3">
-              {inGameUsers.map((user) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {inGamePlayers.map((player) => (
                 <div
-                  key={user.id}
+                  key={player.id}
                   className={cn(
-                    "relative flex flex-col items-center p-3 rounded-lg border border-[#e6d7c3] bg-white h-[110px]",
-                    user.clerk_user_id === clerkUser?.id &&
-                      "ring-1 ring-[#8b5e3c]"
+                    "relative flex sm:flex-col sm:items-center p-3 rounded-lg border border-[#e6d7c3] bg-white sm:h-[130px]",
+                    isCurrentUser(player) && "ring-1 ring-[#8b5e3c]"
                   )}
                 >
                   <div className="absolute top-1 right-1">
@@ -165,47 +191,166 @@ export default function NewGameChooser({ users }: { users: UserSubset[] }) {
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6 text-[#8b5e3c] hover:text-[#5a341f] hover:bg-[#f7f2e9]"
-                      onClick={() => removePlayer(user.id)}
-                      disabled={false}
+                      onClick={() => removePlayer(player.id)}
+                      disabled={isCurrentUser(player)}
                     >
                       <X className="h-3 w-3" />
                       <span className="sr-only">Remove</span>
                     </Button>
                   </div>
-                  <Avatar className="h-12 w-12 mb-2">
-                    {user.avatarUrl ? (
-                      <AvatarImage src={user.avatarUrl} alt={user.username} />
+                  <Avatar className="h-12 w-12 sm:mb-2 mr-3 sm:mr-0 flex-shrink-0">
+                    {"avatarUrl" in player && player.avatarUrl ? (
+                      <AvatarImage
+                        src={player.avatarUrl}
+                        alt={player.username}
+                      />
                     ) : (
                       <AvatarFallback className="bg-[#f0e6d2] text-[#2a0e02]">
-                        {user.username.substring(0, 2).toUpperCase()}
+                        {getPlayerInitials(player.username)}
                       </AvatarFallback>
                     )}
                   </Avatar>
-                  <div className="flex flex-col items-center h-[36px] justify-between">
+                  <div className="flex flex-col justify-center w-full sm:items-center sm:h-[36px] sm:justify-between">
                     <span className="font-medium text-[#2a0e02] text-sm">
-                      {user.username}
+                      {player.username}
                     </span>
-                    {user.clerk_user_id === clerkUser?.id && (
-                      <span className="text-xs bg-[#f0e6d2] text-[#5a341f] px-2 py-0.5 rounded-full">
-                        You
-                      </span>
-                    )}
+                    <div className="flex flex-wrap gap-1 mt-1 sm:mt-2 max-w-full">
+                      {isCurrentUser(player) && (
+                        <span className="text-xs bg-[#f0e6d2] text-[#5a341f] px-2 py-0.5 rounded-full">
+                          You
+                        </span>
+                      )}
+                      {isGuestPlayer(player) && (
+                        <span className="text-xs bg-[#e6d7c3] text-[#5a341f] px-2 py-0.5 rounded-full">
+                          Guest
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
 
-              {inGameUsers.length < 4 && (
+              {inGamePlayers.length < 4 && !addingPlayer && (
                 <button
-                  className="flex flex-col items-center justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] transition-colors h-[110px]"
-                  onClick={() => setOpen(true)}
+                  className="flex items-center sm:flex-col sm:items-center justify-start sm:justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] transition-colors sm:h-[130px]"
+                  onClick={startAddingPlayer}
                 >
-                  <div className="h-12 w-12 rounded-full bg-[#f0e6d2] flex items-center justify-center mb-2">
+                  <div className="h-12 w-12 rounded-full bg-[#f0e6d2] flex items-center justify-center sm:mb-2 mr-3 sm:mr-0 flex-shrink-0">
                     <Plus className="h-6 w-6 text-[#8b5e3c]" />
                   </div>
                   <span className="font-medium text-[#5a341f] text-sm">
                     Add Player
                   </span>
                 </button>
+              )}
+
+              {inGamePlayers.length < 4 && addingPlayer && (
+                <div className="flex flex-col p-3 rounded-lg border border-[#e6d7c3] bg-white sm:h-[130px]">
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={setActiveTab}
+                    className="w-full"
+                  >
+                    <TabsList className="grid grid-cols-2 mb-2 bg-[#f7f2e9]">
+                      <TabsTrigger value="existing" className="text-xs">
+                        <UserIcon className="h-3 w-3 mr-1" />
+                        Existing
+                      </TabsTrigger>
+                      {guestPlayersEnabled && (
+                        <TabsTrigger value="guest" className="text-xs">
+                          <UserPlus className="h-3 w-3 mr-1" />
+                          Guest
+                        </TabsTrigger>
+                      )}
+                    </TabsList>
+                    <TabsContent value="existing" className="mt-0">
+                      <Popover open={open} onOpenChange={setOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={open}
+                            className="w-full justify-between border-[#e6d7c3] text-[#2a0e02] h-8 text-xs"
+                          >
+                            Select player...
+                            <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[200px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search..." />
+                            <CommandList>
+                              <CommandEmpty>No player found.</CommandEmpty>
+                              <CommandGroup>
+                                {users
+                                  .filter(
+                                    (user) =>
+                                      !inGamePlayers.some(
+                                        (p) => p.id === user.id
+                                      )
+                                  )
+                                  .map((user) => (
+                                    <CommandItem
+                                      key={user.id}
+                                      onSelect={() => handleAddUser(user)}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Avatar className="h-6 w-6">
+                                        {user.avatarUrl ? (
+                                          <AvatarImage
+                                            src={user.avatarUrl}
+                                            alt={user.username}
+                                          />
+                                        ) : (
+                                          <AvatarFallback className="bg-[#f0e6d2] text-[#2a0e02] text-xs">
+                                            {getPlayerInitials(user.username)}
+                                          </AvatarFallback>
+                                        )}
+                                      </Avatar>
+                                      {user.username}
+                                    </CommandItem>
+                                  ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </TabsContent>
+                    {guestPlayersEnabled && (
+                      <TabsContent value="guest" className="mt-0 space-y-1">
+                        <div className="relative">
+                          <Input
+                            value={guestName}
+                            onChange={(e) => {
+                              setGuestName(e.target.value);
+                              if (e.target.value.trim()) setGuestError("");
+                            }}
+                            placeholder="Enter guest name"
+                            className="border-[#e6d7c3] h-8 text-xs pr-16"
+                          />
+                          <Button
+                            size="sm"
+                            className="absolute right-0 top-0 h-8 text-xs bg-[#5a341f] hover:bg-[#3d1a0a]"
+                            onClick={handleAddGuest}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                        {guestError && (
+                          <p className="text-red-500 text-xs">{guestError}</p>
+                        )}
+                      </TabsContent>
+                    )}
+                  </Tabs>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-auto self-center text-xs text-[#5a341f]"
+                    onClick={resetAddPlayerState}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -214,8 +359,8 @@ export default function NewGameChooser({ users }: { users: UserSubset[] }) {
       <CardFooter className="bg-[#f7f2e9] border-t border-[#e6d7c3] p-4 flex justify-end">
         <Button
           className="bg-[#2a6517] hover:bg-[#1d4a10] text-white font-medium px-6 h-10"
-          onClick={() => createGame(inGameUsers)}
-          disabled={inGameUsers.length < 2}
+          onClick={handleCreateGame}
+          disabled={inGamePlayers.length < 2}
         >
           <PlayCircle className="mr-2 h-4 w-4" />
           Start Game
