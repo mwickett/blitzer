@@ -169,188 +169,20 @@ export default function NewGameChooser({
           <div>
             <h2 className="text-base font-medium text-[#2a0e02] mb-3 flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Select Players (Max 4)
+              Select Players
             </h2>
-            {!addingPlayer && (
-              <div className="bg-[#f7f2e9] p-3 rounded-lg border border-[#e6d7c3] mb-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-[#5a341f] text-sm">
-                    Available Players
-                  </h3>
-                  <Popover open={open} onOpenChange={setOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={open}
-                        className="w-[240px] justify-between border-[#e6d7c3] text-[#2a0e02] h-9 text-sm"
-                        disabled={inGamePlayers.length >= 4}
-                      >
-                        {inGamePlayers.length >= 4
-                          ? "Max players"
-                          : "Select players..."}
-                        <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[240px] p-0">
-                      <Command>
-                        <CommandInput placeholder="Search players..." />
-                        <CommandList>
-                          <CommandEmpty>No player found.</CommandEmpty>
-                          <CommandGroup>
-                            {users
-                              .filter(
-                                (user) =>
-                                  !inGamePlayers.some((p) => p.id === user.id)
-                              )
-                              .map((user) => (
-                                <CommandItem
-                                  key={user.id}
-                                  onSelect={() => handleAddUser(user)}
-                                  className="flex items-center gap-2"
-                                >
-                                  <Avatar className="h-6 w-6">
-                                    {user.avatarUrl ? (
-                                      <AvatarImage
-                                        src={user.avatarUrl}
-                                        alt={user.username}
-                                      />
-                                    ) : (
-                                      <AvatarFallback className="bg-[#f0e6d2] text-[#2a0e02] text-xs">
-                                        {getPlayerInitials(user.username)}
-                                      </AvatarFallback>
-                                    )}
-                                  </Avatar>
-                                  {user.username}
-                                </CommandItem>
-                              ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-            )}
-
-            {addingPlayer && (
-              <div className="bg-[#f7f2e9] p-3 rounded-lg border border-[#e6d7c3] mb-3">
-                <Tabs
-                  value={activeTab}
-                  onValueChange={setActiveTab}
-                  className="w-full"
-                >
-                  <TabsList className="grid grid-cols-2 mb-2 bg-white">
-                    <TabsTrigger value="existing" className="text-xs">
-                      <UserIcon className="h-3 w-3 mr-1" />
-                      Existing Player
-                    </TabsTrigger>
-                    {guestPlayersEnabled && (
-                      <TabsTrigger value="guest" className="text-xs">
-                        <UserPlus className="h-3 w-3 mr-1" />
-                        Guest Player
-                      </TabsTrigger>
-                    )}
-                  </TabsList>
-                  <TabsContent value="existing" className="mt-0">
-                    <Popover open={open} onOpenChange={setOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={open}
-                          className="w-full justify-between border-[#e6d7c3] text-[#2a0e02] h-9 text-sm"
-                        >
-                          Select player...
-                          <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[240px] p-0">
-                        <Command>
-                          <CommandInput placeholder="Search players..." />
-                          <CommandList>
-                            <CommandEmpty>No player found.</CommandEmpty>
-                            <CommandGroup>
-                              {users
-                                .filter(
-                                  (user) =>
-                                    !inGamePlayers.some((p) => p.id === user.id)
-                                )
-                                .map((user) => (
-                                  <CommandItem
-                                    key={user.id}
-                                    onSelect={() => handleAddUser(user)}
-                                    className="flex items-center gap-2"
-                                  >
-                                    <Avatar className="h-6 w-6">
-                                      {user.avatarUrl ? (
-                                        <AvatarImage
-                                          src={user.avatarUrl}
-                                          alt={user.username}
-                                        />
-                                      ) : (
-                                        <AvatarFallback className="bg-[#f0e6d2] text-[#2a0e02] text-xs">
-                                          {getPlayerInitials(user.username)}
-                                        </AvatarFallback>
-                                      )}
-                                    </Avatar>
-                                    {user.username}
-                                  </CommandItem>
-                                ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </TabsContent>
-                  {guestPlayersEnabled && (
-                    <TabsContent value="guest" className="mt-0 space-y-1">
-                      <div className="relative">
-                        <Input
-                          value={guestName}
-                          onChange={(e) => {
-                            setGuestName(e.target.value);
-                            if (e.target.value.trim()) setGuestError("");
-                          }}
-                          placeholder="Enter guest name"
-                          className="border-[#e6d7c3] h-9 text-sm pr-16"
-                        />
-                        <Button
-                          size="sm"
-                          className="absolute right-0 top-0 h-9 text-xs bg-[#5a341f] hover:bg-[#3d1a0a]"
-                          onClick={handleAddGuest}
-                        >
-                          Add
-                        </Button>
-                      </div>
-                      {guestError && (
-                        <p className="text-red-500 text-xs">{guestError}</p>
-                      )}
-                    </TabsContent>
-                  )}
-                </Tabs>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2 self-center text-xs text-[#5a341f] w-full"
-                  onClick={resetAddPlayerState}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
           </div>
 
           <div>
             <h3 className="font-medium text-[#5a341f] text-sm mb-3">
               Selected Players ({inGamePlayers.length}/4)
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {inGamePlayers.map((player) => (
                 <div
                   key={player.id}
                   className={cn(
-                    "relative flex flex-col items-center p-3 rounded-lg border border-[#e6d7c3] bg-white h-[110px]",
+                    "relative flex sm:flex-col sm:items-center p-3 rounded-lg border border-[#e6d7c3] bg-white sm:h-[130px]",
                     isCurrentUser(player) && "ring-1 ring-[#8b5e3c]"
                   )}
                 >
@@ -366,7 +198,7 @@ export default function NewGameChooser({
                       <span className="sr-only">Remove</span>
                     </Button>
                   </div>
-                  <Avatar className="h-12 w-12 mb-2">
+                  <Avatar className="h-12 w-12 sm:mb-2 mr-3 sm:mr-0 flex-shrink-0">
                     {"avatarUrl" in player && player.avatarUrl ? (
                       <AvatarImage
                         src={player.avatarUrl}
@@ -378,11 +210,11 @@ export default function NewGameChooser({
                       </AvatarFallback>
                     )}
                   </Avatar>
-                  <div className="flex flex-col items-center h-[36px] justify-between">
+                  <div className="flex flex-col justify-center w-full sm:items-center sm:h-[36px] sm:justify-between">
                     <span className="font-medium text-[#2a0e02] text-sm">
                       {player.username}
                     </span>
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1 mt-1 sm:mt-2 max-w-full">
                       {isCurrentUser(player) && (
                         <span className="text-xs bg-[#f0e6d2] text-[#5a341f] px-2 py-0.5 rounded-full">
                           You
@@ -400,16 +232,125 @@ export default function NewGameChooser({
 
               {inGamePlayers.length < 4 && !addingPlayer && (
                 <button
-                  className="flex flex-col items-center justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] transition-colors h-[110px]"
+                  className="flex items-center sm:flex-col sm:items-center justify-start sm:justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] transition-colors sm:h-[130px]"
                   onClick={startAddingPlayer}
                 >
-                  <div className="h-12 w-12 rounded-full bg-[#f0e6d2] flex items-center justify-center mb-2">
+                  <div className="h-12 w-12 rounded-full bg-[#f0e6d2] flex items-center justify-center sm:mb-2 mr-3 sm:mr-0 flex-shrink-0">
                     <Plus className="h-6 w-6 text-[#8b5e3c]" />
                   </div>
                   <span className="font-medium text-[#5a341f] text-sm">
                     Add Player
                   </span>
                 </button>
+              )}
+
+              {inGamePlayers.length < 4 && addingPlayer && (
+                <div className="flex flex-col p-3 rounded-lg border border-[#e6d7c3] bg-white sm:h-[130px]">
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={setActiveTab}
+                    className="w-full"
+                  >
+                    <TabsList className="grid grid-cols-2 mb-2 bg-[#f7f2e9]">
+                      <TabsTrigger value="existing" className="text-xs">
+                        <UserIcon className="h-3 w-3 mr-1" />
+                        Existing
+                      </TabsTrigger>
+                      {guestPlayersEnabled && (
+                        <TabsTrigger value="guest" className="text-xs">
+                          <UserPlus className="h-3 w-3 mr-1" />
+                          Guest
+                        </TabsTrigger>
+                      )}
+                    </TabsList>
+                    <TabsContent value="existing" className="mt-0">
+                      <Popover open={open} onOpenChange={setOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={open}
+                            className="w-full justify-between border-[#e6d7c3] text-[#2a0e02] h-8 text-xs"
+                          >
+                            Select player...
+                            <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[200px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search..." />
+                            <CommandList>
+                              <CommandEmpty>No player found.</CommandEmpty>
+                              <CommandGroup>
+                                {users
+                                  .filter(
+                                    (user) =>
+                                      !inGamePlayers.some(
+                                        (p) => p.id === user.id
+                                      )
+                                  )
+                                  .map((user) => (
+                                    <CommandItem
+                                      key={user.id}
+                                      onSelect={() => handleAddUser(user)}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Avatar className="h-6 w-6">
+                                        {user.avatarUrl ? (
+                                          <AvatarImage
+                                            src={user.avatarUrl}
+                                            alt={user.username}
+                                          />
+                                        ) : (
+                                          <AvatarFallback className="bg-[#f0e6d2] text-[#2a0e02] text-xs">
+                                            {getPlayerInitials(user.username)}
+                                          </AvatarFallback>
+                                        )}
+                                      </Avatar>
+                                      {user.username}
+                                    </CommandItem>
+                                  ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </TabsContent>
+                    {guestPlayersEnabled && (
+                      <TabsContent value="guest" className="mt-0 space-y-1">
+                        <div className="relative">
+                          <Input
+                            value={guestName}
+                            onChange={(e) => {
+                              setGuestName(e.target.value);
+                              if (e.target.value.trim()) setGuestError("");
+                            }}
+                            placeholder="Enter guest name"
+                            className="border-[#e6d7c3] h-8 text-xs pr-16"
+                          />
+                          <Button
+                            size="sm"
+                            className="absolute right-0 top-0 h-8 text-xs bg-[#5a341f] hover:bg-[#3d1a0a]"
+                            onClick={handleAddGuest}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                        {guestError && (
+                          <p className="text-red-500 text-xs">{guestError}</p>
+                        )}
+                      </TabsContent>
+                    )}
+                  </Tabs>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-auto self-center text-xs text-[#5a341f]"
+                    onClick={resetAddPlayerState}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               )}
             </div>
           </div>
