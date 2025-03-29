@@ -169,6 +169,7 @@ export async function createRoundForGame(
           },
         });
       } else if (score.guestId) {
+        // Create score with guest ID only
         await prisma.score.create({
           data: {
             ...scoreData,
