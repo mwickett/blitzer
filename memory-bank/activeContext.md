@@ -52,6 +52,10 @@ The current development focus for Blitzer is on three main areas:
   - Added UI elements to identify and manage guest players ✅
   - Fixed null constraint issues between user/guest relationships ✅
   - Implemented robust error handling for guest player data ✅
+- Fixed email rate limiting issues ✅
+  - Added sequential email processing with delays to avoid Resend API rate limits ✅
+  - Implemented retry logic with exponential backoff for rate-limited email requests ✅
+  - Added robust error handling to continue processing remaining emails when rate limits are hit ✅
 
 ## Next Steps
 

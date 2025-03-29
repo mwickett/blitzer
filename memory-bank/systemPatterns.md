@@ -282,6 +282,75 @@ The guest player system is implemented in three phases:
 
 For detailed implementation plan, see `memory-bank/features/guest-players.md`.
 
+### Pattern: Email Rate Limiting
+
+Blitzer implements a robust email delivery system that handles rate limits from the Resend API:
+
+```
+                         ┌───────────────────┐
+                         │   Email Request   │
+                         └─────────┬─────────┘
+                                   │
+                         ┌─────────▼─────────┐
+                         │  sendEmail Helper │
+                         └─────────┬─────────┘
+                                   │
+                   ┌───────────────┴────────────────┐
+                   │                                │
+       ┌───────────▼──────────┐        ┌───────────▼───────────┐
+       │ Single Email Sending │        │ Batch Email Processing│
+       │   (with retries)     │        │   (sequential with    │
+       │                      │        │       delays)         │
+       └───────────┬──────────┘        └───────────┬───────────┘
+                   │                                │
+       ┌───────────▼──────────┐                     │
+       │  Rate Limit Check    │◄────────────────────┘
+       └───────────┬──────────┘
+                   │
+       ┌───────────▼──────────┐
+       │  Exponential Backoff │
+       │   & Retry Logic      │
+       └───────────┬──────────┘
+                   │
+       ┌───────────▼──────────┐
+       │  Error Handling &    │
+       │     Reporting        │
+       └──────────────────────┘
+```
+
+This pattern addresses the Resend API's rate limit of 2 requests per second through:
+
+1. **Sequential Email Processing**
+
+   - Processing multiple emails one at a time with controlled delays between requests
+   - Default 600ms delay between consecutive emails to stay within rate limits
+
+2. **Retry Logic**
+
+   - Maximum of 3 attempts for rate-limited requests
+   - Exponential backoff between retries (1000ms × attempt number)
+   - Specific detection of rate limit errors (`rate_limit_exceeded`)
+   - Continue processing remaining emails even if some fail
+
+3. **Error Handling**
+   - Detailed error logging for troubleshooting
+   - Different handling for rate limit vs. other errors
+   - Error response with context for debugging
+
+Implementation details:
+
+- Centralized `sendEmail` helper function in `email.ts`
+- Sequential processing in user-facing functions like `updateGameAsFinished`
+- Retry mechanism with increasing delays
+- Comprehensive error handling for both API and unexpected errors
+
+Benefits:
+
+- Reliable email delivery despite API rate limits
+- Graceful handling of temporary failures
+- Minimal impact on user experience during rate limiting
+- Better visibility into email delivery issues
+
 ## Component Relationships and Data Flow
 
 ### Core Data Flow

@@ -211,6 +211,7 @@ export async function updateGameAsFinished(
               id: true,
               email: true,
               username: true,
+              clerk_user_id: true,
             },
           },
           guestUser: {
@@ -258,23 +259,74 @@ export async function updateGameAsFinished(
   });
 
   // Send emails to all registered players (can't send to guests)
-  await Promise.all(
-    game.players
-      .filter((player) => player.user) // Only consider registered users
-      .map((player) => {
-        const userEmail = player.user!.email;
-        const username = player.user!.username;
-        const userId = player.user!.id;
+  // Process emails sequentially with delay to avoid rate limits
+  const registeredPlayers = game.players.filter((player) => player.user);
 
-        return sendGameCompleteEmail({
-          email: userEmail,
-          username: username,
-          winnerUsername: winnerName,
-          isWinner: isGuestWinner ? false : userId === winnerId,
+  // Track email batch in PostHog
+  posthog.capture({
+    distinctId: user.userId,
+    event: "email_batch_started",
+    properties: {
+      gameId,
+      emailType: "game_complete",
+      recipientCount: registeredPlayers.length,
+      winnerName,
+      isGuestWinner,
+    },
+  });
+
+  for (let i = 0; i < registeredPlayers.length; i++) {
+    const player = registeredPlayers[i];
+    const userEmail = player.user!.email;
+    const username = player.user!.username;
+    const userId = player.user!.id;
+    // Use clerk_user_id if available for consistent tracking
+    const userClerkId = player.user!.clerk_user_id || user.userId;
+
+    try {
+      await sendGameCompleteEmail({
+        email: userEmail,
+        username: username,
+        winnerUsername: winnerName,
+        isWinner: isGuestWinner ? false : userId === winnerId,
+        gameId,
+        userId: userClerkId,
+      });
+
+      // Add delay between email sends to avoid rate limiting (Resend limit is 2 per second)
+      if (i < registeredPlayers.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 600)); // 600ms delay between emails
+      }
+    } catch (error) {
+      console.error(`Failed to send email to ${username}:`, error);
+      // Track individual email failure
+      posthog.capture({
+        distinctId: user.userId,
+        event: "email_batch_item_failed",
+        properties: {
           gameId,
-        });
-      })
-  );
+          recipientEmail: userEmail,
+          recipientUsername: username,
+          recipientId: userId,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      });
+      // Continue with other emails even if one fails
+    }
+  }
+
+  // Track email batch completion
+  posthog.capture({
+    distinctId: user.userId,
+    event: "email_batch_completed",
+    properties: {
+      gameId,
+      emailType: "game_complete",
+      recipientCount: registeredPlayers.length,
+      winnerName,
+      isGuestWinner,
+    },
+  });
 
   posthog.capture({
     distinctId: user.userId,
@@ -379,10 +431,22 @@ export async function createFriendRequest(userId: string) {
     email: targetUser.email,
     username: targetUser.username,
     fromUsername: sender.username,
+    userId: user.userId,
   });
 
   if (!emailResult.success) {
     console.error("Friend request email failed:", emailResult.error);
+    // Track email failure in PostHog
+    posthog.capture({
+      distinctId: user.userId,
+      event: "friend_request_email_failed",
+      properties: {
+        receiverEmail: targetUser.email,
+        receiverUsername: targetUser.username,
+        receiverId: targetUser.id,
+        errorMessage: emailResult.error,
+      },
+    });
     // Continue since friend request was created successfully
   }
 
