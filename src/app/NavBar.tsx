@@ -1,6 +1,12 @@
 "use client";
 
-import { UserButton, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import {
+  UserButton,
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignUpButton,
+} from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
@@ -131,10 +137,11 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
               <Button asChild>
                 <Link href="/games/new">New game</Link>
               </Button>
-              <UserButton afterSignOutUrl="/" />
+              <UserButton />
             </SignedIn>
             <SignedOut>
               <SignInButton>Sign In</SignInButton>
+              <SignUpButton>Sign Up</SignUpButton>
             </SignedOut>
           </div>
         </div>
