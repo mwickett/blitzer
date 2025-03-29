@@ -35,6 +35,7 @@ jest.mock("../db/db", () => ({
       create: jest.fn(),
     },
     score: {
+      create: jest.fn(),
       updateMany: jest.fn(),
     },
     user: {
@@ -112,16 +113,6 @@ describe("Game Mutations", () => {
         data: {
           gameId: mockGameId,
           round: 1,
-          scores: {
-            create: validScores.map((score) => ({
-              blitzPileRemaining: score.blitzPileRemaining,
-              totalCardsPlayed: score.totalCardsPlayed,
-              updatedAt: expect.any(Date),
-              user: {
-                connect: { id: score.userId },
-              },
-            })),
-          },
         },
       });
 

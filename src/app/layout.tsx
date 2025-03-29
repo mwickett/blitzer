@@ -7,6 +7,7 @@ import { Inter } from "next/font/google";
 import NavBar from "./NavBar";
 import "./globals.css";
 import PostHogPageView from "./PostHogPageView";
+import Footer from "@/components/Footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -62,6 +63,7 @@ export default async function RootLayout({
             </Suspense>
             <NavBar>
               {children}
+              <Footer />
               <Analytics />
             </NavBar>
           </body>
