@@ -23,10 +23,10 @@ export default function PrivacyPage() {
 
       <div className="prose prose-lg max-w-none">
         <p className="mb-6">
-          Blitzer ("we", "us", or "our") is committed to protecting your
-          privacy. This Privacy Policy explains how we collect, use, and share
-          information when you use our website and services at
-          https://www.blitzer.fun.
+          Blitzer (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is
+          committed to protecting your privacy. This Privacy Policy explains how
+          we collect, use, and share information when you use our website and
+          services at https://www.blitzer.fun.
         </p>
 
         <section className="mb-8">

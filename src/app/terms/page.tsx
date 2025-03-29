@@ -23,8 +23,9 @@ export default function TermsPage() {
 
       <div className="prose prose-lg max-w-none">
         <p className="mb-6">
-          By using Blitzer ("the Service"), you agree to these Terms of Service
-          ("Terms"). If you do not agree, please do not use the Service.
+          By using Blitzer (&quot;the Service&quot;), you agree to these Terms
+          of Service (&quot;Terms&quot;). If you do not agree, please do not use
+          the Service.
         </p>
 
         <section className="mb-8">
@@ -74,8 +75,9 @@ export default function TermsPage() {
             5. Limitation of Liability
           </h2>
           <p className="mb-4">
-            We provide the Service "as is" without warranties. We are not liable
-            for any loss, damage, or inconvenience caused by using the Service.
+            We provide the Service &quot;as is&quot; without warranties. We are
+            not liable for any loss, damage, or inconvenience caused by using
+            the Service.
           </p>
         </section>
 
