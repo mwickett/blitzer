@@ -36,7 +36,7 @@ function MobileNavLink({
   );
 }
 
-export default function NavBar({ children }: { children: React.ReactNode }) {
+export default function NavBar({ children }: { children: React.ReactNode[] }) {
   const pathName = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const llmEnabled = useLlmFeaturesFlag();
@@ -139,7 +139,10 @@ export default function NavBar({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 flex flex-col min-h-[calc(100vh-3.5rem)]">
+        {children[0]}
+        {children.slice(1)}
+      </main>
     </div>
   );
 }

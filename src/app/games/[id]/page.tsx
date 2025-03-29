@@ -61,7 +61,7 @@ export default async function GameView(props: {
   const currentRoundNumber = game.rounds.length + 1;
 
   return (
-    <section>
+    <section className="py-6">
       <ScoreDisplay
         displayScores={displayScores}
         numRounds={game.rounds.length}
