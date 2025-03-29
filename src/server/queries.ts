@@ -76,6 +76,7 @@ export async function getGames() {
       players: {
         include: {
           user: true,
+          guestUser: true,
         },
       },
       rounds: true,
