@@ -51,7 +51,7 @@ export default async function GameView(props: {
   for (const player of game.players) {
     if (!player.id && !player.userId && !player.guestId) {
       console.warn("Player is missing an ID, assigning a temporary one");
-      player.id = `temp-${Math.random().toString(36).substring(2, 9)}`;
+      player.id = `temp-${crypto.randomUUID()}`;
     }
   }
 
