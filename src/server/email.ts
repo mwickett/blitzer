@@ -6,7 +6,7 @@ import posthogClient from "@/app/posthog";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const sender = "Blitzer <notifications@blitzer.fun>";
+const sender = "Blitzer <hello@blitzer.fun>";
 
 async function sendEmail(options: {
   to: string[];

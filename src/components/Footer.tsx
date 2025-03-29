@@ -55,9 +55,25 @@ export default function Footer() {
         <div className="h-px w-full bg-gray-200 my-8"></div>
 
         <div className="flex flex-col md:flex-row justify-between items-center">
-          <p className="text-sm text-gray-600 mb-4 md:mb-0">
-            © {new Date().getFullYear()} Blitzer. All rights reserved.
-          </p>
+          <div className="flex flex-col items-center md:items-start">
+            <p className="text-sm text-gray-600 mb-2 md:mb-0">
+              © {new Date().getFullYear()} Blitzer. All rights reserved.
+            </p>
+            <div className="flex space-x-4 text-sm text-gray-600 mb-4 md:mb-0">
+              <Link
+                href="/privacy"
+                className="hover:text-brandAccent transition-colors"
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                href="/terms"
+                className="hover:text-brandAccent transition-colors"
+              >
+                Terms of Service
+              </Link>
+            </div>
+          </div>
           <p className="text-sm text-gray-600">
             For scoring and tracking statistics for{" "}
             <a
