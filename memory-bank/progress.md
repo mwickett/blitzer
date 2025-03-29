@@ -41,6 +41,19 @@
 - ✅ Error testing tools and development page
 - ✅ Detailed error tracking documentation
 
+### Guest Player Functionality
+
+**Phase 1: Core Guest Player Support**
+
+- ✅ GuestUser data model with creator relationship
+- ✅ Updated GamePlayers and Score models with polymorphic relationships
+- ✅ Enhanced new game UI with guest player creation
+- ✅ Server-side mutations for creating games with guests
+- ✅ Visual indicators for guest players throughout the UI
+- ✅ Fixed database constraints for nullable user/guest relationships
+- ✅ Defensive coding for handling null/undefined values
+- ✅ Type-safe conversion between database and application models
+
 ## In Progress
 
 ### LLM Features Enhancements
@@ -62,6 +75,15 @@
 - ⏳ System pattern documentation
 - ⏳ Technical debt reduction
 - ⏳ Standardizing on React Query for data fetching
+
+### Guest Player Functionality
+
+**Phase 2: Guest Management**
+
+- ⏳ Guest management interface for viewing created guests
+- ⏳ Guest statistics and gameplay history
+- ⏳ Guest player name editing functionality
+- ⏳ Guest data in statistical calculations and visualizations
 
 ## Upcoming
 
@@ -87,3 +109,12 @@
 - 📅 Achievement system
 - 📅 Group management
 - 📅 Game comments & reactions
+
+### Guest Player Functionality
+
+**Phase 3: Conversion Path**
+
+- 📅 Guest invitation system
+- 📅 Email templates for guest invitations
+- 📅 Registration flow that preserves guest history
+- 📅 Data migration process for guest-to-registered conversion

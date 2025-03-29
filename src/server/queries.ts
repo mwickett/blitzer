@@ -1,14 +1,13 @@
 import "server-only";
 
-import { Prisma } from '@prisma/client';
+import { Prisma } from "@prisma/client";
 import prisma from "@/server/db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
 import { getUserIdFromAuth } from "@/server/utils";
 
-
 // Fetches users who are friends of the current user but excludes the current
-// user 
+// user
 export async function getFilteredUsers() {
   const id = await getUserIdFromAuth();
 
@@ -82,7 +81,7 @@ export async function getGames() {
       rounds: true,
     },
     orderBy: {
-      createdAt: 'desc'
+      createdAt: "desc",
     },
   });
 
@@ -105,11 +104,17 @@ export async function getGameById(id: string) {
       players: {
         include: {
           user: true,
+          guestUser: true,
         },
       },
       rounds: {
         include: {
-          scores: true,
+          scores: {
+            include: {
+              user: true,
+              guestUser: true,
+            },
+          },
         },
       },
     },
@@ -149,7 +154,7 @@ export async function getFriendsForNewGame() {
   const prismaId = await prisma.user.findUnique({
     where: {
       clerk_user_id: user.userId,
-    }
+    },
   });
 
   if (!prismaId) throw new Error("User not found");
@@ -246,7 +251,13 @@ export async function getPlayerBattingAverage() {
 export async function getHighestAndLowestScore() {
   const id = await getUserIdFromAuth();
 
-  const scores = await prisma.$queryRaw<Array<{ score: number, totalCardsPlayed: number, blitzPileRemaining: number }>>(
+  const scores = await prisma.$queryRaw<
+    Array<{
+      score: number;
+      totalCardsPlayed: number;
+      blitzPileRemaining: number;
+    }>
+  >(
     Prisma.sql`
       SELECT 
         ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) as score,
@@ -270,8 +281,14 @@ export async function getHighestAndLowestScore() {
     `
   );
 
-  const highestScore = scores.reduce((max, score) => max.score > score.score ? max : score, scores[0]);
-  const lowestScore = scores.reduce((min, score) => min.score < score.score ? min : score, scores[0]);
+  const highestScore = scores.reduce(
+    (max, score) => (max.score > score.score ? max : score),
+    scores[0]
+  );
+  const lowestScore = scores.reduce(
+    (min, score) => (min.score < score.score ? min : score),
+    scores[0]
+  );
 
   if (!highestScore) {
     return { highest: null, lowest: null };
@@ -284,7 +301,7 @@ export async function getHighestAndLowestScore() {
   });
 
   const highest = createScoreObject(highestScore);
-  
+
   if (!lowestScore || lowestScore === highestScore) {
     return { highest, lowest: null };
   }
@@ -315,7 +332,7 @@ export async function getCumulativeScore() {
     return 0;
   }
 
-  const totalScore = totalCardsPlayed - (blitzPileRemaining * 2);
+  const totalScore = totalCardsPlayed - blitzPileRemaining * 2;
 
   return totalScore;
 }

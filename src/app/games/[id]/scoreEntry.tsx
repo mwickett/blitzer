@@ -15,8 +15,9 @@ import GameOver from "./GameOver";
 
 // Basic input validation schema for UX
 const playerScoreSchema = z.object({
-  userId: z.string(),
+  id: z.string(),
   username: z.string(),
+  isGuest: z.boolean().optional(),
   roundNumber: z.number(),
   blitzPileRemaining: z.number(),
   totalCardsPlayed: z.number(),
@@ -24,6 +25,36 @@ const playerScoreSchema = z.object({
     totalCardsPlayed: z.boolean(),
   }),
 });
+
+// Helper function to get player name
+function getPlayerName(
+  player: GameWithPlayersAndScores["players"][0] | null | undefined
+): string {
+  if (!player) return "Unknown Player";
+
+  if (player.user && player.user.username) {
+    return player.user.username;
+  } else if (player.guestUser && player.guestUser.name) {
+    return player.guestUser.name;
+  }
+  return "Unknown Player";
+}
+
+// Helper function to get player ID
+function getPlayerId(
+  player: GameWithPlayersAndScores["players"][0] | null | undefined
+): string {
+  if (!player) return `unknown-${Date.now()}`;
+  return player.userId || player.guestId || player.id || `temp-${Date.now()}`;
+}
+
+// Helper function to check if player is a guest
+function isGuestPlayer(
+  player: GameWithPlayersAndScores["players"][0] | null | undefined
+): boolean {
+  if (!player) return false;
+  return !!player.guestId;
+}
 
 function ScoreEntry({
   game,
@@ -37,8 +68,9 @@ function ScoreEntry({
   const router = useRouter();
   const [playerScores, setPlayerScores] = useState(
     game.players.map((player) => ({
-      userId: player.user.id,
-      username: player.user.username,
+      id: getPlayerId(player),
+      username: getPlayerName(player),
+      isGuest: isGuestPlayer(player),
       roundNumber: currentRoundNumber,
       blitzPileRemaining: 0,
       totalCardsPlayed: 0,
@@ -76,14 +108,14 @@ function ScoreEntry({
     return value.replace(/^0+(?=\d)/, "");
   };
 
-  const handleBlitzPileChange = (userId: string, value: string) => {
+  const handleBlitzPileChange = (playerId: string, value: string) => {
     setError(null); // Clear error on input change
     const strippedValue = stripLeadingZeros(value);
     const intValue = parseInt(strippedValue, 10);
 
     setPlayerScores((prevScores) =>
       prevScores.map((player) =>
-        player.userId === userId
+        player.id === playerId
           ? {
               ...player,
               blitzPileRemaining:
@@ -97,14 +129,14 @@ function ScoreEntry({
     validateScores();
   };
 
-  const handleTotalCardsChange = (userId: string, value: string) => {
+  const handleTotalCardsChange = (playerId: string, value: string) => {
     setError(null); // Clear error on input change
     const strippedValue = stripLeadingZeros(value);
     const intValue = parseInt(strippedValue, 10);
 
     setPlayerScores((prevScores) =>
       prevScores.map((player) =>
-        player.userId === userId
+        player.id === playerId
           ? {
               ...player,
               totalCardsPlayed:
@@ -119,10 +151,10 @@ function ScoreEntry({
     validateScores();
   };
 
-  const handleBlitzPileBlur = (userId: string) => {
+  const handleBlitzPileBlur = (playerId: string) => {
     setPlayerScores((prevScores) =>
       prevScores.map((player) =>
-        player.userId === userId
+        player.id === playerId
           ? {
               ...player,
               blitzPileRemaining:
@@ -136,10 +168,10 @@ function ScoreEntry({
     );
   };
 
-  const handleTotalCardsBlur = (userId: string) => {
+  const handleTotalCardsBlur = (playerId: string) => {
     setPlayerScores((prevScores) =>
       prevScores.map((player) =>
-        player.userId === userId
+        player.id === playerId
           ? {
               ...player,
               totalCardsPlayed:
@@ -158,7 +190,29 @@ function ScoreEntry({
     event.preventDefault();
     setError(null); // Clear any previous errors
     try {
-      await createRoundForGame(game.id, currentRoundNumber, playerScores);
+      // Convert scores to the format expected by the server
+      const scoresToSubmit = playerScores.map((score) => {
+        const result: {
+          userId?: string;
+          guestId?: string;
+          blitzPileRemaining: number;
+          totalCardsPlayed: number;
+        } = {
+          blitzPileRemaining: score.blitzPileRemaining,
+          totalCardsPlayed: score.totalCardsPlayed,
+        };
+
+        // Determine if this is a guest player or not
+        if (score.isGuest) {
+          result.guestId = score.id;
+        } else {
+          result.userId = score.id;
+        }
+
+        return result;
+      });
+
+      await createRoundForGame(game.id, currentRoundNumber, scoresToSubmit);
       setPlayerScores((prevScores) =>
         prevScores.map((player) => ({
           ...player,
@@ -204,18 +258,21 @@ function ScoreEntry({
         {playerScores.map((playerScore) => (
           <div
             className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2"
-            key={playerScore.userId}
+            key={playerScore.id}
           >
-            <Label htmlFor={playerScore.userId}>{playerScore.username}</Label>
+            <Label htmlFor={playerScore.id}>
+              {playerScore.username}
+              {playerScore.isGuest ? " (Guest)" : ""}
+            </Label>
             <Input
-              id={playerScore.userId}
+              id={playerScore.id}
               placeholder="Blitz cards left"
               type="number"
               value={playerScore.blitzPileRemaining.toString()}
               onChange={(e) =>
-                handleBlitzPileChange(playerScore.userId, e.target.value)
+                handleBlitzPileChange(playerScore.id, e.target.value)
               }
-              onBlur={() => handleBlitzPileBlur(playerScore.userId)}
+              onBlur={() => handleBlitzPileBlur(playerScore.id)}
               min={0}
               max={10}
               required
@@ -223,14 +280,14 @@ function ScoreEntry({
               pattern="[0-9]*"
             />
             <Input
-              id={`cards-${playerScore.userId}`}
+              id={`cards-${playerScore.id}`}
               placeholder="Total cards"
               type="number"
               value={playerScore.totalCardsPlayed.toString()}
               onChange={(e) =>
-                handleTotalCardsChange(playerScore.userId, e.target.value)
+                handleTotalCardsChange(playerScore.id, e.target.value)
               }
-              onBlur={() => handleTotalCardsBlur(playerScore.userId)}
+              onBlur={() => handleTotalCardsBlur(playerScore.id)}
               min={0}
               max={40}
               required

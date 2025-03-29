@@ -8,37 +8,89 @@ import { redirect } from "next/navigation";
 import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 import { sendFriendRequestEmail, sendGameCompleteEmail } from "./email";
 
-// Create a new game
-export async function createGame(users: { id: string }[]) {
+// Create a new game with support for guest players
+export async function createGame(
+  users: {
+    id: string;
+    username?: string;
+    isGuest?: boolean;
+  }[]
+) {
   const user = await auth();
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
 
-  const game = await prisma.game.create({
-    data: {
-      players: {
-        create: users.map((user) => ({
-          user: {
-            connect: {
-              id: user.id,
-            },
-          },
-        })),
-      },
-    },
-    include: {
-      players: {
-        include: {
-          user: true,
-        },
-      },
-    },
+  // Get the authenticated user's internal ID
+  const currentUser = await prisma.user.findUnique({
+    where: { clerk_user_id: user.userId },
+    select: { id: true },
   });
 
-  posthog.capture({ distinctId: user.userId, event: "create_game" });
+  if (!currentUser) throw new Error("User not found");
 
-  redirect(`/games/${game.id}`);
+  try {
+    // Step 1: First create an empty game
+    const newGame = await prisma.game.create({
+      data: {},
+    });
+
+    // Step 2: Create guest users if needed
+    const guestUserIds = new Map();
+    for (const player of users) {
+      if (player.isGuest && player.username) {
+        const guestUser = await prisma.guestUser.create({
+          data: {
+            name: player.username,
+            createdById: currentUser.id,
+          },
+        });
+        guestUserIds.set(player.id, guestUser.id);
+      }
+    }
+
+    // Step 3: Add players to the game one by one
+    for (const player of users) {
+      if (player.isGuest) {
+        const dbGuestId = guestUserIds.get(player.id);
+        if (dbGuestId) {
+          // For guest players, omit userId entirely
+          await prisma.gamePlayers.create({
+            data: {
+              gameId: newGame.id,
+              guestId: dbGuestId,
+            },
+          });
+        }
+      } else {
+        // For regular players, omit guestId entirely
+        await prisma.gamePlayers.create({
+          data: {
+            gameId: newGame.id,
+            userId: player.id,
+          },
+        });
+      }
+    }
+
+    // Track event in PostHog
+    posthog.capture({
+      distinctId: user.userId,
+      event: "create_game",
+      properties: {
+        gameId: newGame.id,
+        playerCount: users.length,
+        guestPlayerCount: users.filter((u) => u.isGuest).length,
+      },
+    });
+
+    // Return the game ID instead of redirecting
+    // This prevents the NEXT_REDIRECT error in the logs
+    return { gameId: newGame.id };
+  } catch (error) {
+    console.error("Error creating game:", error);
+    throw error;
+  }
 }
 
 // Create new round with scores
@@ -46,7 +98,8 @@ export async function createRoundForGame(
   gameId: string,
   roundNumber: number,
   scores: {
-    userId: string;
+    userId?: string;
+    guestId?: string;
     blitzPileRemaining: number;
     totalCardsPlayed: number;
   }[]
@@ -85,22 +138,49 @@ export async function createRoundForGame(
     throw new Error("Invalid score submission");
   }
 
+  // Create scores individually to avoid null constraint issues
   const round = await prisma.round.create({
     data: {
       gameId: game.id,
       round: roundNumber,
-      scores: {
-        create: scores.map((score) => ({
-          blitzPileRemaining: score.blitzPileRemaining,
-          totalCardsPlayed: score.totalCardsPlayed,
-          updatedAt: new Date(),
-          user: {
-            connect: { id: score.userId },
-          },
-        })),
-      },
     },
   });
+
+  // Add scores one by one after round is created
+  for (const score of scores) {
+    if (!score.userId && !score.guestId) {
+      console.error("Score missing both userId and guestId:", score);
+      continue; // Skip this score and continue with others
+    }
+
+    const scoreData = {
+      roundId: round.id,
+      blitzPileRemaining: score.blitzPileRemaining,
+      totalCardsPlayed: score.totalCardsPlayed,
+      updatedAt: new Date(),
+    };
+
+    try {
+      if (score.userId) {
+        await prisma.score.create({
+          data: {
+            ...scoreData,
+            userId: score.userId,
+          },
+        });
+      } else if (score.guestId) {
+        await prisma.score.create({
+          data: {
+            ...scoreData,
+            guestId: score.guestId,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error creating score:", error, score);
+      // Continue with other scores even if one fails
+    }
+  }
 
   posthog.capture({ distinctId: user.userId, event: "create_scores" });
 
@@ -108,7 +188,11 @@ export async function createRoundForGame(
 }
 
 // Update game as finished
-export async function updateGameAsFinished(gameId: string, winnerId: string) {
+export async function updateGameAsFinished(
+  gameId: string,
+  winnerId: string,
+  isGuestWinner: boolean = false
+) {
   const user = await auth();
   const posthog = posthogClient();
 
@@ -129,6 +213,12 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
               username: true,
             },
           },
+          guestUser: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       },
     },
@@ -137,16 +227,23 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
   if (!game) throw new Error("Game not found");
 
   // Get winner's details
-  const winner = await prisma.user.findUnique({
-    where: {
-      id: winnerId,
-    },
-    select: {
-      username: true,
-    },
-  });
+  let winnerName = "";
 
-  if (!winner) throw new Error("Winner not found");
+  if (isGuestWinner) {
+    const winner = await prisma.guestUser.findUnique({
+      where: { id: winnerId },
+      select: { name: true },
+    });
+    if (!winner) throw new Error("Guest winner not found");
+    winnerName = winner.name;
+  } else {
+    const winner = await prisma.user.findUnique({
+      where: { id: winnerId },
+      select: { username: true },
+    });
+    if (!winner) throw new Error("Winner not found");
+    winnerName = winner.username;
+  }
 
   // Update game as finished
   await prisma.game.update({
@@ -160,17 +257,23 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
     },
   });
 
-  // Send emails to all players
+  // Send emails to all registered players (can't send to guests)
   await Promise.all(
-    game.players.map((player) =>
-      sendGameCompleteEmail({
-        email: player.user.email,
-        username: player.user.username,
-        winnerUsername: winner.username,
-        isWinner: player.user.id === winnerId,
-        gameId,
+    game.players
+      .filter((player) => player.user) // Only consider registered users
+      .map((player) => {
+        const userEmail = player.user!.email;
+        const username = player.user!.username;
+        const userId = player.user!.id;
+
+        return sendGameCompleteEmail({
+          email: userEmail,
+          username: username,
+          winnerUsername: winnerName,
+          isWinner: isGuestWinner ? false : userId === winnerId,
+          gameId,
+        });
       })
-    )
   );
 
   posthog.capture({
@@ -179,6 +282,7 @@ export async function updateGameAsFinished(gameId: string, winnerId: string) {
     properties: {
       gameId: gameId,
       winnerId: winnerId,
+      isGuestWinner: isGuestWinner,
     },
   });
 }
@@ -406,39 +510,48 @@ export async function cloneGame(originalGameId: string) {
   // Fetch the original game with its players
   const originalGame = await prisma.game.findUnique({
     where: { id: originalGameId },
-    include: { players: true },
-  });
-
-  if (!originalGame) throw new Error("Original game not found");
-
-  // Extract player IDs from the original game
-  const players = originalGame.players.map((player) => ({ id: player.userId }));
-
-  // Create a new game with the same players
-  const newGame = await prisma.game.create({
-    data: {
-      players: {
-        create: players.map((player) => ({
-          user: { connect: { id: player.id } },
-        })),
-      },
-    },
     include: {
       players: {
         include: {
           user: true,
+          guestUser: true,
         },
       },
     },
   });
 
+  if (!originalGame) throw new Error("Original game not found");
+
+  // Start a transaction to ensure consistency
+  const newGameId = await prisma.$transaction(async (tx) => {
+    // Create a new game with the same players
+    const playerCreateInputs = originalGame.players.map((player) => {
+      if (player.userId) {
+        return { userId: player.userId };
+      } else if (player.guestId) {
+        return { guestId: player.guestId };
+      }
+      throw new Error("Player has neither userId nor guestId");
+    });
+
+    const newGame = await tx.game.create({
+      data: {
+        players: {
+          create: playerCreateInputs,
+        },
+      },
+    });
+
+    return newGame.id;
+  });
+
   posthog.capture({
     distinctId: user.userId,
     event: "clone_game",
-    properties: { originalGameId, newGameId: newGame.id },
+    properties: { originalGameId, newGameId },
   });
 
-  return newGame.id;
+  return newGameId;
 }
 
 // Update scores for a round
@@ -446,7 +559,8 @@ export async function updateRoundScores(
   gameId: string,
   roundId: string,
   scores: {
-    userId: string;
+    userId?: string;
+    guestId?: string;
     blitzPileRemaining: number;
     totalCardsPlayed: number;
   }[]
@@ -491,21 +605,43 @@ export async function updateRoundScores(
   }
 
   // Update scores in a transaction to ensure consistency
-  const updatedScores = await prisma.$transaction(
-    scores.map((score) =>
-      prisma.score.updateMany({
-        where: {
-          roundId: roundId,
-          userId: score.userId,
-        },
-        data: {
-          blitzPileRemaining: score.blitzPileRemaining,
-          totalCardsPlayed: score.totalCardsPlayed,
-          updatedAt: new Date(),
-        },
-      })
-    )
-  );
+  const updatedScores = await prisma.$transaction(async (tx) => {
+    const results = [];
+
+    for (const score of scores) {
+      if (score.userId) {
+        const result = await tx.score.updateMany({
+          where: {
+            roundId: roundId,
+            userId: score.userId,
+          },
+          data: {
+            blitzPileRemaining: score.blitzPileRemaining,
+            totalCardsPlayed: score.totalCardsPlayed,
+            updatedAt: new Date(),
+          },
+        });
+        results.push(result);
+      } else if (score.guestId) {
+        const result = await tx.score.updateMany({
+          where: {
+            roundId: roundId,
+            guestId: score.guestId,
+          },
+          data: {
+            blitzPileRemaining: score.blitzPileRemaining,
+            totalCardsPlayed: score.totalCardsPlayed,
+            updatedAt: new Date(),
+          },
+        });
+        results.push(result);
+      } else {
+        throw new Error("Score must have either userId or guestId");
+      }
+    }
+
+    return results;
+  });
 
   posthog.capture({
     distinctId: user.userId,
@@ -517,4 +653,104 @@ export async function updateRoundScores(
   });
 
   return updatedScores;
+}
+
+// Create a guest user
+export async function createGuestUser(name: string) {
+  const user = await auth();
+  const posthog = posthogClient();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const currentUser = await prisma.user.findUnique({
+    where: { clerk_user_id: user.userId },
+    select: { id: true },
+  });
+
+  if (!currentUser) throw new Error("User not found");
+
+  const guestUser = await prisma.guestUser.create({
+    data: {
+      name,
+      createdById: currentUser.id,
+    },
+  });
+
+  posthog.capture({
+    distinctId: user.userId,
+    event: "create_guest_user",
+    properties: { guestId: guestUser.id, guestName: name },
+  });
+
+  return guestUser;
+}
+
+// Get guest users created by the current user
+export async function getMyGuestUsers() {
+  const user = await auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const currentUser = await prisma.user.findUnique({
+    where: { clerk_user_id: user.userId },
+    select: { id: true },
+  });
+
+  if (!currentUser) throw new Error("User not found");
+
+  const guestUsers = await prisma.guestUser.findMany({
+    where: { createdById: currentUser.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return guestUsers;
+}
+
+// Send invitation to a guest user
+export async function inviteGuestUser(guestId: string, email: string) {
+  const user = await auth();
+  const posthog = posthogClient();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const currentUser = await prisma.user.findUnique({
+    where: { clerk_user_id: user.userId },
+    select: { id: true },
+  });
+
+  if (!currentUser) throw new Error("User not found");
+
+  // Check if user owns this guest
+  const guestUser = await prisma.guestUser.findUnique({
+    where: { id: guestId },
+    select: { createdById: true, name: true },
+  });
+
+  if (!guestUser) throw new Error("Guest user not found");
+  if (guestUser.createdById !== currentUser.id)
+    throw new Error("Unauthorized - not the creator of this guest");
+
+  // Update guest with invitation details
+  await prisma.guestUser.update({
+    where: { id: guestId },
+    data: {
+      invitationSent: true,
+      invitationSentAt: new Date(),
+      emailSent: email,
+    },
+  });
+
+  // TODO: Implement email sending for guest invitation
+  // For now, record the event in PostHog
+  posthog.capture({
+    distinctId: user.userId,
+    event: "invite_guest_user",
+    properties: {
+      guestId,
+      email,
+      guestName: guestUser.name,
+    },
+  });
+
+  return { success: true };
 }

@@ -45,6 +45,13 @@ The current development focus for Blitzer is on three main areas:
 - Enhanced server-side error tracking in instrumentation.ts ✅
 - Built error testing tools and documentation ✅
 - Implemented redesigned new game screen with improved player selection UI ✅
+- Implemented guest player functionality (Phase 1) ✅
+  - Created GuestUser model with database migrations ✅
+  - Updated GamePlayers and Score models for polymorphic relationships ✅
+  - Enhanced score entry and display to support guest players ✅
+  - Added UI elements to identify and manage guest players ✅
+  - Fixed null constraint issues between user/guest relationships ✅
+  - Implemented robust error handling for guest player data ✅
 
 ## Next Steps
 
@@ -81,6 +88,7 @@ The current development focus for Blitzer is on three main areas:
 - Add sharing functionality for exceptional game results
 - Build leaderboards for various performance metrics
 - Develop deck preference tracking
+- Complete Phase 2 of guest player functionality (management interface)
 
 ## Active Decisions and Considerations
 
@@ -148,6 +156,7 @@ Ongoing refinement of data models, particularly:
 - How to efficiently store and retrieve round-by-round data
 - Friend relationship modeling
 - Statistical aggregation methods
+- Guest player data representation and relationships
 
 ### User Experience Priorities
 
@@ -157,3 +166,33 @@ Balancing multiple UX goals:
 - Making statistical insights easily accessible
 - Supporting social features without cluttering the experience
 - Creating intuitive navigation between key sections
+- Ensuring guest players are clearly identified throughout the interface
+
+### Guest Player Implementation Strategy
+
+The application has been enhanced with guest player functionality, implemented in three phases:
+
+**Phase 1: Core Guest Player Support** ✅
+
+- Creating and managing guest players during game setup ✅
+- Database schema updates to support polymorphic relationships ✅
+- UI updates to display guest players alongside registered users ✅
+- Visual differentiation between guest and registered players ✅
+- Robust error handling for guest player data ✅
+- Fixed database constraints for nullable user/guest relationships ✅
+
+**Phase 2: Guest Management** (In Progress)
+
+- Interface for viewing and managing guest players
+- Basic statistics and history for guest players
+- Guest player name editing and organization
+- Guest data in statistical calculations and visualizations
+
+**Phase 3: Conversion Path** (Upcoming)
+
+- System for inviting guest players to become registered users
+- Email template for guest invitations
+- Registration process that preserves guest player history
+- Data migration from guest to registered user accounts
+
+Detailed implementation plan is available in `memory-bank/features/guest-players.md`.
