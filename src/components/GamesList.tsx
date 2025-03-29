@@ -36,7 +36,8 @@ import { Badge } from "@/components/ui/badge";
 
 type GameWithPlayersAndUsers = Game & {
   players: (GamePlayers & {
-    user: User;
+    user?: User | null;
+    guestUser?: { id: string; name: string } | null;
   })[];
 };
 
@@ -52,12 +53,19 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
     const playerMap = new Map();
 
     games.forEach((game) =>
-      game.players.forEach((player) =>
-        playerMap.set(player.user.id, {
-          id: player.user.id,
-          username: player.user.username,
-        })
-      )
+      game.players.forEach((player) => {
+        if (player.user) {
+          playerMap.set(player.user.id, {
+            id: player.user.id,
+            username: player.user.username,
+          });
+        } else if (player.guestUser) {
+          playerMap.set(player.guestUser.id, {
+            id: player.guestUser.id,
+            username: player.guestUser.name,
+          });
+        }
+      })
     );
     return Array.from(playerMap.values());
   }, [games]);
@@ -103,8 +111,21 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
 
   const getWinnerName = (game: GameWithPlayersAndUsers) => {
     if (!game.winnerId) return null;
-    const winner = game.players.find((p) => p.user.id === game.winnerId);
-    return winner ? winner.user.username : null;
+    const winner = game.players.find(
+      (p) =>
+        (p.user && p.user.id === game.winnerId) ||
+        (p.guestUser && p.guestUser.id === game.winnerId)
+    );
+
+    if (!winner) return null;
+
+    if (winner.user) {
+      return winner.user.username;
+    } else if (winner.guestUser) {
+      return winner.guestUser.name;
+    }
+
+    return null;
   };
 
   const filteredGames = useMemo(() => {
@@ -117,7 +138,11 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
       const playerMatch =
         playerFilters.length === 0 ||
         playerFilters.some((playerId) =>
-          game.players.some((p) => p.user.id === playerId)
+          game.players.some(
+            (p) =>
+              (p.user && p.user.id === playerId) ||
+              (p.guestUser && p.guestUser.id === playerId)
+          )
         );
 
       return statusMatch && playerMatch;
@@ -198,11 +223,15 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
                   <div className="flex flex-wrap gap-1">
                     {game.players.map((player) => (
                       <Badge
-                        key={player.userId}
+                        key={player.userId || player.guestId}
                         variant="outline"
                         className="mr-1"
                       >
-                        {player.user.username}
+                        {player.user
+                          ? player.user.username
+                          : player.guestUser
+                            ? player.guestUser.name
+                            : "Unknown Player"}
                       </Badge>
                     ))}
                   </div>
@@ -241,11 +270,15 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
                   <div className="flex flex-wrap gap-1">
                     {game.players.map((player) => (
                       <Badge
-                        key={player.userId}
+                        key={player.userId || player.guestId}
                         variant="outline"
                         className="mr-1"
                       >
-                        {player.user.username}
+                        {player.user
+                          ? player.user.username
+                          : player.guestUser
+                            ? player.guestUser.name
+                            : "Unknown Player"}
                       </Badge>
                     ))}
                   </div>

@@ -23,3 +23,8 @@ export async function isScoreChartsEnabled(): Promise<boolean> {
 export async function isLlmFeaturesEnabled(): Promise<boolean> {
   return isFeatureEnabled("llm-features");
 }
+
+// Check if guest players feature is enabled
+export async function isGuestPlayersEnabled(): Promise<boolean> {
+  return isFeatureEnabled("guest-players");
+}

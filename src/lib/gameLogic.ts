@@ -1,22 +1,31 @@
-import { Game, User, Score, Round } from "@prisma/client";
+import { Game, User, Score, Round, GuestUser } from "@prisma/client";
 import { updateGameAsFinished } from "@/server/mutations";
 import { calculateRoundScore, isWinningScore } from "./validation/gameRules";
 
 export interface GameWithPlayersAndScores extends Game {
-  players: { user: User; gameId: string; userId: string }[];
+  players: {
+    id: string;
+    gameId: string;
+    userId?: string;
+    guestId?: string;
+    user?: User;
+    guestUser?: GuestUser;
+  }[];
   rounds: (Round & { scores: Score[] })[];
 }
 
 export interface Player {
-  userId: string;
+  id: string;
   username: string;
+  isGuest: boolean;
   blitzPileRemaining: number;
   totalCardsPlayed: number;
 }
 
 export interface DisplayScores {
-  userId: string;
+  id: string;
   username: string;
+  isGuest: boolean;
   scoresByRound: number[];
   total: number;
   isInLead?: boolean;
@@ -24,73 +33,104 @@ export interface DisplayScores {
 }
 
 export interface ProcessedPlayerScore {
-  userId: string;
+  id: string;
   username: string;
+  isGuest: boolean;
   scoresByRound: number[];
   total: number;
 }
 
-// Function to initialize user scores map
-function initializeUserScoresMap(
-  players: { userId: string; username: string }[]
+// Function to get player name - handles both regular users and guest users
+function getPlayerName(player: GameWithPlayersAndScores["players"][0]): string {
+  if (player.user) {
+    return player.user.username;
+  } else if (player.guestUser) {
+    return player.guestUser.name;
+  }
+  return "Unknown Player";
+}
+
+// Function to get player ID - uses either userId or guestId
+function getPlayerId(player: GameWithPlayersAndScores["players"][0]): string {
+  return player.userId || player.guestId || player.id;
+}
+
+// Function to check if player is a guest
+function isGuestPlayer(
+  player: GameWithPlayersAndScores["players"][0]
+): boolean {
+  return !!player.guestId;
+}
+
+// Function to initialize player scores map
+function initializePlayerScoresMap(
+  players: GameWithPlayersAndScores["players"]
 ): Record<string, ProcessedPlayerScore> {
-  const userScoresMap: Record<string, ProcessedPlayerScore> = {};
+  const playerScoresMap: Record<string, ProcessedPlayerScore> = {};
+
   players.forEach((player) => {
-    userScoresMap[player.userId] = {
-      userId: player.userId,
-      username: player.username,
+    const playerId = getPlayerId(player);
+    playerScoresMap[playerId] = {
+      id: playerId,
+      username: getPlayerName(player),
+      isGuest: isGuestPlayer(player),
       scoresByRound: [],
       total: 0,
     };
   });
-  return userScoresMap;
+
+  return playerScoresMap;
 }
 
 // Function to process game scores
 function processGameScores(
   rounds: (Round & { scores: Score[] })[],
-  userScoresMap: Record<string, ProcessedPlayerScore>
+  playerScoresMap: Record<string, ProcessedPlayerScore>
 ): {
   maxScore: number;
   leaders: string[];
-  playersAboveThreshold: { userId: string; total: number }[];
+  playersAboveThreshold: { id: string; total: number }[];
 } {
   let maxScore = -Infinity;
   let leaders: string[] = [];
-  const playersAboveThreshold: { userId: string; total: number }[] = [];
+  const playersAboveThreshold: { id: string; total: number }[] = [];
 
   rounds.forEach((round, roundIndex) => {
     round.scores.forEach((score) => {
-      const userScore = userScoresMap[score.userId];
+      // Get the player ID from either userId or guestId
+      const playerId = score.userId || score.guestId;
+
+      if (!playerId) return; // Skip if no valid ID
+
+      const playerScore = playerScoresMap[playerId];
+      if (!playerScore) return; // Skip if player not found in map
+
       const { totalCardsPlayed, blitzPileRemaining } = score;
+      const scoreValue = calculateRoundScore({
+        blitzPileRemaining,
+        totalCardsPlayed,
+      });
 
-      if (userScore) {
-        const scoreValue = calculateRoundScore({
-          blitzPileRemaining,
-          totalCardsPlayed,
+      if (!playerScore.scoresByRound[roundIndex]) {
+        playerScore.scoresByRound[roundIndex] = scoreValue;
+      } else {
+        playerScore.scoresByRound[roundIndex] += scoreValue;
+      }
+
+      playerScore.total += scoreValue;
+
+      if (playerScore.total > maxScore) {
+        maxScore = playerScore.total;
+        leaders = [playerId];
+      } else if (playerScore.total === maxScore) {
+        leaders.push(playerId);
+      }
+
+      if (isWinningScore(playerScore.total)) {
+        playersAboveThreshold.push({
+          id: playerId,
+          total: playerScore.total,
         });
-
-        if (!userScore.scoresByRound[roundIndex]) {
-          userScore.scoresByRound[roundIndex] = scoreValue;
-        } else {
-          userScore.scoresByRound[roundIndex] += scoreValue;
-        }
-
-        userScore.total += scoreValue;
-
-        if (userScore.total > maxScore) {
-          maxScore = userScore.total;
-          leaders = [score.userId];
-        } else if (userScore.total === maxScore) {
-          leaders.push(score.userId);
-        }
-
-        if (isWinningScore(userScore.total)) {
-          playersAboveThreshold.push({
-            userId: score.userId,
-            total: userScore.total,
-          });
-        }
       }
     });
   });
@@ -101,7 +141,7 @@ function processGameScores(
 // Function to determine the winner
 async function determineWinner(
   game: GameWithPlayersAndScores,
-  playersAboveThreshold: { userId: string; total: number }[]
+  playersAboveThreshold: { id: string; total: number }[]
 ): Promise<string | null> {
   if (playersAboveThreshold.length > 0) {
     const highestScore = Math.max(
@@ -112,9 +152,15 @@ async function determineWinner(
     );
 
     // TODO: handle multiple winners
-    let winnerId = potentialWinners[0].userId;
+    const winnerId = potentialWinners[0].id;
     if (!game.isFinished) {
-      await updateGameAsFinished(game.id, winnerId);
+      const isGuestWinner = game.players.some(
+        (p) =>
+          (p.guestId === winnerId || p.userId === winnerId) &&
+          p.guestId !== undefined
+      );
+
+      await updateGameAsFinished(game.id, winnerId, isGuestWinner);
     }
     return winnerId;
   }
@@ -125,27 +171,28 @@ async function determineWinner(
 export default async function transformGameData(
   game: GameWithPlayersAndScores
 ): Promise<DisplayScores[]> {
-  const players = game.players.map((player) => ({
-    userId: player.userId,
-    username: player.user.username,
-  }));
-  const userScoresMap = initializeUserScoresMap(players);
+  // Initialize player scores map with all players
+  const playerScoresMap = initializePlayerScoresMap(game.players);
 
+  // Process scores from all rounds
   const { maxScore, leaders, playersAboveThreshold } = processGameScores(
     game.rounds,
-    userScoresMap
+    playerScoresMap
   );
 
+  // Determine the winner
   const winnerId = await determineWinner(game, playersAboveThreshold);
 
-  return Object.entries(userScoresMap).map(
-    ([userId, { username, scoresByRound, total }]) => ({
-      userId,
+  // Convert to final display scores
+  return Object.entries(playerScoresMap).map(
+    ([id, { username, isGuest, scoresByRound, total }]) => ({
+      id,
       username,
+      isGuest,
       scoresByRound,
       total,
-      isInLead: leaders.includes(userId),
-      isWinner: userId === winnerId,
+      isInLead: leaders.includes(id),
+      isWinner: id === winnerId,
     })
   );
 }

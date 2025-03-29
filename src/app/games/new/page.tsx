@@ -1,18 +1,38 @@
+"use server";
+
+import { auth } from "@clerk/nextjs/server";
+import prisma from "@/server/db/db";
+import type { User } from "@prisma/client";
 import NewGameChooser from "./newGameChooser";
-import { getFriendsForNewGame } from "@/server/queries";
-import ClientLink from "@/components/helpers/ClientLink";
+import { isGuestPlayersEnabled } from "@/featureFlags";
 
-export default async function NewGame() {
-  const users = await getFriendsForNewGame();
+export default async function NewGamePage() {
+  const { userId } = await auth();
 
-  if (users.length === 0) {
-    return (
-      <div className="flex flex-col items-center h-screen gap-4 mt-4">
-        <p>No friends yet</p>
-        <ClientLink href="/friends/add" label="Add friends" />
-      </div>
-    );
+  if (!userId) {
+    return <div>Please sign in</div>;
   }
 
-  return <NewGameChooser users={users} />;
+  const users = await prisma.user.findMany({
+    where: {
+      NOT: {
+        clerk_user_id: "",
+      },
+    },
+    select: {
+      id: true,
+      username: true,
+      clerk_user_id: true,
+      avatarUrl: true,
+    },
+  });
+
+  // Check if the guest players feature is enabled
+  const guestPlayersEnabled = await isGuestPlayersEnabled();
+
+  return (
+    <main className="container mx-auto p-4">
+      <NewGameChooser users={users} guestPlayersEnabled={guestPlayersEnabled} />
+    </main>
+  );
 }

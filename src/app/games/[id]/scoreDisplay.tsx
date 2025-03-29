@@ -23,8 +23,9 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 
 const playerScoreSchema = z.object({
-  userId: z.string(),
+  id: z.string(),
   username: z.string(),
+  isGuest: z.boolean().optional(),
   roundNumber: z.number().min(1),
   blitzPileRemaining: z.number().min(0).max(10),
   totalCardsPlayed: z.number().min(0).max(40),
@@ -83,18 +84,47 @@ function ScoreDisplay({
       if (!response.ok) throw new Error("Failed to fetch round scores");
       const roundData = await response.json();
 
+      if (
+        !roundData ||
+        !roundData.id ||
+        !roundData.scores ||
+        !Array.isArray(roundData.scores)
+      ) {
+        throw new Error("Invalid round data returned from server");
+      }
+
       setEditingRoundId(roundData.id);
-      const roundScores = roundData.scores.map((score: any) => ({
-        userId: score.userId,
-        username:
-          displayScores.find((p) => p.userId === score.userId)?.username || "",
-        roundNumber: roundIndex + 1,
-        blitzPileRemaining: score.blitzPileRemaining,
-        totalCardsPlayed: score.totalCardsPlayed,
-        touched: {
-          totalCardsPlayed: true,
-        },
-      }));
+
+      // Filter out any invalid scores
+      const validScores = roundData.scores.filter(
+        (score: any) => score && (score.userId || score.guestId)
+      );
+
+      const roundScores = validScores
+        .map((score: any) => {
+          // Determine the player ID (either userId or guestId)
+          const playerId = score.userId || score.guestId;
+          if (!playerId) {
+            console.warn("Score missing both userId and guestId", score);
+            return null;
+          }
+
+          // Find the matching player in displayScores
+          const player = displayScores.find((p) => p.id === playerId);
+
+          return {
+            id: playerId,
+            username: player?.username || "Unknown Player",
+            isGuest: !!score.guestId,
+            roundNumber: roundIndex + 1,
+            blitzPileRemaining: score.blitzPileRemaining || 0,
+            totalCardsPlayed: score.totalCardsPlayed || 0,
+            touched: {
+              totalCardsPlayed: true,
+            },
+          };
+        })
+        .filter(Boolean); // Remove any null entries
 
       setEditingScores(roundScores);
       setEditingRound(roundIndex);
@@ -118,7 +148,29 @@ function ScoreDisplay({
     setError(null);
     setIsSaving(true);
     try {
-      await updateRoundScores(gameId, editingRoundId, editingScores);
+      // Convert scores back to the format expected by the server
+      const scoresToSave = editingScores.map((score) => {
+        const result: {
+          userId?: string;
+          guestId?: string;
+          blitzPileRemaining: number;
+          totalCardsPlayed: number;
+        } = {
+          blitzPileRemaining: score.blitzPileRemaining,
+          totalCardsPlayed: score.totalCardsPlayed,
+        };
+
+        // Determine if this is a guest player or not
+        if (score.isGuest) {
+          result.guestId = score.id;
+        } else {
+          result.userId = score.id;
+        }
+
+        return result;
+      });
+
+      await updateRoundScores(gameId, editingRoundId, scoresToSave);
       setEditingRound(null);
       setEditingScores([]);
       setEditingRoundId(null);
@@ -136,7 +188,7 @@ function ScoreDisplay({
   };
 
   const handleScoreChange = (
-    userId: string,
+    playerId: string,
     field: "blitzPileRemaining" | "totalCardsPlayed",
     value: string
   ) => {
@@ -145,7 +197,7 @@ function ScoreDisplay({
     if (value === "") {
       setEditingScores((prev) =>
         prev.map((score) =>
-          score.userId === userId
+          score.id === playerId
             ? {
                 ...score,
                 [field]: 0,
@@ -171,7 +223,7 @@ function ScoreDisplay({
 
     setEditingScores((prev) =>
       prev.map((score) =>
-        score.userId === userId
+        score.id === playerId
           ? {
               ...score,
               [field]: intValue,
@@ -203,10 +255,11 @@ function ScoreDisplay({
             <TableHead className="w-24">Round</TableHead>
             {displayScores.map((player) => (
               <TableHead
-                key={player.userId}
+                key={player.id}
                 className={`text-xs ${player.isWinner ? "bg-green-50" : ""}`}
               >
                 {player.isWinner ? `⭐ ${player.username} ⭐` : player.username}
+                {player.isGuest ? " (Guest)" : ""}
               </TableHead>
             ))}
             {!isFinished && <TableHead className="w-24">Actions</TableHead>}
@@ -222,10 +275,10 @@ function ScoreDisplay({
                 ? // Editing mode
                   displayScores.map((player) => {
                     const editingScore = editingScores.find(
-                      (score) => score.userId === player.userId
+                      (score) => score.id === player.id
                     );
                     return (
-                      <TableCell key={player.userId} className="space-y-2">
+                      <TableCell key={player.id} className="space-y-2">
                         <Input
                           type="number"
                           inputMode="numeric"
@@ -233,7 +286,7 @@ function ScoreDisplay({
                           value={editingScore?.blitzPileRemaining ?? ""}
                           onChange={(e) =>
                             handleScoreChange(
-                              player.userId,
+                              player.id,
                               "blitzPileRemaining",
                               e.target.value
                             )
@@ -250,7 +303,7 @@ function ScoreDisplay({
                           value={editingScore?.totalCardsPlayed ?? ""}
                           onChange={(e) =>
                             handleScoreChange(
-                              player.userId,
+                              player.id,
                               "totalCardsPlayed",
                               e.target.value
                             )
@@ -267,7 +320,7 @@ function ScoreDisplay({
                   displayScores.map((player) => {
                     const score = player.scoresByRound[roundIndex];
                     return (
-                      <TableCell key={player.userId}>{score ?? "-"}</TableCell>
+                      <TableCell key={player.id}>{score ?? "-"}</TableCell>
                     );
                   })}
               {!isFinished && (
@@ -310,7 +363,7 @@ function ScoreDisplay({
             {displayScores.map((player) => (
               <TableCell
                 className={player.isInLead ? "bg-green-100" : ""}
-                key={player.userId}
+                key={player.id}
               >
                 {player.total}
               </TableCell>

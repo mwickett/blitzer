@@ -21,6 +21,22 @@ model User {
   friendRequestsSent     FriendRequest[] @relation("FriendRequestsSent")
   games                  GamePlayers[]
   scores                 Score[]
+  createdGuests          GuestUser[]     @relation("CreatedGuests")
+}
+
+model GuestUser {
+  id               String        @id @default(uuid())
+  name             String
+  createdAt        DateTime      @default(now()) @map("created_at")
+  createdById      String
+  invitationSent   Boolean       @default(false)
+  invitationSentAt DateTime?
+  emailSent        String?
+  createdBy        User          @relation("CreatedGuests", fields: [createdById], references: [id])
+  games            GamePlayers[]
+  scores           Score[]
+
+  @@index([createdById])
 }
 
 model FriendRequest {
@@ -70,24 +86,35 @@ model Round {
 }
 
 model Score {
-  id                 String   @id @default(uuid())
-  userId             String
+  id                 String     @id @default(uuid())
+  userId             String?
+  guestId            String?
   totalCardsPlayed   Int
   blitzPileRemaining Int
-  createdAt          DateTime @default(now()) @map("created_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
   roundId            String
-  updatedAt          DateTime @default(now()) @map("updated_at")
-  round              Round    @relation(fields: [roundId], references: [id])
-  user               User     @relation(fields: [userId], references: [id])
+  updatedAt          DateTime   @default(now()) @map("updated_at")
+  round              Round      @relation(fields: [roundId], references: [id])
+  user               User?      @relation(fields: [userId], references: [id])
+  guestUser          GuestUser? @relation(fields: [guestId], references: [id])
+
+  @@index([userId])
+  @@index([guestId])
 }
 
 model GamePlayers {
-  gameId String
-  userId String
-  game   Game   @relation(fields: [gameId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
+  id        String     @id @default(uuid())
+  gameId    String
+  userId    String?
+  guestId   String?
+  game      Game       @relation(fields: [gameId], references: [id])
+  user      User?      @relation(fields: [userId], references: [id])
+  guestUser GuestUser? @relation(fields: [guestId], references: [id])
 
-  @@id([gameId, userId])
+  @@unique([gameId, userId], name: "gamePlayer_userId", map: "game_players_game_id_user_id")
+  @@unique([gameId, guestId], name: "gamePlayer_guestId", map: "game_players_game_id_guest_id")
+  @@index([userId])
+  @@index([guestId])
 }
 
 enum FriendRequestStatus {

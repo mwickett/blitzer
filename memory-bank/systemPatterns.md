@@ -244,6 +244,113 @@ Benefits:
 - User-based flag targeting using Clerk authentication
 - Type-safe feature flag implementation
 
+### Pattern: Guest Player Integration
+
+Blitzer implements a polymorphic relationship pattern for handling both registered and guest users:
+
+```mermaid
+flowchart TD
+    Game --> GamePlayers
+    GamePlayers --> |Optional| User
+    GamePlayers --> |Optional| GuestUser
+    Score --> |Optional| User
+    Score --> |Optional| GuestUser
+    GuestUser --> |Created by| User
+```
+
+This pattern enables:
+
+- Supporting non-registered players in games
+- Maintaining data integrity with explicit relationships
+- Preserving proper foreign key constraints
+- Providing clear attribution of guest players to creators
+- Facilitating guest-to-registered user conversion
+
+Implementation details:
+
+- Prisma schema with optional relations
+- CHECK constraints to ensure either userId or guestId is present
+- Database transactions for data integrity during operations
+- Indexes for performance optimization
+- Feature flag control for phased rollout
+
+The guest player system is implemented in three phases:
+
+1. Core guest player creation and participation
+2. Guest management and statistics integration
+3. Conversion path from guest to registered user
+
+For detailed implementation plan, see `memory-bank/features/guest-players.md`.
+
+### Pattern: Email Rate Limiting
+
+Blitzer implements a robust email delivery system that handles rate limits from the Resend API:
+
+```
+                         ┌───────────────────┐
+                         │   Email Request   │
+                         └─────────┬─────────┘
+                                   │
+                         ┌─────────▼─────────┐
+                         │  sendEmail Helper │
+                         └─────────┬─────────┘
+                                   │
+                   ┌───────────────┴────────────────┐
+                   │                                │
+       ┌───────────▼──────────┐        ┌───────────▼───────────┐
+       │ Single Email Sending │        │ Batch Email Processing│
+       │   (with retries)     │        │   (sequential with    │
+       │                      │        │       delays)         │
+       └───────────┬──────────┘        └───────────┬───────────┘
+                   │                                │
+       ┌───────────▼──────────┐                     │
+       │  Rate Limit Check    │◄────────────────────┘
+       └───────────┬──────────┘
+                   │
+       ┌───────────▼──────────┐
+       │  Exponential Backoff │
+       │   & Retry Logic      │
+       └───────────┬──────────┘
+                   │
+       ┌───────────▼──────────┐
+       │  Error Handling &    │
+       │     Reporting        │
+       └──────────────────────┘
+```
+
+This pattern addresses the Resend API's rate limit of 2 requests per second through:
+
+1. **Sequential Email Processing**
+
+   - Processing multiple emails one at a time with controlled delays between requests
+   - Default 600ms delay between consecutive emails to stay within rate limits
+
+2. **Retry Logic**
+
+   - Maximum of 3 attempts for rate-limited requests
+   - Exponential backoff between retries (1000ms × attempt number)
+   - Specific detection of rate limit errors (`rate_limit_exceeded`)
+   - Continue processing remaining emails even if some fail
+
+3. **Error Handling**
+   - Detailed error logging for troubleshooting
+   - Different handling for rate limit vs. other errors
+   - Error response with context for debugging
+
+Implementation details:
+
+- Centralized `sendEmail` helper function in `email.ts`
+- Sequential processing in user-facing functions like `updateGameAsFinished`
+- Retry mechanism with increasing delays
+- Comprehensive error handling for both API and unexpected errors
+
+Benefits:
+
+- Reliable email delivery despite API rate limits
+- Graceful handling of temporary failures
+- Minimal impact on user experience during rate limiting
+- Better visibility into email delivery issues
+
 ## Component Relationships and Data Flow
 
 ### Core Data Flow
