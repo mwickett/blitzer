@@ -24,6 +24,7 @@ export interface Player {
 
 export interface DisplayScores {
   id: string;
+  userId?: string; // Keep for backward compatibility with tests
   username: string;
   isGuest: boolean;
   scoresByRound: number[];
@@ -187,6 +188,7 @@ export default async function transformGameData(
   return Object.entries(playerScoresMap).map(
     ([id, { username, isGuest, scoresByRound, total }]) => ({
       id,
+      userId: id, // Add userId for backward compatibility with tests
       username,
       isGuest,
       scoresByRound,

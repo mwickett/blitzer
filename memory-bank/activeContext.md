@@ -1,202 +1,46 @@
-# Active Context for Blitzer
+# Active Context
 
-## Current Work Focus
+## Current Focus: Code Organization and Maintainability
 
-The current development focus for Blitzer is on three main areas:
+We've been working on improving the organization of server-side code by breaking down large files into more manageable, domain-specific modules.
 
-1. **UI Refinement and Responsive Design**
+### Recent Refactoring: Server Mutations
 
-   - Improving the overall visual appeal of the application
-   - Ensuring consistent responsive behavior across all device sizes
-   - Enhancing the user experience for key workflows, particularly score entry
+As of March 29, 2025, we refactored the `src/server/mutations.ts` file, which had grown too large and was becoming difficult to maintain. We split it into domain-specific files:
 
-2. **Architectural Improvements**
+- `src/server/mutations/common.ts`: Shared utility functions for authentication and error handling
+- `src/server/mutations/games.ts`: Game management (createGame, updateGameAsFinished, cloneGame)
+- `src/server/mutations/rounds.ts`: Round/score management (createRoundForGame, updateRoundScores)
+- `src/server/mutations/friends.ts`: Friend management (createFriendRequest, acceptFriendRequest, rejectFriendRequest)
+- `src/server/mutations/guests.ts`: Guest user management (createGuestUser, getMyGuestUsers, inviteGuestUser)
+- `src/server/mutations/index.ts`: Barrel file that re-exports all mutations (used primarily by tests)
 
-   - Transitioning toward a clearer backend/frontend separation
-   - Evaluating the use of React Query for improved performance and state management
-   - Refactoring to standardize on either Server Actions or API routes
+The original `mutations.ts` file now explicitly re-exports each function from the new structure to maintain backward compatibility with existing imports. We discovered that Next.js "use server" directives have specific requirements:
 
-3. **LLM Chat Feature Implementation**
-   - Initial implementation of chat UI and API endpoint ✅
-   - Created custom SimpleChat component to handle errors ✅
-   - Fixed streaming using proper JSON format for useChat ✅
-   - Implemented enhanced system prompt with user game statistics ✅
-   - Planning future MCP PostgreSQL integration for more complex queries
+1. Files with "use server" can only export async functions
+2. You cannot use `export * from` in a "use server" file
+3. Each function must be individually imported and re-exported
 
-## Recent Changes
+This approach:
 
-- Implemented friend requests and friend connections
-- Added user avatars
-- Created rounds model to better track round-by-round gameplay
-- Added updated_at field to score model for improved timestamp tracking
-- Migrated from homegrown Vercel Edge Config flag system to PostHog feature flags
-- Fixed database migration issues related to unique constraints in the Round model
-- Added documentation for feature flag usage in `src/FEATURE_FLAGS.md`
-- Added basic chat interface in new Insights section ✅
-- Created API endpoint for LLM-powered chat ✅
-- Implemented proper streaming responses for the chat interface ✅
-- Added user statistics in prompt for personalized responses ✅
-- Implemented PostHog LLM observability for chat functionality ✅
-- Fixed deprecated `isLoading` property in ModernChatUI component ✅
-- Created documentation for LLM observability implementation ✅
-- Implemented comprehensive error tracking with PostHog ✅
-- Created reusable ErrorBoundary component with context-rich error reporting ✅
-- Added section-level error boundaries for key application areas ✅
-- Enhanced server-side error tracking in instrumentation.ts ✅
-- Built error testing tools and documentation ✅
-- Implemented redesigned new game screen with improved player selection UI ✅
-- Implemented guest player functionality (Phase 1) ✅
-  - Created GuestUser model with database migrations ✅
-  - Updated GamePlayers and Score models for polymorphic relationships ✅
-  - Enhanced score entry and display to support guest players ✅
-  - Added UI elements to identify and manage guest players ✅
-  - Fixed null constraint issues between user/guest relationships ✅
-  - Implemented robust error handling for guest player data ✅
-- Fixed email rate limiting issues ✅
-  - Added sequential email processing with delays to avoid Resend API rate limits ✅
-  - Implemented retry logic with exponential backoff for rate-limited email requests ✅
-  - Added robust error handling to continue processing remaining emails when rate limits are hit ✅
+1. Improves maintainability by grouping related functions
+2. Makes the codebase easier to navigate
+3. Preserves backward compatibility via explicit re-exports
+4. Creates logical boundaries between different domains
+5. Complies with Next.js "use server" restrictions
+
+## Active Decisions
+
+The refactoring preserves the existing behavior of all server actions while making them more maintainable. For proper backward compatibility, we:
+
+1. Keep the "use server" directive on each domain-specific file
+2. Remove it from the barrel index.ts file (used by tests)
+3. Add it to the main mutations.ts file with explicit re-exports
+
+Tests pass successfully and the app functions as expected with this structure.
 
 ## Next Steps
 
-### Immediate Tasks
-
-1. **Complete Memory Bank Setup**
-
-   - Finalize all core Memory Bank files
-   - Establish workflow for keeping Memory Bank updated
-
-2. **LLM Chat Feature Enhancement**
-
-   - Implement MCP PostgreSQL server for database access
-   - Add visualization support for query results
-   - Add more advanced user queries based on game data
-   - Implement caching for common queries
-   - Add user feedback mechanisms for LLM responses
-   - Create custom PostHog dashboards for LLM metrics
-
-3. **UI Improvements**
-
-   - Refine responsive design, particularly for mobile views
-   - Standardize component styling
-   - Improve navigation and user flow
-
-4. **Architecture Refactoring**
-   - Decide on consistent pattern for data fetching (React Query)
-   - Implement API endpoints for front-end data needs
-   - Clean up inconsistent backend code
-
-### Medium-term Tasks
-
-- Implement more advanced statistical visualizations
-- Add sharing functionality for exceptional game results
-- Build leaderboards for various performance metrics
-- Develop deck preference tracking
-- Complete Phase 2 of guest player functionality (management interface)
-
-## Active Decisions and Considerations
-
-### Error Tracking Strategy
-
-Current implementation:
-
-- Dual tracking with both PostHog and Sentry ✅
-- Layered error boundaries (global, section, component) ✅
-- Rich context with all error reports ✅
-- Error testing tools for verification ✅
-- Comprehensive documentation ✅
-
-Currently exploring:
-
-- Custom PostHog dashboards for error analysis
-- Error rate monitoring and alerting
-- User feedback collection on error scenarios
-- Additional section-level error boundaries
-
-### LLM Implementation Strategy
-
-Current implementation:
-
-- Enhanced system prompts with user-specific data ✅
-- Streaming approach for responsive chat functionality ✅
-- PostHog LLM observability for monitoring and analytics ✅
-
-Currently exploring:
-
-- MCP PostgreSQL for flexible database querying
-- Security considerations for data access
-- Prompt engineering for better user experience
-- Visualization of query results
-- PostHog monitoring dashboards for LLM usage patterns
-- User feedback collection for LLM responses
-
-### Architecture Pattern Decision
-
-Currently evaluating whether to:
-
-- Standardize on Next.js Server Actions for simplicity
-- Switch to a clearer API-based approach with React Query
-- Use a hybrid approach with defined boundaries
-
-Key considerations:
-
-- Developer experience (solo development)
-- Performance and user experience
-- Maintenance complexity
-- Future scalability
-
-### UI Library Approach
-
-Continuing with ShadCN UI components while considering:
-
-- Which components need customization for better UX
-- How to maintain consistent styling across custom and library components
-- Responsive design patterns for all key interfaces
-
-### Data Modeling
-
-Ongoing refinement of data models, particularly:
-
-- How to efficiently store and retrieve round-by-round data
-- Friend relationship modeling
-- Statistical aggregation methods
-- Guest player data representation and relationships
-
-### User Experience Priorities
-
-Balancing multiple UX goals:
-
-- Keeping score entry as frictionless as possible
-- Making statistical insights easily accessible
-- Supporting social features without cluttering the experience
-- Creating intuitive navigation between key sections
-- Ensuring guest players are clearly identified throughout the interface
-
-### Guest Player Implementation Strategy
-
-The application has been enhanced with guest player functionality, implemented in three phases:
-
-**Phase 1: Core Guest Player Support** ✅
-
-- Creating and managing guest players during game setup ✅
-- Database schema updates to support polymorphic relationships ✅
-- UI updates to display guest players alongside registered users ✅
-- Visual differentiation between guest and registered players ✅
-- Robust error handling for guest player data ✅
-- Fixed database constraints for nullable user/guest relationships ✅
-
-**Phase 2: Guest Management** (In Progress)
-
-- Interface for viewing and managing guest players
-- Basic statistics and history for guest players
-- Guest player name editing and organization
-- Guest data in statistical calculations and visualizations
-
-**Phase 3: Conversion Path** (Upcoming)
-
-- System for inviting guest players to become registered users
-- Email template for guest invitations
-- Registration process that preserves guest player history
-- Data migration from guest to registered user accounts
-
-Detailed implementation plan is available in `memory-bank/features/guest-players.md`.
+1. Apply a similar refactoring pattern to other large files like `src/server/queries.ts`
+2. Document this export pattern in the shared team documentation
+3. Consider adding more specific error handling in each domain module

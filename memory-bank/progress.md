@@ -1,120 +1,54 @@
 # Project Progress
 
-## Completed
+This document tracks the overall progress of the project, highlighting what's been completed and what's still pending.
 
-### Core Gameplay
+## Recently Completed
 
-- ✅ Game creation and setup
-- ✅ Player management and selection
-- ✅ Score entry and tracking
-- ✅ Game-over detection
-- ✅ Per-round score tracking
-- ✅ Complete game statistics
+### Code Organization and Maintainability (March 29, 2025)
 
-### User Experience
+- ✅ Refactored `src/server/mutations.ts` into domain-specific modules:
+  - Split into `games.ts`, `rounds.ts`, `friends.ts`, `guests.ts` and `common.ts`
+  - Created a specialized re-export pattern for Next.js "use server" compatibility
+  - Improved maintainability and organization of server actions
+  - Updated tests to work with the new structure
+  - Documented the new architecture in system patterns
+  - Discovered and addressed Next.js restrictions around "use server" exports
 
-- ✅ Basic UI components and layout
-- ✅ User authentication
-- ✅ Dashboard with game stats
-- ✅ Profile management
-- ✅ Friend connections
-- ✅ User avatars
-- ✅ Enhanced new game screen with improved player selection
+## Currently Working
 
-### AI Features
+### Ongoing Testing and Improvements
 
-- ✅ Basic chat interface in Insights section
-- ✅ Enhanced system prompts with user game statistics
-- ✅ Modern chat UI using AI SDK
-- ✅ Streaming responses for natural conversation feel
-- ✅ PostHog LLM observability integration
-- ✅ Fixed deprecated APIs in ModernChatUI component
-- ✅ LLM observability documentation
+- Ensuring tests are passing with the new architecture
+- Potentially expanding test coverage for refactored server actions
 
-### Monitoring & Error Handling
+## Up Next
 
-- ✅ Comprehensive error tracking with PostHog
-- ✅ Multi-layered error boundary system
-- ✅ Reusable ErrorBoundary component with context enrichment
-- ✅ Section-level error boundaries for critical app sections
-- ✅ Server-side error handling in instrumentation.ts
-- ✅ Error testing tools and development page
-- ✅ Detailed error tracking documentation
+### Further Code Organization
 
-### Guest Player Functionality
+- Apply similar refactoring to `src/server/queries.ts` which has also grown large
+- Consider extracting validation logic into more specific modules
+- Look for other areas where the domain-based modularization pattern could be beneficial
 
-**Phase 1: Core Guest Player Support**
+### Documentation and Knowledge Transfer
 
-- ✅ GuestUser data model with creator relationship
-- ✅ Updated GamePlayers and Score models with polymorphic relationships
-- ✅ Enhanced new game UI with guest player creation
-- ✅ Server-side mutations for creating games with guests
-- ✅ Visual indicators for guest players throughout the UI
-- ✅ Fixed database constraints for nullable user/guest relationships
-- ✅ Defensive coding for handling null/undefined values
-- ✅ Type-safe conversion between database and application models
+- Improve documentation of server action patterns and best practices
+- Update existing documentation to reflect the new architecture
 
-## In Progress
+## Future Considerations
 
-### LLM Features Enhancements
+### API Development
 
-- ⏳ MCP PostgreSQL server for direct database access
-- ⏳ Visualization support for statistics queries
-- ⏳ Advanced user data context in prompts
-- ⏳ Caching for common queries
+- Consider creating more explicit API boundaries between different domains
+- Explore the possibility of implementing a more formal API layer
 
-### UI Improvements
+### Enhanced Error Handling
 
-- ⏳ Responsive design refinements
-- ⏳ Custom theme implementation
-- ⏳ Animation enhancements
+- Develop a more comprehensive error handling strategy
+- Consider custom error types for different domains
 
-### Documentation & System Improvements
+## Notable Challenges
 
-- ⏳ Memory bank completion
-- ⏳ System pattern documentation
-- ⏳ Technical debt reduction
-- ⏳ Standardizing on React Query for data fetching
+### Maintaining Backward Compatibility
 
-### Guest Player Functionality
-
-**Phase 2: Guest Management**
-
-- ⏳ Guest management interface for viewing created guests
-- ⏳ Guest statistics and gameplay history
-- ⏳ Guest player name editing functionality
-- ⏳ Guest data in statistical calculations and visualizations
-
-## Upcoming
-
-### Advanced Features
-
-- 📅 Game replays
-- 📅 Tournament mode
-- 📅 Deck preference tracking
-- 📅 Game invitation system
-- 📅 Offline mode with sync support
-
-### Analytics & Insights
-
-- 📅 Enhanced statistical visualizations
-- 📅 Leaderboards
-- 📅 Trend analysis
-- 📅 Gameplay recommendations
-- 📅 Advanced AI game analysis
-
-### Social Features
-
-- 📅 Game result sharing
-- 📅 Achievement system
-- 📅 Group management
-- 📅 Game comments & reactions
-
-### Guest Player Functionality
-
-**Phase 3: Conversion Path**
-
-- 📅 Guest invitation system
-- 📅 Email templates for guest invitations
-- 📅 Registration flow that preserves guest history
-- 📅 Data migration process for guest-to-registered conversion
+- Maintaining imports during refactoring was a key challenge addressed with the barrel file pattern
+- Test mocking needed to be adjusted to work with the new file structure

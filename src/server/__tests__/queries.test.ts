@@ -124,11 +124,17 @@ describe("Queries", () => {
           players: {
             include: {
               user: true,
+              guestUser: true,
             },
           },
           rounds: {
             include: {
-              scores: true,
+              scores: {
+                include: {
+                  user: true,
+                  guestUser: true,
+                },
+              },
             },
           },
         },
@@ -173,6 +179,7 @@ describe("Queries", () => {
           players: {
             include: {
               user: true,
+              guestUser: true,
             },
           },
           rounds: true,
