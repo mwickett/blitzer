@@ -1,8 +1,7 @@
-import { auth } from "@clerk/nextjs/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { withTracing } from "@posthog/ai";
-import prisma from "@/server/db/db";
 import { buildEnhancedSystemPrompt } from "@/server/ai/enhancedSystemPrompt";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import PostHogClient from "@/app/posthog";
@@ -11,10 +10,10 @@ import PostHogClient from "@/app/posthog";
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
+  const user = await currentUser();
 
   // Check authentication
-  if (!userId) {
+  if (!user) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -34,16 +33,6 @@ export async function POST(req: Request) {
   try {
     // Parse the request body
     const { messages } = await req.json();
-
-    // Get user information
-    const user = await prisma.user.findUnique({
-      where: { clerk_user_id: userId },
-      select: { id: true, username: true },
-    });
-
-    if (!user) {
-      return new Response("User not found", { status: 404 });
-    }
 
     // Check if API key is configured
     const hasApiKey =
@@ -65,8 +54,8 @@ export async function POST(req: Request) {
 
     // Build enhanced system prompt with user data and include as system message
     const systemContent = await buildEnhancedSystemPrompt(
-      userId,
-      user.username
+      user.id,
+      user?.username || "unknown"
     );
 
     // Prepare the messages array with the system prompt
@@ -76,7 +65,7 @@ export async function POST(req: Request) {
     ];
 
     // Get conversation context for tracking
-    const conversationId = `chat_${userId}_${Date.now()}`;
+    const conversationId = `chat_${user.id}_${Date.now()}`;
     const messageCount = messages.length;
 
     // Define message part interface
@@ -100,7 +89,7 @@ export async function POST(req: Request) {
 
     // Create a traced OpenAI model
     const tracedModel = withTracing(openai("gpt-3.5-turbo"), posthogClient, {
-      posthogDistinctId: userId,
+      posthogDistinctId: user.id,
       posthogProperties: {
         username: user.username,
         user_id: user.id,
@@ -128,13 +117,12 @@ export async function POST(req: Request) {
     // For errors, we still capture the error event
     const posthogClient = PostHogClient();
     posthogClient.capture({
-      distinctId: userId,
+      distinctId: user.id,
       event: "llm_error",
       properties: {
         error_message: error instanceof Error ? error.message : String(error),
         error_type:
           error instanceof Error ? error.constructor.name : typeof error,
-        user_id: userId,
       },
     });
 
