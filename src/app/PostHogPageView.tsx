@@ -40,7 +40,7 @@ export default function PostHogPageView() {
     if (!isSignedIn && posthog._isIdentified()) {
       posthog.reset();
     }
-  }, [posthog, user, isSignedIn, userId]);
+  }, [posthog, user]);
 
   return null;
 }
