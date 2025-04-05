@@ -61,25 +61,26 @@ export default function NewGameChooser({
   const [activeTab, setActiveTab] = useState("existing");
   const [guestName, setGuestName] = useState("");
   const [guestError, setGuestError] = useState("");
+  const [isInitialUserSet, setIsInitialUserSet] = useState(false);
 
   const { user: clerkUser } = useUser();
   const router = useRouter();
 
-  // Initialize with current user - only on initial load
+  // Initialize with current user when clerkUser is loaded
   useEffect(() => {
-    if (users.length > 0 && inGamePlayers.length === 0) {
+    // Only set initial player if clerk user is loaded, users exist, and initial player hasn't been set
+    if (clerkUser && users.length > 0 && !isInitialUserSet) {
       const currentUser = users.find(
-        (user) => user.clerk_user_id === clerkUser?.id
+        (user) => user.clerk_user_id === clerkUser.id // clerkUser is guaranteed to exist here
       );
       if (currentUser) {
         setInGamePlayers([currentUser]);
-      } else if (users.length > 0) {
-        setInGamePlayers([users[0]]);
       }
+      // We removed the potentially incorrect fallback here.
+      // If the logged-in user isn't in the `users` list for some reason, they won't be added automatically.
+      setIsInitialUserSet(true); // Mark initial user as set
     }
-    // Only run this effect once on component mount with the empty dependency array
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clerkUser, users, isInitialUserSet]); // Depend on clerkUser, users, and the flag
 
   const handleAddUser = (user: UserSubset) => {
     if (
@@ -192,7 +193,6 @@ export default function NewGameChooser({
                       size="icon"
                       className="h-6 w-6 text-[#8b5e3c] hover:text-[#5a341f] hover:bg-[#f7f2e9]"
                       onClick={() => removePlayer(player.id)}
-                      disabled={isCurrentUser(player)}
                     >
                       <X className="h-3 w-3" />
                       <span className="sr-only">Remove</span>
