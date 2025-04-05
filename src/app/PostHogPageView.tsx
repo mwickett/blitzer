@@ -31,6 +31,7 @@ export default function PostHogPageView() {
   // Identify users in PostHog
   useEffect(() => {
     if (isSignedIn && userId && user && !posthog._isIdentified()) {
+      console.log("Identifying user", userId, user);
       posthog.identify(userId, {
         email: user.primaryEmailAddress?.emailAddress,
         username: user.username,
