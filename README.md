@@ -13,7 +13,7 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 
 ## Background
 
-This project is really about creating a wonderful personal data set of Dutch Blitz scores, so that you can see cool trends and just generally nerd out about it. It's not practically very useful at all, but it's an itch that myself, and some friends really wanted to scratch. And those kind of itches make for the best side projects, right?
+This project is really about creating a wonderful personal data set of Dutch Blitz scores, so that you can see cool trends and just generally nerd out about it. It's not practically very useful at all, but it's an itch that myself and some friends really wanted to scratch. And those kind of itches make for the best side projects, right?
 
 ## Getting Started
 
