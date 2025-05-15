@@ -348,6 +348,7 @@ export async function getLongestAndShortestGamesByRounds() {
           userId: id,
         },
       },
+      isFinished: true, // Only include completed games
     },
     include: {
       rounds: true,
