@@ -337,3 +337,50 @@ export async function getCumulativeScore() {
 
   return totalScore;
 }
+
+export async function getLongestAndShortestGamesByRounds() {
+  const id = await getUserIdFromAuth();
+
+  const games = await prisma.game.findMany({
+    where: {
+      players: {
+        some: {
+          userId: id,
+        },
+      },
+    },
+    include: {
+      rounds: true,
+    },
+  });
+
+  if (!games.length) {
+    return { longest: null, shortest: null };
+  }
+
+  const gamesWithRoundCount = games.map((game) => ({
+    id: game.id,
+    roundCount: game.rounds.length,
+    isFinished: game.isFinished,
+  }));
+
+  const longestGame = gamesWithRoundCount.reduce(
+    (longest, current) => 
+      current.roundCount > longest.roundCount ? current : longest,
+    gamesWithRoundCount[0]
+  );
+
+  const gamesWithRounds = gamesWithRoundCount.filter(game => game.roundCount > 0);
+  
+  if (!gamesWithRounds.length) {
+    return { longest: longestGame, shortest: null };
+  }
+
+  const shortestGame = gamesWithRounds.reduce(
+    (shortest, current) => 
+      current.roundCount < shortest.roundCount ? current : shortest,
+    gamesWithRounds[0]
+  );
+
+  return { longest: longestGame, shortest: shortestGame };
+}
