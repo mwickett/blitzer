@@ -26,6 +26,18 @@ const WelcomeEmailTemplate = ({ username }: WelcomeEmailProps) => {
       <Body style={main}>
         <Container style={container}>
           <Section>
+            <img
+              src="https://blitzer.fun/img/blitzer-logo.png"
+              alt="Blitzer Logo"
+              width="80"
+              height="80"
+              style={{
+                display: "block",
+                margin: "0 auto 24px auto",
+                borderRadius: "16px",
+                background: "#fff",
+              }}
+            />
             <Text style={title}>Welcome to Blitzer!</Text>
             <Text style={paragraph}>Hi {username},</Text>
             <Text style={paragraph}>
@@ -53,64 +65,75 @@ const WelcomeEmailTemplate = ({ username }: WelcomeEmailProps) => {
 };
 
 const main = {
-  backgroundColor: "#f6f9fc",
+  backgroundColor: "#fff7ea",
   fontFamily:
     '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
 };
 
 const container = {
-  backgroundColor: "#ffffff",
+  backgroundColor: "#fff",
   margin: "0 auto",
-  padding: "20px 0 48px",
+  padding: "32px 0 48px",
   marginBottom: "64px",
+  borderRadius: "16px",
+  boxShadow: "0 2px 12px rgba(41,8,6,0.06)",
+  maxWidth: "480px",
 };
 
 const title = {
-  fontSize: "24px",
-  fontWeight: "700",
-  color: "#484848",
+  fontSize: "28px",
+  fontWeight: "800",
+  color: "#290806",
   textAlign: "center" as const,
-  margin: "30px 0",
+  margin: "16px 0 24px 0",
+  letterSpacing: "-0.5px",
 };
 
 const paragraph = {
   fontSize: "16px",
   lineHeight: "26px",
-  color: "#484848",
+  color: "#290806",
+  margin: "0 0 12px 0",
 };
 
 const listItem = {
   fontSize: "16px",
   lineHeight: "24px",
-  color: "#484848",
-  marginLeft: "12px",
+  color: "#290806",
+  marginLeft: "18px",
+  marginBottom: "4px",
 };
 
 const buttonContainer = {
   textAlign: "center" as const,
-  margin: "32px 0",
+  margin: "36px 0 24px 0",
 };
 
 const button = {
-  backgroundColor: "#5850EC",
-  borderRadius: "6px",
+  backgroundColor: "#290806",
+  borderRadius: "8px",
   color: "#fff",
-  fontSize: "16px",
+  fontSize: "17px",
+  fontWeight: "600",
   textDecoration: "none",
   textAlign: "center" as const,
   display: "inline-block",
-  padding: "12px 24px",
+  padding: "14px 32px",
+  boxShadow: "0 2px 8px rgba(41,8,6,0.10)",
+  border: "none",
 };
 
 const hr = {
   borderColor: "#e6ebf1",
-  margin: "20px 0",
+  margin: "32px 0 16px 0",
 };
 
 const footer = {
   color: "#8898aa",
-  fontSize: "14px",
-  lineHeight: "24px",
+  fontSize: "13px",
+  lineHeight: "22px",
+  textAlign: "center" as const,
+  marginTop: "24px",
 };
 
 export const WelcomeEmail = (props: WelcomeEmailProps) => {
