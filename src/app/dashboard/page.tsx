@@ -51,34 +51,8 @@ export default async function Dashboard() {
       </div>
       <div className="mb-4">
         <BasicStatBlock
-          label="Longest Game"
-          value={longest ? longest.roundCount.toString() : "0"}
-          details={
-            longest && (
-              <div className="flex items-center justify-between">
-                <div className="text-base text-gray-400">Status</div>
-                <div className="text-base font-medium">
-                  {longest.isFinished ? "Completed" : "In Progress"}
-                </div>
-              </div>
-            )
-          }
-        />
-      </div>
-      <div className="mb-4">
-        <BasicStatBlock
-          label="Shortest Game"
-          value={shortest ? shortest.roundCount.toString() : "0"}
-          details={
-            shortest && (
-              <div className="flex items-center justify-between">
-                <div className="text-base text-gray-400">Status</div>
-                <div className="text-base font-medium">
-                  {shortest.isFinished ? "Completed" : "In Progress"}
-                </div>
-              </div>
-            )
-          }
+          label="Longest / Shortest Game (Rounds)"
+          value={`${longest ? longest.roundCount : 0} / ${shortest ? shortest.roundCount : 0}`}
         />
       </div>
     </section>
