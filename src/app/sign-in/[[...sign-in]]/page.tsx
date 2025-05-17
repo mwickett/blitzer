@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useSignIn } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { trackAuthError, trackAuthSuccess } from "@/lib/errorTracking";
 import {
   Card,
   CardContent,
@@ -56,10 +57,12 @@ export default function SignInPage() {
 
       setIsSubmitting(false);
 
-      // Check for specific error types to provide more helpful messages
-      const errorMessage =
-        err.errors?.[0]?.message || "An error occurred during Google sign in.";
+      // Track error in both Sentry and PostHog
+      const errorMessage = trackAuthError(err, "sign_in", "oauth_google", {
+        attemptType: "redirect",
+      });
 
+      // Check for specific error types to provide more helpful messages
       if (
         errorMessage.includes("network") ||
         errorMessage.includes("timeout")
@@ -100,6 +103,9 @@ export default function SignInPage() {
       // If sign-in process is complete, set the created session as active
       // and redirect the user
       if (signInAttempt.status === "complete") {
+        // Track successful sign-in
+        trackAuthSuccess("sign_in", "email_password");
+
         await setActive({ session: signInAttempt.createdSessionId });
         router.push("/");
       } else {
@@ -112,7 +118,16 @@ export default function SignInPage() {
       // See https://clerk.com/docs/custom-flows/error-handling
       // for more info on error handling
       console.error(JSON.stringify(err, null, 2));
-      setError(err.errors?.[0]?.message || "An error occurred during sign in.");
+
+      // Track error in both Sentry and PostHog
+      const errorMessage = trackAuthError(
+        err,
+        "sign_in",
+        "email_password",
+        { email: email } // Include non-sensitive context data
+      );
+
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

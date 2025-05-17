@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useSignUp, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { trackAuthError, trackAuthSuccess } from "@/lib/errorTracking";
 import {
   Card,
   CardContent,
@@ -54,6 +55,11 @@ export default function CompleteUsername() {
         console.log("Username update result:", result);
 
         if (result.status === "complete") {
+          // Track successful username completion
+          trackAuthSuccess("username_completion", "oauth_google", {
+            status: "complete",
+          });
+
           // Sign up is complete, set the session as active
           await setActive({ session: result.createdSessionId });
           router.push("/");
@@ -71,11 +77,18 @@ export default function CompleteUsername() {
     } catch (err: any) {
       console.error("Error completing sign up:", JSON.stringify(err, null, 2));
 
-      // Check for specific error types
-      const errorMessage =
-        err.errors?.[0]?.message ||
-        "An error occurred while setting your username.";
+      // Track error in both Sentry and PostHog
+      const errorMessage = trackAuthError(
+        err,
+        "username_completion",
+        "oauth_google",
+        {
+          username: username,
+          step: "update_username",
+        }
+      );
 
+      // Check for specific error types and provide user-friendly messages
       if (errorMessage.includes("username")) {
         setError(
           "Username is invalid or already taken. Please choose a different username."

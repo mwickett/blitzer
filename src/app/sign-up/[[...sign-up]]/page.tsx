@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useSignUp } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { trackAuthError, trackAuthSuccess } from "@/lib/errorTracking";
 import {
   Card,
   CardContent,
@@ -59,10 +60,12 @@ export default function SignUpPage() {
 
       setIsSubmitting(false);
 
-      // Check for specific error types to provide more helpful messages
-      const errorMessage =
-        err.errors?.[0]?.message || "An error occurred during Google sign up.";
+      // Track error in both Sentry and PostHog
+      const errorMessage = trackAuthError(err, "sign_up", "oauth_google", {
+        attemptType: "redirect",
+      });
 
+      // Check for specific error types to provide more helpful messages
       if (
         errorMessage.includes("network") ||
         errorMessage.includes("timeout")
@@ -107,6 +110,11 @@ export default function SignUpPage() {
         strategy: "email_code",
       });
 
+      // Track successful account creation and email verification initiation
+      trackAuthSuccess("sign_up", "email_password", {
+        status: "verification_needed",
+      });
+
       // Set 'verifying' true to display second form
       // and capture the OTP code
       setVerifying(true);
@@ -114,7 +122,15 @@ export default function SignUpPage() {
       // See https://clerk.com/docs/custom-flows/error-handling
       // for more info on error handling
       console.error(JSON.stringify(err, null, 2));
-      setError(err.errors?.[0]?.message || "An error occurred during sign up.");
+
+      // Track error in both Sentry and PostHog
+      const errorMessage = trackAuthError(err, "sign_up", "email_password", {
+        email: emailAddress,
+        username: username,
+        step: "initial_creation",
+      });
+
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -140,6 +156,9 @@ export default function SignUpPage() {
       // If verification was completed, set the session to active
       // and redirect the user
       if (signUpAttempt.status === "complete") {
+        // Track successful verification and account activation
+        trackAuthSuccess("verification", "email_code", { status: "complete" });
+
         await setActive({ session: signUpAttempt.createdSessionId });
         router.push("/");
       } else {
@@ -152,9 +171,13 @@ export default function SignUpPage() {
       // See https://clerk.com/docs/custom-flows/error-handling
       // for more info on error handling
       console.error("Error:", JSON.stringify(err, null, 2));
-      setError(
-        err.errors?.[0]?.message || "An error occurred during verification."
-      );
+
+      // Track error in both Sentry and PostHog
+      const errorMessage = trackAuthError(err, "verification", "email_code", {
+        step: "verify_email_code",
+      });
+
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
