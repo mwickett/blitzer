@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 export default function SignUpPage() {
   const { isLoaded, signUp, setActive } = useSignUp();
   const [emailAddress, setEmailAddress] = React.useState("");
+  const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [verifying, setVerifying] = React.useState(false);
   const [code, setCode] = React.useState("");
@@ -55,10 +56,11 @@ export default function SignUpPage() {
       return;
     }
 
-    // Start the sign-up process using the email and password provided
+    // Start the sign-up process using the email, username and password provided
     try {
       await signUp.create({
         emailAddress,
+        username,
         password,
       });
 
@@ -188,6 +190,18 @@ export default function SignUpPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Choose a username"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
@@ -205,7 +219,7 @@ export default function SignUpPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isSubmitting || !emailAddress || !password}
+              disabled={isSubmitting || !emailAddress || !username || !password}
             >
               {isSubmitting ? "Creating account..." : "Sign up with Email"}
             </Button>
