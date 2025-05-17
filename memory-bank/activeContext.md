@@ -1,46 +1,68 @@
 # Active Context
 
-## Current Focus: Code Organization and Maintainability
+## Current Focus: Authentication Flows and Error Tracking
 
-We've been working on improving the organization of server-side code by breaking down large files into more manageable, domain-specific modules.
+We've recently enhanced our authentication flows with comprehensive error tracking and improved user experience, especially for OAuth authentication.
 
-### Recent Refactoring: Server Mutations
+### Authentication Flow Improvements
 
-As of March 29, 2025, we refactored the `src/server/mutations.ts` file, which had grown too large and was becoming difficult to maintain. We split it into domain-specific files:
+As of May 2025, we've implemented a standardized error tracking system for all authentication flows:
 
-- `src/server/mutations/common.ts`: Shared utility functions for authentication and error handling
-- `src/server/mutations/games.ts`: Game management (createGame, updateGameAsFinished, cloneGame)
-- `src/server/mutations/rounds.ts`: Round/score management (createRoundForGame, updateRoundScores)
-- `src/server/mutations/friends.ts`: Friend management (createFriendRequest, acceptFriendRequest, rejectFriendRequest)
-- `src/server/mutations/guests.ts`: Guest user management (createGuestUser, getMyGuestUsers, inviteGuestUser)
-- `src/server/mutations/index.ts`: Barrel file that re-exports all mutations (used primarily by tests)
+1. **New Error Tracking Utilities** (`src/lib/errorTracking.ts`):
 
-The original `mutations.ts` file now explicitly re-exports each function from the new structure to maintain backward compatibility with existing imports. We discovered that Next.js "use server" directives have specific requirements:
+   - `trackAuthError`: Captures authentication failures in both Sentry and PostHog
+   - `trackAuthSuccess`: Records successful authentication events in PostHog
 
-1. Files with "use server" can only export async functions
-2. You cannot use `export * from` in a "use server" file
-3. Each function must be individually imported and re-exported
+2. **Enhanced Authentication Components**:
 
-This approach:
+   - `src/app/sign-in/[[...sign-in]]/page.tsx`: Email/password and Google OAuth sign-in
+   - `src/app/sign-up/[[...sign-up]]/page.tsx`: Registration with email/password and Google OAuth
+   - `src/app/sso-callback/page.tsx`: Handles OAuth redirect processing with specialized error detection
+   - `src/app/complete-username/page.tsx`: Allows setting username after OAuth sign-up
 
-1. Improves maintainability by grouping related functions
-2. Makes the codebase easier to navigate
-3. Preserves backward compatibility via explicit re-exports
-4. Creates logical boundaries between different domains
-5. Complies with Next.js "use server" restrictions
+3. **OAuth Flow Improvements**:
+
+   - Enhanced error handling for OAuth callback processing
+   - Added username completion step for OAuth sign-ups
+   - URL parameter error detection in the SSO callback page
+
+4. **Standardized Error Patterns**:
+
+   - Consistent error tracking across all authentication components
+   - User-friendly error messages based on error types
+   - Detailed error context sent to monitoring platforms
+
+5. **Documentation**:
+   - Comprehensive documentation in `docs/auth-error-tracking.md`
+   - Updated system patterns to reflect authentication patterns
 
 ## Active Decisions
 
-The refactoring preserves the existing behavior of all server actions while making them more maintainable. For proper backward compatibility, we:
+The authentication enhancements preserve the existing auth functionality while adding better error handling and monitoring:
 
-1. Keep the "use server" directive on each domain-specific file
-2. Remove it from the barrel index.ts file (used by tests)
-3. Add it to the main mutations.ts file with explicit re-exports
+1. Error tracking includes auth flow type, method, and specific context
+2. OAuth flows direct users to appropriate next steps (home or username completion)
+3. Authentication errors are tracked with standardized formatting in both Sentry and PostHog
+4. Success events are tracked to monitor conversion rates for each auth method
 
-Tests pass successfully and the app functions as expected with this structure.
+## Previous Focus: Code Organization and Maintainability
+
+We previously worked on improving the organization of server-side code by breaking down large files into more manageable, domain-specific modules.
+
+### Server Mutations Refactoring (March 29, 2025)
+
+We refactored the `src/server/mutations.ts` file, which had grown too large and was becoming difficult to maintain. We split it into domain-specific files:
+
+- `src/server/mutations/common.ts`: Shared utility functions for authentication and error handling
+- `src/server/mutations/games.ts`: Game management functions
+- `src/server/mutations/rounds.ts`: Round/score management functions
+- `src/server/mutations/friends.ts`: Friend management functions
+- `src/server/mutations/guests.ts`: Guest user management functions
+- `src/server/mutations/index.ts`: Barrel file for tests
 
 ## Next Steps
 
-1. Apply a similar refactoring pattern to other large files like `src/server/queries.ts`
-2. Document this export pattern in the shared team documentation
-3. Consider adding more specific error handling in each domain module
+1. Complete any testing to ensure the auth flows are working as expected
+2. Monitor authentication errors in Sentry and PostHog to identify patterns
+3. Consider applying a similar error tracking pattern to other critical user flows
+4. Apply the server mutation refactoring pattern to other large files like `src/server/queries.ts`

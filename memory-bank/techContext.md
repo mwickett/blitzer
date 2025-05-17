@@ -141,9 +141,9 @@ These are configured through a `.env.local` file which is not committed to versi
 
 ## Error Tracking Architecture
 
-### Components
+The error tracking system has multiple specialized layers:
 
-The error tracking system has multiple layers:
+### Application Error Handling
 
 1. **Global Error Boundary**
 
@@ -167,6 +167,30 @@ The error tracking system has multiple layers:
    - `src/components/ErrorBoundary.tsx` - Reusable boundary component
    - Used to wrap complex UI components (e.g., ScoreEntry)
    - Captures component-specific context
+
+### Authentication Error Tracking
+
+1. **Authentication Error Utilities**
+
+   - `src/lib/errorTracking.ts` - Provides standardized error tracking functions
+   - `trackAuthError()` - Tracks authentication failures in Sentry and PostHog
+   - `trackAuthSuccess()` - Records successful auth events in PostHog
+
+2. **Authentication Flow Components**
+
+   - `src/app/sign-in/[[...sign-in]]/page.tsx` - Email/password and OAuth sign-in
+   - `src/app/sign-up/[[...sign-up]]/page.tsx` - Email/password and OAuth sign-up
+   - `src/app/sso-callback/page.tsx` - OAuth redirect handling with error detection
+   - `src/app/complete-username/page.tsx` - Username completion for OAuth users
+
+3. **OAuth Error Detection**
+
+   - URL parameter error analysis in the SSO callback page
+   - Comprehensive error context gathering
+   - User-friendly error messages based on error types
+
+4. **Auth Error Documentation**
+   - `docs/auth-error-tracking.md` - Comprehensive documentation
 
 ### Error Testing
 
