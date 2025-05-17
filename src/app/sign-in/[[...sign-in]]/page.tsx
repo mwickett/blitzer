@@ -25,24 +25,61 @@ export default function SignInPage() {
 
   // Handle OAuth sign-in (Google)
   const signInWithGoogle = async () => {
-    if (!isLoaded) return;
+    if (!isLoaded) {
+      console.log("Clerk not loaded yet, cannot initiate Google sign-in");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
 
     try {
+      console.log("Initiating Google OAuth authentication...");
+
+      // Add loading state feedback for the user
+      const loadingEl = document.getElementById("google-auth-status");
+      if (loadingEl) {
+        loadingEl.textContent = "Connecting to Google...";
+      }
+
       const result = await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",
         redirectUrlComplete: "/",
       });
-      console.log(result);
+
+      console.log("OAuth redirect initiated:", result);
+
+      // Note: The code typically won't reach here because of the redirect
     } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
-      setError(
-        err.errors?.[0]?.message || "An error occurred during Google sign in."
-      );
+      console.error("Google sign-in error:", JSON.stringify(err, null, 2));
+
+      setIsSubmitting(false);
+
+      // Check for specific error types to provide more helpful messages
+      const errorMessage =
+        err.errors?.[0]?.message || "An error occurred during Google sign in.";
+
+      if (
+        errorMessage.includes("network") ||
+        errorMessage.includes("timeout")
+      ) {
+        setError(
+          "Network issue detected. Please check your connection and try again."
+        );
+      } else if (
+        errorMessage.includes("permissions") ||
+        errorMessage.includes("access")
+      ) {
+        setError(
+          "Google account access denied. Please ensure you grant the necessary permissions."
+        );
+      } else {
+        setError(errorMessage);
+      }
     }
   };
 
-  // Handle the submission of the sign-in form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -81,7 +118,6 @@ export default function SignInPage() {
     }
   };
 
-  // Display a form to capture the user's email and password
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -137,6 +173,7 @@ export default function SignInPage() {
               </div>
             </div>
 
+            {/* Google Sign-in Button */}
             <Button
               type="button"
               variant="outline"
@@ -167,8 +204,14 @@ export default function SignInPage() {
                   fill="#EA4335"
                 />
               </svg>
-              Sign in with Google
+              {isSubmitting ? "Connecting..." : "Sign in with Google"}
             </Button>
+
+            {/* Google auth status indicator */}
+            <div
+              id="google-auth-status"
+              className={`text-center text-sm ${isSubmitting ? "text-blue-500 animate-pulse" : "hidden"}`}
+            ></div>
           </CardFooter>
         </form>
       </Card>

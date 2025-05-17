@@ -28,20 +28,58 @@ export default function SignUpPage() {
 
   // Handle OAuth sign-up (Google)
   const signUpWithGoogle = async () => {
-    if (!isLoaded) return;
+    if (!isLoaded) {
+      console.log("Clerk not loaded yet, cannot initiate Google sign-up");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
 
     try {
+      console.log("Initiating Google OAuth authentication...");
+
+      // Add loading state feedback for the user
+      const loadingEl = document.getElementById("google-auth-status");
+      if (loadingEl) {
+        loadingEl.textContent = "Connecting to Google...";
+      }
+
       const result = await signUp.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/",
+        redirectUrlComplete: "/complete-username",
       });
-      console.log(result);
+
+      console.log("OAuth redirect initiated:", result);
+
+      // Note: The code typically won't reach here because of the redirect
     } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
-      setError(
-        err.errors?.[0]?.message || "An error occurred during Google sign up."
-      );
+      console.error("Google sign-up error:", JSON.stringify(err, null, 2));
+
+      setIsSubmitting(false);
+
+      // Check for specific error types to provide more helpful messages
+      const errorMessage =
+        err.errors?.[0]?.message || "An error occurred during Google sign up.";
+
+      if (
+        errorMessage.includes("network") ||
+        errorMessage.includes("timeout")
+      ) {
+        setError(
+          "Network issue detected. Please check your connection and try again."
+        );
+      } else if (
+        errorMessage.includes("permissions") ||
+        errorMessage.includes("access")
+      ) {
+        setError(
+          "Google account access denied. Please ensure you grant the necessary permissions."
+        );
+      } else {
+        setError(errorMessage);
+      }
     }
   };
 
@@ -235,6 +273,7 @@ export default function SignUpPage() {
               </div>
             </div>
 
+            {/* Google Sign-in Button */}
             <Button
               type="button"
               variant="outline"
@@ -265,8 +304,14 @@ export default function SignUpPage() {
                   fill="#EA4335"
                 />
               </svg>
-              Sign up with Google
+              {isSubmitting ? "Connecting..." : "Sign up with Google"}
             </Button>
+
+            {/* Google auth status indicator */}
+            <div
+              id="google-auth-status"
+              className={`text-center text-sm ${isSubmitting ? "text-blue-500 animate-pulse" : "hidden"}`}
+            ></div>
           </CardFooter>
         </form>
       </Card>
