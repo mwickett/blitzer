@@ -500,6 +500,28 @@ describe("Queries", () => {
         expect(result).toBe(0);
       });
 
+      it("should handle zero values correctly", async () => {
+        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
+          _sum: {
+            totalCardsPlayed: 0,
+            blitzPileRemaining: 20,
+          },
+        });
+
+        let result = await getCumulativeScore();
+        expect(result).toBe(-40);
+
+        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
+          _sum: {
+            totalCardsPlayed: 100,
+            blitzPileRemaining: 0,
+          },
+        });
+
+        result = await getCumulativeScore();
+        expect(result).toBe(100);
+      });
+
       it("should return 0 for no scores", async () => {
         (prisma.score.aggregate as jest.Mock).mockResolvedValue({
           _sum: {
