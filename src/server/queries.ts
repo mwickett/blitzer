@@ -329,7 +329,7 @@ export async function getCumulativeScore() {
   const totalCardsPlayed = cumulativeScore._sum.totalCardsPlayed;
   const blitzPileRemaining = cumulativeScore._sum.blitzPileRemaining;
 
-  if (!totalCardsPlayed || !blitzPileRemaining) {
+  if (totalCardsPlayed === null || blitzPileRemaining === null) {
     return 0;
   }
 
