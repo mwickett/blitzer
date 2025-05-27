@@ -99,6 +99,9 @@ POSTHOG_HOST=https://app.posthog.com
 
 # Error monitoring
 NEXT_PUBLIC_SENTRY_DSN=https://...
+
+***REMOVED*** Integration
+***REMOVED***
 ```
 
 These are configured through a `.env.local` file which is not committed to version control.
