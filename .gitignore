@@ -46,3 +46,7 @@ claude_desktop_config.json
 
 # Devin
 .envrc
+
+# Playwright
+/playwright-report/
+/test-results/
