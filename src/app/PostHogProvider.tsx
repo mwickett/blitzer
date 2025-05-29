@@ -8,7 +8,7 @@ if (typeof window !== "undefined") {
     ui_host: "https://us.posthog.com",
     capture_pageview: false,
     capture_pageleave: true,
-    debug: true,
+    // debug: true,
   });
 }
 export function CSPostHogProvider({ children }: { children: React.ReactNode }) {

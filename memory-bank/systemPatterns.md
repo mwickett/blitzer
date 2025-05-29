@@ -69,9 +69,84 @@ const { user, posthog } = await getAuthenticatedUser();
 const { userId, id, posthog } = await getAuthenticatedUserPrismaId();
 ```
 
+### Authentication Flow Patterns
+
+The application implements comprehensive authentication flows with standardized error tracking. Each flow follows a consistent pattern:
+
+1. **Core Authentication Flows**:
+
+   - Sign-in (email/password and Google OAuth)
+   - Sign-up (email/password and Google OAuth)
+   - Email verification with OTP codes
+   - OAuth callback handling
+   - Username completion after OAuth sign-up
+
+2. **OAuth Flow**:
+
+   - Initiate with `authenticateWithRedirect`
+   - Process via `sso-callback` page
+   - Complete username (if needed) via `complete-username` page
+
+3. **Email/Password Flow**:
+
+   - Create account with email/password
+   - Verify email with OTP code
+   - Complete authentication
+
+4. **Error Handling Pattern**:
+
+   ```typescript
+   try {
+     // Authentication operation
+   } catch (err) {
+     // Log to console for debugging
+     console.error("Auth error:", JSON.stringify(err, null, 2));
+
+     // Track in Sentry and PostHog with standardized format
+     const errorMessage = trackAuthError(
+       err,
+       "flow_type", // e.g., sign_in, sign_up
+       "auth_method", // e.g., email_password, oauth_google
+       {
+         // Non-sensitive contextual information
+       }
+     );
+
+     // Display user-friendly error
+     setError(errorMessage);
+   }
+   ```
+
+5. **Success Tracking Pattern**:
+   ```typescript
+   trackAuthSuccess(
+     "flow_type", // e.g., sign_in, sign_up
+     "auth_method", // e.g., email_password, oauth_google
+     {
+       status: "complete", // or other contextual information
+     }
+   );
+   ```
+
+The authentication system is integrated with Clerk, with custom UI components implemented using ShadCN UI.
+
 ## Error Handling
 
 Domain-specific errors are used to provide user-friendly error messages. For example, the `ValidationError` class in `src/lib/validation/gameRules.ts` is used for game rule validation.
+
+### Authentication Error Tracking
+
+Authentication errors are tracked with detailed context in both Sentry and PostHog using utilities from `src/lib/errorTracking.ts`:
+
+- `trackAuthError`: Captures authentication failures with standardized formatting
+- `trackAuthSuccess`: Records successful authentication events
+
+This provides comprehensive observability for troubleshooting authentication issues:
+
+- Monitoring authentication failure rates
+- Identifying patterns in authentication problems
+- Tracking the success of authentication flows
+- Troubleshooting specific user authentication issues
 
 ## Analytics
 
@@ -86,3 +161,8 @@ posthog.capture({
   },
 });
 ```
+
+Authentication events are specifically tracked with standardized event names:
+
+- `auth_error`: Failed authentication attempts
+- `auth_success`: Successful authentication events

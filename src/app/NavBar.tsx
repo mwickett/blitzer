@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  UserButton,
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignUpButton,
-} from "@clerk/nextjs";
+import { UserButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
@@ -110,6 +104,26 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
                       New game
                     </Link>
                   </Button>
+                  <SignedOut>
+                    <div className="flex flex-col gap-2 mt-2">
+                      <Button variant="outline" asChild>
+                        <Link
+                          href="/sign-in"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          Sign In
+                        </Link>
+                      </Button>
+                      <Button asChild>
+                        <Link
+                          href="/sign-up"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          Sign Up
+                        </Link>
+                      </Button>
+                    </div>
+                  </SignedOut>
                 </nav>
               </SheetContent>
             </Sheet>
@@ -140,8 +154,12 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
               <UserButton />
             </SignedIn>
             <SignedOut>
-              <SignInButton>Sign In</SignInButton>
-              <SignUpButton>Sign Up</SignUpButton>
+              <Button variant="outline" asChild className="mr-2">
+                <Link href="/sign-in">Sign In</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/sign-up">Sign Up</Link>
+              </Button>
             </SignedOut>
           </div>
         </div>
