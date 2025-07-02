@@ -58,6 +58,17 @@
 - Remember that authentication is handled by Clerk
 - User data and preferences are stored in the database
 - Authentication state is available through Clerk context
+- Authentication errors are tracked with standardized utilities in `src/lib/errorTracking.ts`
+- All authentication operations follow a consistent try/catch pattern with error tracking
+
+### Authentication Error Tracking
+
+- Use the `trackAuthError(error, flow, method, context)` utility for consistent error tracking
+- Use the `trackAuthSuccess(flow, method, context)` utility for tracking successful auth events
+- Always include appropriate context data but avoid sensitive information
+- Check Sentry and PostHog dashboards for authentication error patterns
+- OAuth errors require special handling in the SSO callback page
+- User-facing error messages should be friendly and actionable
 
 ### Data Modeling
 
