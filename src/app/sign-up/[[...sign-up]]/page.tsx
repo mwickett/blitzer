@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignUp } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { trackAuthError, trackAuthSuccess } from "@/lib/errorTracking";
 import {
@@ -16,18 +16,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
-export default function SignInPage() {
-  const { isLoaded, signIn, setActive } = useSignIn();
-  const [email, setEmail] = React.useState("");
+export default function SignUpPage() {
+  const { isLoaded, signUp, setActive } = useSignUp();
+  const [emailAddress, setEmailAddress] = React.useState("");
+  const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [verifying, setVerifying] = React.useState(false);
+  const [code, setCode] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const router = useRouter();
 
-  // Handle OAuth sign-in (Google)
-  const signInWithGoogle = async () => {
+  // Handle OAuth sign-up (Google)
+  const signUpWithGoogle = async () => {
     if (!isLoaded) {
-      console.log("Clerk not loaded yet, cannot initiate Google sign-in");
+      console.log("Clerk not loaded yet, cannot initiate Google sign-up");
       return;
     }
 
@@ -43,22 +46,22 @@ export default function SignInPage() {
         loadingEl.textContent = "Connecting to Google...";
       }
 
-      const result = await signIn.authenticateWithRedirect({
+      const result = await signUp.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/",
+        redirectUrlComplete: "/complete-username",
       });
 
       console.log("OAuth redirect initiated:", result);
 
       // Note: The code typically won't reach here because of the redirect
     } catch (err: any) {
-      console.error("Google sign-in error:", JSON.stringify(err, null, 2));
+      console.error("Google sign-up error:", JSON.stringify(err, null, 2));
 
       setIsSubmitting(false);
 
       // Track error in both Sentry and PostHog
-      const errorMessage = trackAuthError(err, "sign_in", "oauth_google", {
+      const errorMessage = trackAuthError(err, "sign_up", "oauth_google", {
         attemptType: "redirect",
       });
 
@@ -83,6 +86,7 @@ export default function SignInPage() {
     }
   };
 
+  // Handle submission of the sign-up form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -93,39 +97,38 @@ export default function SignInPage() {
       return;
     }
 
-    // Start the sign-in process using the email and password provided
+    // Start the sign-up process using the email, username and password provided
     try {
-      const signInAttempt = await signIn.create({
-        identifier: email,
+      await signUp.create({
+        emailAddress,
+        username,
         password,
       });
 
-      // If sign-in process is complete, set the created session as active
-      // and redirect the user
-      if (signInAttempt.status === "complete") {
-        // Track successful sign-in
-        trackAuthSuccess("sign_in", "email_password");
+      // Send the user an email with the verification code
+      await signUp.prepareEmailAddressVerification({
+        strategy: "email_code",
+      });
 
-        await setActive({ session: signInAttempt.createdSessionId });
-        router.push("/");
-      } else {
-        // If the status is not complete, check why. User may need to
-        // complete further steps.
-        console.error(JSON.stringify(signInAttempt, null, 2));
-        setError("Sign in incomplete. Please try again.");
-      }
+      // Track successful account creation and email verification initiation
+      trackAuthSuccess("sign_up", "email_password", {
+        status: "verification_needed",
+      });
+
+      // Set 'verifying' true to display second form
+      // and capture the OTP code
+      setVerifying(true);
     } catch (err: any) {
       // See https://clerk.com/docs/custom-flows/error-handling
       // for more info on error handling
       console.error(JSON.stringify(err, null, 2));
 
       // Track error in both Sentry and PostHog
-      const errorMessage = trackAuthError(
-        err,
-        "sign_in",
-        "email_password",
-        { email: email } // Include non-sensitive context data
-      );
+      const errorMessage = trackAuthError(err, "sign_up", "email_password", {
+        email: emailAddress,
+        username: username,
+        step: "initial_creation",
+      });
 
       setError(errorMessage);
     } finally {
@@ -133,12 +136,105 @@ export default function SignInPage() {
     }
   };
 
+  // Handle the submission of the verification form
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    if (!isLoaded) {
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      // Use the code the user provided to attempt verification
+      const signUpAttempt = await signUp.attemptEmailAddressVerification({
+        code,
+      });
+
+      // If verification was completed, set the session to active
+      // and redirect the user
+      if (signUpAttempt.status === "complete") {
+        // Track successful verification and account activation
+        trackAuthSuccess("verification", "email_code", { status: "complete" });
+
+        await setActive({ session: signUpAttempt.createdSessionId });
+        router.push("/");
+      } else {
+        // If the status is not complete, check why. User may need to
+        // complete further steps.
+        console.error(JSON.stringify(signUpAttempt, null, 2));
+        setError("Verification incomplete. Please try again.");
+      }
+    } catch (err: any) {
+      // See https://clerk.com/docs/custom-flows/error-handling
+      // for more info on error handling
+      console.error("Error:", JSON.stringify(err, null, 2));
+
+      // Track error in both Sentry and PostHog
+      const errorMessage = trackAuthError(err, "verification", "email_code", {
+        step: "verify_email_code",
+      });
+
+      setError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Display the verification form to capture the OTP code
+  if (verifying) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold">
+              Verify your email
+            </CardTitle>
+            <CardDescription>
+              We&apos;ve sent a verification code to your email. Please enter it
+              below.
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleVerify}>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="code">Verification code</Label>
+                <Input
+                  id="code"
+                  type="text"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="Enter the 6-digit code"
+                  required
+                  disabled={isSubmitting}
+                />
+              </div>
+              {error && <div className="text-sm text-red-500">{error}</div>}
+            </CardContent>
+            <CardFooter>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isSubmitting || !code}
+              >
+                {isSubmitting ? "Verifying..." : "Verify"}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  // Display the initial sign-up form to capture the email and password
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
-          <CardDescription>Sign in to your account to continue</CardDescription>
+          <CardTitle className="text-2xl font-bold">Sign up</CardTitle>
+          <CardDescription>Create a new account to get started</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -147,9 +243,21 @@ export default function SignInPage() {
               <Input
                 id="email"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={emailAddress}
+                onChange={(e) => setEmailAddress(e.target.value)}
                 placeholder="you@example.com"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Choose a username"
                 required
                 disabled={isSubmitting}
               />
@@ -161,7 +269,7 @@ export default function SignInPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder="Create a password"
                 required
                 disabled={isSubmitting}
               />
@@ -172,9 +280,9 @@ export default function SignInPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isSubmitting || !email || !password}
+              disabled={isSubmitting || !emailAddress || !username || !password}
             >
-              {isSubmitting ? "Signing in..." : "Sign in with Email"}
+              {isSubmitting ? "Creating account..." : "Sign up with Email"}
             </Button>
 
             <div className="relative w-full">
@@ -193,7 +301,7 @@ export default function SignInPage() {
               type="button"
               variant="outline"
               className="w-full flex items-center justify-center gap-2"
-              onClick={signInWithGoogle}
+              onClick={signUpWithGoogle}
               disabled={isSubmitting}
             >
               <svg
@@ -219,7 +327,7 @@ export default function SignInPage() {
                   fill="#EA4335"
                 />
               </svg>
-              {isSubmitting ? "Connecting..." : "Sign in with Google"}
+              {isSubmitting ? "Connecting..." : "Sign up with Google"}
             </Button>
 
             {/* Google auth status indicator */}
