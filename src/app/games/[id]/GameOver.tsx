@@ -1,8 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export default function GameOver({
   gameId,
@@ -12,6 +20,8 @@ export default function GameOver({
   winner: string;
 }) {
   const router = useRouter();
+  const [open, setOpen] = useState(true);
+
   const handleClone = async () => {
     const res = await fetch(`/games/clone/${gameId}`, {});
 
@@ -24,12 +34,25 @@ export default function GameOver({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      <p className="flex justify-center">{winner} won the game!</p>
-      <Button onClick={handleClone}>Play again</Button>
-      <p className="text-xs">
-        This will start a new game with the same players
-      </p>
-    </div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-center text-2xl">
+            🎉 {winner} won the game!
+          </DialogTitle>
+          <DialogDescription className="text-center">
+            Great round — want a rematch with the same players?
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mt-2 flex flex-col items-center gap-3">
+          <Button size="lg" onClick={handleClone} className="w-full">
+            Play again
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Starts a new game with the same players
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
