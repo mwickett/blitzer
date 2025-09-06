@@ -100,9 +100,8 @@ function ScoreEntry({
     validateScores();
   }, [playerScores, validateScores]);
 
-  if (winner) {
-    return <GameOver gameId={game.id} winner={winner.username} />;
-  }
+  // If a winner exists, we will render a modal overlay below while keeping
+  // the current screen visible in the background.
 
   const stripLeadingZeros = (value: string) => {
     return value.replace(/^0+(?=\d)/, "");
@@ -236,10 +235,12 @@ function ScoreEntry({
   };
 
   return (
-    <form
-      className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto"
-      onSubmit={handleSubmit}
-    >
+    <>
+      {winner && <GameOver gameId={game.id} winner={winner.username} />}
+      <form
+        className="bg-white dark:bg-gray-950 rounded-lg shadow-lg p-6 max-w-md mx-auto"
+        onSubmit={handleSubmit}
+      >
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
@@ -302,7 +303,8 @@ function ScoreEntry({
           Save Scores
         </Button>
       </div>
-    </form>
+      </form>
+    </>
   );
 }
 
