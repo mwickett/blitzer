@@ -96,9 +96,16 @@ export default function NewGameChooser({
       return;
     }
 
+    let guestId: string;
+    try {
+      guestId = `guest-${crypto.randomUUID()}`;
+    } catch (error) {
+      guestId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+
     // Create a temporary guest object with a client-side ID
     const tempGuestUser = {
-      id: `guest-${crypto.randomUUID()}`, // Temporary ID, will be replaced by real UUID on server
+      id: guestId, // Temporary ID, will be replaced by real UUID on server
       username: guestName.trim(),
       isGuest: true as const, // Flag to identify guest users in the UI
     };
