@@ -14,7 +14,20 @@ import {
 } from "recharts";
 
 // Array of colors for different players' lines
-const lineColors = ["#FD4C4E", "#0168C7", "#049746", "#FDD605"];
+const lineColors = [
+  "#FD4C4E", // Red (important-comment)
+  "#0168C7", // Blue (important-comment)
+  "#049746", // Green (important-comment)
+  "#FDD605", // Yellow (important-comment)
+  "#8B5CF6", // Purple (important-comment)
+  "#F97316", // Orange (important-comment)
+  "#EC4899", // Pink (important-comment)
+  "#06B6D4", // Cyan (important-comment)
+  "#6366F1", // Indigo (important-comment)
+  "#84CC16", // Lime (important-comment)
+  "#F59E0B", // Amber (important-comment)
+  "#14B8A6", // Teal (important-comment)
+];
 
 interface ScoreLineGraphProps {
   displayScores: DisplayScores[];
