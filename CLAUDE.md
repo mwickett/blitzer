@@ -31,6 +31,7 @@ npm run lint                # Run ESLint
 ## Architecture & Data Model
 
 ### Core Data Entities
+
 - **User**: Authenticated users (via Clerk)
 - **GuestUser**: Non-authenticated players created by registered users
 - **Game**: A complete Dutch Blitz game session
@@ -41,6 +42,7 @@ npm run lint                # Run ESLint
 ### Key Patterns
 
 **Server Actions Organization**: Domain-based modular structure in `src/server/mutations/`:
+
 - `games.ts` - Game creation, updates, completion
 - `rounds.ts` - Score entry and round management
 - `friends.ts` - Friend requests and connections
@@ -49,6 +51,7 @@ npm run lint                # Run ESLint
 **Authentication Flow**: All server actions start with `getAuthenticatedUser()` or `getAuthenticatedUserPrismaId()` from `src/server/mutations/common.ts`
 
 **Error Handling**: Multi-layered approach:
+
 - Global error boundary: `src/app/global-error.tsx`
 - Section-specific boundaries: `src/app/*/error.tsx`
 - Component boundary: `src/components/ErrorBoundary.tsx`
@@ -56,17 +59,20 @@ npm run lint                # Run ESLint
 ## Key Technical Details
 
 **Database**: PostgreSQL via Neon, managed through Prisma ORM
+
 - Schema: `src/server/db/schema.prisma`
 - Always run `npx prisma migrate dev` after schema changes
 
 **Authentication**: Clerk handles auth, user data synced via webhooks
 
 **Feature Flags**: PostHog-based system
+
 - Server: `isFeatureEnabled()` from `src/featureFlags.ts`
 - Client: `useFeatureFlag()` from `src/hooks/useFeatureFlag.ts`
 - Current flags documented in `src/FEATURE_FLAGS.md`
 
-**Analytics & Error Tracking**: 
+**Analytics & Error Tracking**:
+
 - PostHog for analytics and feature flags
 - Sentry for error monitoring
 - All server actions include PostHog event tracking
@@ -83,6 +89,6 @@ npm run lint                # Run ESLint
 
 ## Test Environment
 
-- Test user credentials: alice@dutchblitz.io / eeX@pzZsGrHQXT3
+- Test user credentials: ask the human developer to provide these for you.
 - Use `npm test` for unit tests, `npm run test:watch` for development
 - Database operations require test database setup via environment variables

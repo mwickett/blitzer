@@ -31,15 +31,6 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Test user
-
-You can login to Clerk development by using the following credentials:
-
-- User: alice@dutchblitz.io
-- pass: eeX@pzZsGrHQXT3
-
-You _can_ also create new users by signing up, but you'll need to be exposing a local API route to the internet so that Clerk's webhook can fire with the user update. Details on this are [available here](https://ngrok.com/docs/integrations/clerk/webhooks/)
-
 ## Making schema changes / Using Prisma
 
 If you make changes to the schema, you'll need to run `npx prisma migrate dev` to create and apply a migration to your local DB. You should ensure you commit those migration files so that they can be applied to production as well (this will happen automatically as part of the build).

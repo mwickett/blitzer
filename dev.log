@@ -1,0 +1,45 @@
+
+> blitz@0.1.0 dev
+> next dev --turbopack --turbo
+
+[@sentry/nextjs] WARNING: You are using the Sentry SDK with `next dev --turbo`. The Sentry SDK doesn't yet fully support Turbopack. The SDK will not be loaded in the browser, and serverside instrumentation will be inaccurate or incomplete. Production builds without `--turbo` will still fully work. If you are just trying out Sentry or attempting to configure the SDK, we recommend temporarily removing the `--turbo` flag while you are developing locally. Follow this issue for progress on Sentry + Turbopack: https://github.com/getsentry/sentry-javascript/issues/8105. (You can suppress this warning by setting SENTRY_SUPPRESS_TURBOPACK_WARNING=1 as environment variable)
+   ▲ Next.js 15.2.3 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.7.67:3000
+   - Environments: .env
+   - Experiments (use with caution):
+     · clientTraceMetadata
+
+ ✓ Starting...
+ ✓ Compiled in 1503ms
+ ✓ Ready in 3.1s
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbo
+
+ ○ Compiling / ...
+ ✓ Compiled / in 3.6s
+ GET / 200 in 4180ms
+ GET / 200 in 119ms
+ ○ Compiling /sign-in/[[...sign-in]] ...
+ ✓ Compiled /sign-in/[[...sign-in]] in 1651ms
+ GET /sign-in 200 in 2140ms
+ GET /sign-in/SignIn_clerk_catchall_check_1751736959904 200 in 344ms
+ ○ Compiling /api/webhooks ...
+ ✓ Compiled /api/webhooks in 2.3s
+Error verifying webhook: No matching signature found
+ POST /api/webhooks 400 in 2666ms
+Error verifying webhook: No matching signature found
+ POST /api/webhooks 400 in 97ms
+Error verifying webhook: No matching signature found
+ POST /api/webhooks 400 in 107ms
+Error verifying webhook: No matching signature found
+ POST /api/webhooks 400 in 159ms
+Error verifying webhook: No matching signature found
+ POST /api/webhooks 400 in 78ms
+Error verifying webhook: No matching signature found
+ POST /api/webhooks 400 in 211ms
+Error verifying webhook: No matching signature found
+ POST /api/webhooks 400 in 53ms
+Error verifying webhook: No matching signature found
+ POST /api/webhooks 400 in 70ms
