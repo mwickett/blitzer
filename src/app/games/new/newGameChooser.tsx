@@ -83,10 +83,7 @@ export default function NewGameChooser({
   }, [clerkUser, users, isInitialUserSet]); // Depend on clerkUser, users, and the flag
 
   const handleAddUser = (user: UserSubset) => {
-    if (
-      !inGamePlayers.some((p) => p.id === user.id) &&
-      inGamePlayers.length < 4
-    ) {
+    if (!inGamePlayers.some((p) => p.id === user.id)) {
       setInGamePlayers([...inGamePlayers, user]);
     }
     setOpen(false);
@@ -99,17 +96,22 @@ export default function NewGameChooser({
       return;
     }
 
-    if (inGamePlayers.length < 4) {
-      // Create a temporary guest object with a client-side ID
-      const tempGuestUser = {
-        id: `guest-${Date.now()}`, // Temporary ID, will be replaced by real UUID on server
-        username: guestName.trim(),
-        isGuest: true as const, // Flag to identify guest users in the UI
-      };
-
-      setInGamePlayers((prev) => [...prev, tempGuestUser]);
-      resetAddPlayerState();
+    let guestId: string;
+    try {
+      guestId = `guest-${crypto.randomUUID()}`;
+    } catch (error) {
+      guestId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     }
+
+    // Create a temporary guest object with a client-side ID
+    const tempGuestUser = {
+      id: guestId, // Temporary ID, will be replaced by real UUID on server
+      username: guestName.trim(),
+      isGuest: true as const, // Flag to identify guest users in the UI
+    };
+
+    setInGamePlayers((prev) => [...prev, tempGuestUser]);
+    resetAddPlayerState();
   };
 
   const resetAddPlayerState = () => {
@@ -176,7 +178,7 @@ export default function NewGameChooser({
 
           <div>
             <h3 className="font-medium text-[#5a341f] text-sm mb-3">
-              Selected Players ({inGamePlayers.length}/4)
+              Selected Players ({inGamePlayers.length})
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {inGamePlayers.map((player) => (
@@ -230,7 +232,7 @@ export default function NewGameChooser({
                 </div>
               ))}
 
-              {inGamePlayers.length < 4 && !addingPlayer && (
+              {!addingPlayer && (
                 <button
                   className="flex items-center sm:flex-col sm:items-center justify-start sm:justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] transition-colors sm:h-[130px]"
                   onClick={startAddingPlayer}
@@ -244,7 +246,7 @@ export default function NewGameChooser({
                 </button>
               )}
 
-              {inGamePlayers.length < 4 && addingPlayer && (
+              {addingPlayer && (
                 <div className="flex flex-col p-3 rounded-lg border border-[#e6d7c3] bg-white sm:h-[130px]">
                   <Tabs
                     value={activeTab}
