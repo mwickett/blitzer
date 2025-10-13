@@ -33,8 +33,3 @@ export function useScoreChartsFlag(): boolean {
 export function useLlmFeaturesFlag(): boolean {
   return useFeatureFlag("llm-features");
 }
-
-// Convenience hook for the guest-players flag
-export function useGuestPlayersFlag(): boolean {
-  return useFeatureFlag("guest-players");
-}

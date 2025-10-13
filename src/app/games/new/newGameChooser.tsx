@@ -48,12 +48,10 @@ type GamePlayer = UserSubset | { id: string; username: string; isGuest: true };
 
 interface NewGameChooserProps {
   users: UserSubset[];
-  guestPlayersEnabled?: boolean;
 }
 
 export default function NewGameChooser({
   users,
-  guestPlayersEnabled = false,
 }: NewGameChooserProps) {
   const [inGamePlayers, setInGamePlayers] = useState<GamePlayer[]>([]);
   const [open, setOpen] = useState(false);
@@ -258,12 +256,10 @@ export default function NewGameChooser({
                         <UserIcon className="h-3 w-3 mr-1" />
                         Existing
                       </TabsTrigger>
-                      {guestPlayersEnabled && (
-                        <TabsTrigger value="guest" className="text-xs">
-                          <UserPlus className="h-3 w-3 mr-1" />
-                          Guest
-                        </TabsTrigger>
-                      )}
+                      <TabsTrigger value="guest" className="text-xs">
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        Guest
+                      </TabsTrigger>
                     </TabsList>
                     <TabsContent value="existing" className="mt-0">
                       <Popover open={open} onOpenChange={setOpen}>
@@ -318,31 +314,29 @@ export default function NewGameChooser({
                         </PopoverContent>
                       </Popover>
                     </TabsContent>
-                    {guestPlayersEnabled && (
-                      <TabsContent value="guest" className="mt-0 space-y-1">
-                        <div className="relative">
-                          <Input
-                            value={guestName}
-                            onChange={(e) => {
-                              setGuestName(e.target.value);
-                              if (e.target.value.trim()) setGuestError("");
-                            }}
-                            placeholder="Enter guest name"
-                            className="border-[#e6d7c3] h-8 text-xs pr-16"
-                          />
-                          <Button
-                            size="sm"
-                            className="absolute right-0 top-0 h-8 text-xs bg-[#5a341f] hover:bg-[#3d1a0a]"
-                            onClick={handleAddGuest}
-                          >
-                            Add
-                          </Button>
-                        </div>
-                        {guestError && (
-                          <p className="text-red-500 text-xs">{guestError}</p>
-                        )}
-                      </TabsContent>
-                    )}
+                    <TabsContent value="guest" className="mt-0 space-y-1">
+                      <div className="relative">
+                        <Input
+                          value={guestName}
+                          onChange={(e) => {
+                            setGuestName(e.target.value);
+                            if (e.target.value.trim()) setGuestError("");
+                          }}
+                          placeholder="Enter guest name"
+                          className="border-[#e6d7c3] h-8 text-xs pr-16"
+                        />
+                        <Button
+                          size="sm"
+                          className="absolute right-0 top-0 h-8 text-xs bg-[#5a341f] hover:bg-[#3d1a0a]"
+                          onClick={handleAddGuest}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                      {guestError && (
+                        <p className="text-red-500 text-xs">{guestError}</p>
+                      )}
+                    </TabsContent>
                   </Tabs>
                   <Button
                     variant="ghost"
