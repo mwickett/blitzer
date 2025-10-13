@@ -1,10 +1,11 @@
 import { WebhookEvent, UserJSON } from "@clerk/nextjs/server";
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
+import { type NextRequest } from "next/server";
 import prisma from "@/server/db/db";
 import { generateRandomUsername } from "@/lib/utils";
 import { sendWelcomeEmail } from "@/server/email";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   let evt: WebhookEvent;
 
   try {
