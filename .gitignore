@@ -28,6 +28,11 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+# ignore all env variants except example
+.env.*
+!.env.example
+# ensure tests env never tracked
+.env.test
 
 
 # vercel
