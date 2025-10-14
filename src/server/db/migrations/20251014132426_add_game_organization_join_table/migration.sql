@@ -14,3 +14,8 @@ ALTER TABLE "GameOrganization" ADD CONSTRAINT "GameOrganization_gameId_fkey" FOR
 
 -- AddForeignKey
 ALTER TABLE "GameOrganization" ADD CONSTRAINT "GameOrganization_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+INSERT INTO "GameOrganization" ("gameId", "organizationId")
+SELECT g."id", g."organizationId"
+FROM "Game" g
+WHERE g."organizationId" IS NOT NULL
+ON CONFLICT ("gameId","organizationId") DO NOTHING;
