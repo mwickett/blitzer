@@ -69,6 +69,63 @@ export async function getOrgMembers() {
 
 
 // Fetch all games that the current user is a part of
+export async function getGamesByOrgIdJoinAware() {
+  const user = await auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const useOrgs = await isClerkOrgsEnabled();
+  if (!useOrgs) {
+    return prisma.game.findMany({
+      where: {
+        players: {
+          some: {
+            user: {
+              clerk_user_id: user.userId,
+            },
+          },
+        },
+      },
+      include: {
+        players: {
+          include: {
+            user: true,
+            guestUser: true,
+          },
+        },
+        rounds: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  }
+
+  const { orgId } = await getOrgContext();
+  if (!orgId) return [];
+
+  return prisma.game.findMany({
+    where: {
+      OR: [
+        { organizationId: orgId },
+        { organizations: { some: { organizationId: orgId } } } as any,
+      ],
+    },
+    include: {
+      players: {
+        include: {
+          user: true,
+          guestUser: true,
+        },
+      },
+      rounds: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+}
+
 export async function getGames() {
   const user = await auth();
   const posthog = posthogClient();
