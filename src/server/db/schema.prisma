@@ -22,7 +22,32 @@ model User {
   games                  GamePlayers[]
   scores                 Score[]
   createdGuests          GuestUser[]     @relation("CreatedGuests")
+  memberships            OrganizationMembership[]
 }
+
+model Organization {
+  id           String   @id @default(uuid())
+  clerk_org_id String   @unique
+  name         String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @map("updated_at")
+  memberships  OrganizationMembership[]
+  games        Game[]
+}
+
+model OrganizationMembership {
+  id             String        @id @default(uuid())
+  userId         String
+  organizationId String
+  role           String        @default("member")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  user           User          @relation(fields: [userId], references: [id])
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
 
 model GuestUser {
   id               String        @id @default(uuid())
@@ -64,13 +89,17 @@ model Friend {
 }
 
 model Game {
-  id         String        @id @default(uuid())
-  createdAt  DateTime      @default(now()) @map("created_at")
-  endedAt    DateTime?     @map("ended_at")
-  isFinished Boolean       @default(false) @map("is_finished")
-  winnerId   String?
-  players    GamePlayers[]
-  rounds     Round[]
+  id             String        @id @default(uuid())
+  createdAt      DateTime      @default(now()) @map("created_at")
+  endedAt        DateTime?     @map("ended_at")
+  isFinished     Boolean       @default(false) @map("is_finished")
+  winnerId       String?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  players        GamePlayers[]
+  rounds         Round[]
+
+  @@index([organizationId])
 }
 
 model Round {

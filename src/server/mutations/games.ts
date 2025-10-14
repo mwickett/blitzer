@@ -3,6 +3,8 @@
 import prisma from "@/server/db/db";
 import { getAuthenticatedUser, getAuthenticatedUserPrismaId } from "./common";
 import { sendGameCompleteEmail } from "../email";
+import { isClerkOrgsEnabled } from "@/featureFlags";
+import { getOrgContext } from "../utils";
 
 // Create a new game with support for guest players
 export async function createGame(
@@ -22,8 +24,15 @@ export async function createGame(
 
   try {
     // Step 1: First create an empty game
+    const useOrgs = await isClerkOrgsEnabled();
+    let orgData: { organizationId?: string } = {};
+    if (useOrgs) {
+      const { orgId } = await getOrgContext();
+      if (!orgId) throw new Error("No organization selected");
+      orgData.organizationId = orgId;
+    }
     const newGame = await prisma.game.create({
-      data: {},
+      data: { ...orgData },
     });
 
     // Step 2: Create guest users if needed

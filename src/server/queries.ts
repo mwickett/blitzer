@@ -4,7 +4,8 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/server/db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
-import { getUserIdFromAuth } from "@/server/utils";
+import { getUserIdFromAuth, getOrgContext } from "@/server/utils";
+import { isClerkOrgsEnabled } from "@/featureFlags";
 
 // Fetches users who are friends of the current user but excludes the current
 // user
@@ -54,6 +55,18 @@ export async function getFilteredUsers() {
 
   return users;
 }
+export async function getOrgMembers() {
+  const useOrgs = await isClerkOrgsEnabled();
+  if (!useOrgs) return [];
+  const { orgId } = await getOrgContext();
+  if (!orgId) return [];
+  const memberships = await prisma.organizationMembership.findMany({
+    where: { organizationId: orgId },
+    include: { user: true },
+  });
+  return memberships.map((m) => m.user);
+}
+
 
 // Fetch all games that the current user is a part of
 export async function getGames() {
@@ -61,6 +74,32 @@ export async function getGames() {
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
+
+  const useOrgs = await isClerkOrgsEnabled();
+
+  if (useOrgs) {
+    const { orgId } = await getOrgContext();
+    if (!orgId) return [];
+    const games = await prisma.game.findMany({
+      where: {
+        organizationId: orgId,
+      },
+      include: {
+        players: {
+          include: {
+            user: true,
+            guestUser: true,
+          },
+        },
+        rounds: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+    posthog.capture({ distinctId: user.userId, event: "get_games" });
+    return games;
+  }
 
   const games = await prisma.game.findMany({
     where: {
@@ -97,10 +136,17 @@ export async function getGameById(id: string) {
 
   if (!user.userId) throw new Error("Unauthorized");
 
+  const useOrgs = await isClerkOrgsEnabled();
+  const where: any = { id };
+
+  if (useOrgs) {
+    const { orgId } = await getOrgContext();
+    if (!orgId) return null;
+    where.organizationId = orgId;
+  }
+
   const game = await prisma.game.findUnique({
-    where: {
-      id: id,
-    },
+    where,
     include: {
       players: {
         include: {

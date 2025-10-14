@@ -9,7 +9,12 @@ export async function isFeatureEnabled(flagKey: string): Promise<boolean> {
   if (!userId) return false;
 
   const posthog = PostHogClient();
-  const flags = await posthog.getAllFlags(userId);
+
+  if (!posthog || typeof (posthog as any).getAllFlags !== "function") {
+    return false;
+  }
+
+  const flags = await (posthog as any).getAllFlags(userId);
 
   return !!flags[flagKey];
 }
@@ -22,4 +27,7 @@ export async function isScoreChartsEnabled(): Promise<boolean> {
 // Check if LLM features are enabled
 export async function isLlmFeaturesEnabled(): Promise<boolean> {
   return isFeatureEnabled("llm-features");
+}
+export async function isClerkOrgsEnabled(): Promise<boolean> {
+  return isFeatureEnabled("use-clerk-organizations");
 }

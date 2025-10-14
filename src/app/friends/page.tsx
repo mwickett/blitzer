@@ -23,8 +23,23 @@ import UserAvatar from "@/components/UserAvatar";
 interface FriendRequestWithReceiver extends FriendRequest {
   receiver: User;
 }
+import { isClerkOrgsEnabled } from "@/featureFlags";
+
 
 export default async function Friends() {
+  const useOrgs = await isClerkOrgsEnabled();
+
+  if (useOrgs) {
+    return (
+      <div className="container mx-auto p-6">
+        <h1 className="text-3xl font-bold mb-6">Friends Preview Disabled</h1>
+        <div className="p-4 rounded border bg-muted/20 text-sm">
+          Friends are replaced by Organizations while this preview flag is enabled. Use the Clerk organization switcher to manage members and invite people. You can still add guest players when creating games.
+        </div>
+      </div>
+    );
+  }
+
   const friends = await getFriends();
   const pendingFriends = await getIncomingFriendRequests();
   const pendingFriendRequests = await getOutgoingPendingFriendRequests();
