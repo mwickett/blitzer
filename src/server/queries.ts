@@ -97,7 +97,14 @@ export async function getGames() {
         createdAt: "desc",
       },
     });
-    posthog.capture({ distinctId: user.userId, event: "get_games" });
+    {
+      const activeOrgId = (await auth()).orgId;
+      posthog.capture({
+        distinctId: user.userId,
+        event: "get_games",
+        groups: activeOrgId ? { organization: activeOrgId } : undefined,
+      });
+    }
     return games;
   }
 

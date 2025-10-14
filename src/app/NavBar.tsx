@@ -6,6 +6,7 @@ import {
   SignedOut,
   SignInButton,
   SignUpButton,
+  OrganizationSwitcher,
 } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,7 +14,7 @@ import { Menu } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useLlmFeaturesFlag } from "@/hooks/useFeatureFlag";
+import { useLlmFeaturesFlag, useFeatureFlag } from "@/hooks/useFeatureFlag";
 
 // Mobile nav link component
 function MobileNavLink({
@@ -46,7 +47,7 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
   const pathName = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const llmEnabled = useLlmFeaturesFlag();
-
+  const orgsEnabled = useFeatureFlag("use-clerk-organizations");
   // Define navigation items - conditionally include Insights link
   const navData = [
     {
@@ -134,6 +135,11 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
           </nav>
           <div className="flex w-full justify-end items-center gap-4 md:gap-2 lg:gap-4">
             <SignedIn>
+              {orgsEnabled ? (
+                <div className="hidden md:block">
+                  <OrganizationSwitcher />
+                </div>
+              ) : null}
               <Button asChild>
                 <Link href="/games/new">New game</Link>
               </Button>

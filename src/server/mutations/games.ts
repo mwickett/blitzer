@@ -5,6 +5,7 @@ import { getAuthenticatedUser, getAuthenticatedUserPrismaId } from "./common";
 import { sendGameCompleteEmail } from "../email";
 import { isClerkOrgsEnabled } from "@/featureFlags";
 import { getOrgContext } from "../utils";
+import { auth } from "@clerk/nextjs/server";
 
 // Create a new game with support for guest players
 export async function createGame(
@@ -74,15 +75,19 @@ export async function createGame(
     }
 
     // Track event in PostHog
-    posthog.capture({
-      distinctId: user.userId,
-      event: "create_game",
-      properties: {
-        gameId: newGame.id,
-        playerCount: users.length,
-        guestPlayerCount: users.filter((u) => u.isGuest).length,
-      },
-    });
+    {
+      const activeOrgId = (await auth()).orgId;
+      posthog.capture({
+        distinctId: user.userId,
+        event: "create_game",
+        properties: {
+          gameId: newGame.id,
+          playerCount: users.length,
+          guestPlayerCount: users.filter((u) => u.isGuest).length,
+        },
+        groups: activeOrgId ? { organization: activeOrgId } : undefined,
+      });
+    }
 
     // Return the game ID instead of redirecting
     // This prevents the NEXT_REDIRECT error in the logs
