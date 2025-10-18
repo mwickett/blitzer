@@ -116,7 +116,7 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
           </nav>
           <div className="flex w-full justify-end items-center gap-4 md:gap-2 lg:gap-4">
             <SignedIn>
-              <OrganizationSwitcher />
+              <OrganizationSwitcher hidePersonal />
               <Button asChild>
                 <Link href="/games/new">New game</Link>
               </Button>
