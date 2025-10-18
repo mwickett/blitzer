@@ -56,7 +56,7 @@ jest.mock("../db/db", () => ({
 }));
 
 // Mock types
-type AuthResult = { userId: string | null };
+type AuthResult = { userId: string | null; orgId: string | null };
 type AuthFn = () => Promise<AuthResult>;
 
 jest.mock("@clerk/nextjs/server", () => ({
@@ -78,12 +78,16 @@ jest.mock("next/navigation", () => ({
 
 describe("Game Mutations", () => {
   const mockUserId = "test-user-id";
+  const mockOrgId = "test-org-id";
   const mockGameId = "test-game-id";
   const mockTargetUserId = "target-user-id";
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (auth as unknown as jest.Mock).mockResolvedValue({ userId: mockUserId });
+    (auth as unknown as jest.Mock).mockResolvedValue({
+      userId: mockUserId,
+      orgId: mockOrgId,
+    });
   });
 
   describe("createRoundForGame", () => {
@@ -101,7 +105,7 @@ describe("Game Mutations", () => {
     ];
 
     it("should create a new round with scores", async () => {
-      const mockGame = { id: mockGameId };
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
       const mockRound = { id: "round-1", scores: validScores };
 
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
@@ -120,7 +124,7 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if validation fails", async () => {
-      const mockGame = { id: mockGameId };
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       const invalidScores = [
@@ -150,7 +154,7 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if database operation fails", async () => {
-      const mockGame = { id: mockGameId };
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
       (prisma.round.create as jest.Mock).mockRejectedValue(
         new Error("Database error")
@@ -162,7 +166,10 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if user is not authenticated", async () => {
-      (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: null,
+        orgId: null,
+      });
 
       await expect(
         createRoundForGame(mockGameId, 1, validScores)
@@ -194,7 +201,11 @@ describe("Game Mutations", () => {
     ];
 
     it("should update scores for a round", async () => {
-      const mockGame = { id: mockGameId, isFinished: false };
+      const mockGame = {
+        id: mockGameId,
+        isFinished: false,
+        organizationId: mockOrgId,
+      };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
       (prisma.$transaction as jest.Mock).mockResolvedValue([{ count: 1 }]);
 
@@ -209,7 +220,11 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if validation fails", async () => {
-      const mockGame = { id: mockGameId, isFinished: false };
+      const mockGame = {
+        id: mockGameId,
+        isFinished: false,
+        organizationId: mockOrgId,
+      };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       const invalidScores = [
@@ -239,7 +254,11 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if game is finished", async () => {
-      const mockGame = { id: mockGameId, isFinished: true };
+      const mockGame = {
+        id: mockGameId,
+        isFinished: true,
+        organizationId: mockOrgId,
+      };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       await expect(

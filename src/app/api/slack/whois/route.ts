@@ -18,7 +18,11 @@ interface SlackCommand {
 }
 
 // Verify Slack request signature
-function verifySlackRequest(body: string, timestamp: string, signature: string): boolean {
+function verifySlackRequest(
+  body: string,
+  timestamp: string,
+  signature: string
+): boolean {
   const slackSigningSecret = process.env.SLACK_SIGNING_SECRET;
   if (!slackSigningSecret) {
     console.error("SLACK_SIGNING_SECRET not configured");
@@ -31,7 +35,6 @@ function verifySlackRequest(body: string, timestamp: string, signature: string):
     .update(baseString)
     .digest("hex")}`;
 
-  // Ensure both buffers have the same length for timingSafeEqual
   if (signature.length !== expectedSignature.length) {
     return false;
   }
@@ -42,9 +45,8 @@ function verifySlackRequest(body: string, timestamp: string, signature: string):
   );
 }
 
-// Get user stats aggregated for Slack display
+// Get user stats aggregated for Slack display (not org-scoped due to missing session)
 async function getUserStats(userId: string) {
-  // Get basic user info
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -58,14 +60,7 @@ async function getUserStats(userId: string) {
 
   if (!user) return null;
 
-  // Get friend count
-  const friendCount = await prisma.friend.count({
-    where: {
-      OR: [{ user1Id: userId }, { user2Id: userId }],
-    },
-  });
-
-  // Get total games played
+  // Total games played across all orgs
   const totalGames = await prisma.game.count({
     where: {
       players: {
@@ -74,10 +69,9 @@ async function getUserStats(userId: string) {
     },
   });
 
-  // Get recent games (last 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
+
   const recentGames = await prisma.game.count({
     where: {
       players: {
@@ -89,7 +83,7 @@ async function getUserStats(userId: string) {
     },
   });
 
-  // Get batting average
+  // Batting average across all orgs
   const totalRounds = await prisma.score.count({
     where: { userId },
   });
@@ -101,9 +95,10 @@ async function getUserStats(userId: string) {
     },
   });
 
-  const battingAverage = totalRounds > 0 ? (roundsWon / totalRounds).toFixed(3) : "0.000";
+  const battingAverage =
+    totalRounds > 0 ? (roundsWon / totalRounds).toFixed(3) : "0.000";
 
-  // Get cumulative score
+  // Cumulative score across all orgs
   const scoreAgg = await prisma.score.aggregate({
     where: { userId },
     _sum: {
@@ -112,11 +107,12 @@ async function getUserStats(userId: string) {
     },
   });
 
-  const cumulativeScore = scoreAgg._sum.totalCardsPlayed && scoreAgg._sum.blitzPileRemaining
-    ? scoreAgg._sum.totalCardsPlayed - (scoreAgg._sum.blitzPileRemaining * 2)
-    : 0;
+  const cumulativeScore =
+    scoreAgg._sum.totalCardsPlayed && scoreAgg._sum.blitzPileRemaining
+      ? scoreAgg._sum.totalCardsPlayed - scoreAgg._sum.blitzPileRemaining * 2
+      : 0;
 
-  // Get last activity date
+  // Last activity date
   const lastGame = await prisma.game.findFirst({
     where: {
       players: {
@@ -129,7 +125,6 @@ async function getUserStats(userId: string) {
 
   return {
     user,
-    friendCount,
     totalGames,
     recentGames,
     totalRounds,
@@ -140,13 +135,22 @@ async function getUserStats(userId: string) {
   };
 }
 
-// Format stats for Slack display
+// Format stats for Slack display (friendCount removed)
 function formatSlackResponse(stats: any) {
-  const { user, friendCount, totalGames, recentGames, totalRounds, roundsWon, battingAverage, cumulativeScore, lastActivity } = stats;
-  
+  const {
+    user,
+    totalGames,
+    recentGames,
+    totalRounds,
+    roundsWon,
+    battingAverage,
+    cumulativeScore,
+    lastActivity,
+  } = stats;
+
   const memberSince = user.createdAt.toLocaleDateString();
   const lastSeen = lastActivity ? lastActivity.toLocaleDateString() : "Never";
-  
+
   return {
     response_type: "in_channel",
     blocks: [
@@ -167,10 +171,6 @@ function formatSlackResponse(stats: any) {
           {
             type: "mrkdwn",
             text: `*Member Since:*\n${memberSince}`,
-          },
-          {
-            type: "mrkdwn",
-            text: `*Friends:*\n${friendCount}`,
           },
           {
             type: "mrkdwn",
@@ -223,7 +223,6 @@ function formatSlackResponse(stats: any) {
   };
 }
 
-// Error response for Slack
 function errorResponse(message: string) {
   return {
     response_type: "ephemeral",
@@ -233,21 +232,22 @@ function errorResponse(message: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify this is a valid Slack request
     const body = await request.text();
     const timestamp = request.headers.get("x-slack-request-timestamp");
     const signature = request.headers.get("x-slack-signature");
 
     if (!timestamp || !signature) {
-      return NextResponse.json(errorResponse("Invalid request headers"), { status: 400 });
+      return NextResponse.json(errorResponse("Invalid request headers"), {
+        status: 400,
+      });
     }
 
-    // Verify signature
     if (!verifySlackRequest(body, timestamp, signature)) {
-      return NextResponse.json(errorResponse("Invalid request signature"), { status: 401 });
+      return NextResponse.json(errorResponse("Invalid request signature"), {
+        status: 401,
+      });
     }
 
-    // Parse the form data
     const formData = new URLSearchParams(body);
     const command: SlackCommand = {
       token: formData.get("token") || "",
@@ -267,12 +267,13 @@ export async function POST(request: NextRequest) {
 
     if (!userIdentifier) {
       return NextResponse.json(
-        errorResponse("Please provide a username or email address. Usage: `/whois alice@example.com` or `/whois username`"),
+        errorResponse(
+          "Please provide a username or email address. Usage: `/whois alice@example.com` or `/whois username`"
+        ),
         { status: 200 }
       );
     }
 
-    // Look up user by email or username
     const user = await prisma.user.findFirst({
       where: {
         OR: [
@@ -290,24 +291,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get comprehensive user stats
     const stats = await getUserStats(user.id);
 
     if (!stats) {
-      return NextResponse.json(
-        errorResponse("Error retrieving user stats"),
-        { status: 200 }
-      );
+      return NextResponse.json(errorResponse("Error retrieving user stats"), {
+        status: 200,
+      });
     }
 
-    // Format and return the response
     return NextResponse.json(formatSlackResponse(stats), { status: 200 });
-
   } catch (error) {
     console.error("Slack whois error:", error);
-    return NextResponse.json(
-      errorResponse("Internal server error"),
-      { status: 500 }
-    );
+    return NextResponse.json(errorResponse("Internal server error"), {
+      status: 500,
+    });
   }
 }

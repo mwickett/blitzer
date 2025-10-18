@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/server/db/db";
-import { getAuthenticatedUser } from "./common";
+import { getAuthenticatedUser, requireActiveOrgId } from "./common";
 import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 
 // Create new round with scores
@@ -16,6 +16,7 @@ export async function createRoundForGame(
   }[]
 ) {
   const { user, posthog } = await getAuthenticatedUser();
+  const orgId = await requireActiveOrgId();
 
   const game = await prisma.game.findUnique({
     where: { id: gameId },
@@ -24,8 +25,10 @@ export async function createRoundForGame(
   if (!game) {
     throw new Error("Game not found");
   }
+  if (game.organizationId !== orgId) {
+    throw new Error("Unauthorized for this organization");
+  }
 
-  // Validate scores using centralized validation
   try {
     validateGameRules(scores);
   } catch (error) {
@@ -41,12 +44,11 @@ export async function createRoundForGame(
           type: "game_rules",
         },
       });
-      throw error; // These will have user-friendly messages
+      throw error;
     }
     throw new Error("Invalid score submission");
   }
 
-  // Modified to match test expectations - create round with scores in one operation
   const round = await prisma.round.create({
     data: {
       gameId: game.id,
@@ -54,11 +56,10 @@ export async function createRoundForGame(
     },
   });
 
-  // Add scores one by one after round is created
   for (const score of scores) {
     if (!score.userId && !score.guestId) {
       console.error("Score missing both userId and guestId:", score);
-      continue; // Skip this score and continue with others
+      continue;
     }
 
     const scoreData = {
@@ -77,7 +78,6 @@ export async function createRoundForGame(
           },
         });
       } else if (score.guestId) {
-        // Create score with guest ID only
         await prisma.score.create({
           data: {
             ...scoreData,
@@ -87,11 +87,15 @@ export async function createRoundForGame(
       }
     } catch (error) {
       console.error("Error creating score:", error, score);
-      // Continue with other scores even if one fails
     }
   }
 
-  posthog.capture({ distinctId: user.userId, event: "create_scores" });
+  posthog.capture({
+    distinctId: user.userId,
+    event: "create_scores",
+    properties: { gameId, roundNumber, organizationId: orgId },
+    groups: { organization: orgId },
+  });
 
   return round;
 }
@@ -108,8 +112,8 @@ export async function updateRoundScores(
   }[]
 ) {
   const { user, posthog } = await getAuthenticatedUser();
+  const orgId = await requireActiveOrgId();
 
-  // Check if game exists and is not finished
   const game = await prisma.game.findUnique({
     where: { id: gameId },
   });
@@ -122,7 +126,10 @@ export async function updateRoundScores(
     throw new Error("Cannot update scores for a finished game");
   }
 
-  // Validate scores using centralized validation
+  if (game.organizationId !== orgId) {
+    throw new Error("Unauthorized for this organization");
+  }
+
   try {
     validateGameRules(scores);
   } catch (error) {
@@ -138,12 +145,11 @@ export async function updateRoundScores(
           type: "game_rules",
         },
       });
-      throw error; // These will have user-friendly messages
+      throw error;
     }
     throw new Error("Invalid score submission");
   }
 
-  // Update scores in a transaction to ensure consistency
   const updatedScores = await prisma.$transaction(async (tx) => {
     const results = [];
 
@@ -188,7 +194,9 @@ export async function updateRoundScores(
     properties: {
       gameId: gameId,
       roundId: roundId,
+      organizationId: orgId,
     },
+    groups: { organization: orgId },
   });
 
   return updatedScores;

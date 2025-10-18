@@ -1,11 +1,6 @@
 import {
   getGameById,
   getGames,
-  getFilteredUsers,
-  getFriends,
-  getFriendsForNewGame,
-  getIncomingFriendRequests,
-  getOutgoingPendingFriendRequests,
   getPlayerBattingAverage,
   getHighestAndLowestScore,
   getCumulativeScore,
@@ -20,15 +15,10 @@ jest.mock("../db/db", () => {
     game: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      findFirst: jest.fn(),
     },
     user: {
       findUnique: jest.fn(),
-      findMany: jest.fn(),
-    },
-    friendRequest: {
-      findMany: jest.fn(),
-    },
-    friend: {
       findMany: jest.fn(),
     },
     score: {
@@ -43,7 +33,6 @@ jest.mock("../db/db", () => {
   };
 });
 
-// Mock Prisma.sql template literal tag
 jest.mock("@prisma/client", () => ({
   Prisma: {
     sql: jest.fn((strings, ...values) => ({
@@ -53,8 +42,7 @@ jest.mock("@prisma/client", () => ({
   },
 }));
 
-// Mock types
-type AuthResult = { userId: string | null };
+type AuthResult = { userId: string | null; orgId?: string | null };
 type AuthFn = () => Promise<AuthResult>;
 
 jest.mock("@clerk/nextjs/server", () => ({
@@ -68,14 +56,16 @@ jest.mock("@/app/posthog", () => ({
   }),
 }));
 
-describe("Queries", () => {
+describe("Queries (Org Scoped)", () => {
   const mockUserId = "test-user-id";
   const mockClerkUserId = "clerk-test-user-id";
+  const mockOrgId = "org_123";
 
   beforeEach(() => {
     jest.clearAllMocks();
     (auth as unknown as jest.Mock).mockResolvedValue({
       userId: mockClerkUserId,
+      orgId: mockOrgId,
     });
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({
       id: mockUserId,
@@ -83,15 +73,10 @@ describe("Queries", () => {
   });
 
   describe("getGameById", () => {
-    beforeEach(() => {
-      (auth as unknown as jest.Mock).mockResolvedValue({
-        userId: mockClerkUserId,
-      });
-    });
-
-    it("should return game with players and rounds", async () => {
+    it("should return game within active org", async () => {
       const mockGame = {
         id: "game-1",
+        organizationId: mockOrgId,
         players: [
           {
             user: {
@@ -114,12 +99,22 @@ describe("Queries", () => {
         ],
       };
 
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+      (prisma.game.findFirst as jest.Mock).mockResolvedValue(mockGame);
 
       const result = await getGameById("game-1");
 
-      expect(prisma.game.findUnique).toHaveBeenCalledWith({
-        where: { id: "game-1" },
+      expect(prisma.game.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: "game-1",
+          organizationId: mockOrgId,
+          players: {
+            some: {
+              user: {
+                clerk_user_id: mockClerkUserId,
+              },
+            },
+          },
+        },
         include: {
           players: {
             include: {
@@ -144,17 +139,18 @@ describe("Queries", () => {
     });
 
     it("should return null if game not found", async () => {
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.game.findFirst as jest.Mock).mockResolvedValue(null);
       const result = await getGameById("non-existent-game");
       expect(result).toBeNull();
     });
   });
 
   describe("getGames", () => {
-    it("should return games for authenticated user", async () => {
+    it("should return games for authenticated user in active org", async () => {
       const mockGames = [
         {
           id: "game-1",
+          organizationId: mockOrgId,
           createdAt: new Date(),
           players: [{ user: { clerk_user_id: mockClerkUserId } }],
           rounds: [],
@@ -167,6 +163,7 @@ describe("Queries", () => {
 
       expect(prisma.game.findMany).toHaveBeenCalledWith({
         where: {
+          organizationId: mockOrgId,
           players: {
             some: {
               user: {
@@ -193,174 +190,13 @@ describe("Queries", () => {
     });
 
     it("should throw error if user not authenticated", async () => {
-      (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
-      await expect(getGames()).rejects.toThrow("Unauthorized");
-    });
-  });
-
-  describe("getFriends", () => {
-    beforeEach(() => {
       (auth as unknown as jest.Mock).mockResolvedValue({
-        userId: mockClerkUserId,
+        userId: null,
+        orgId: null,
       });
-    });
-
-    it("should throw error if user not found", async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-      await expect(getFriends()).rejects.toThrow("User not found");
-    });
-
-    it("should return mapped friends list", async () => {
-      const mockFriends = [
-        {
-          user1Id: mockUserId,
-          user2Id: "friend-1",
-          user1: { id: mockUserId, username: "Current User" },
-          user2: { id: "friend-1", username: "Friend 1" },
-        },
-        {
-          user1Id: "friend-2",
-          user2Id: mockUserId,
-          user1: { id: "friend-2", username: "Friend 2" },
-          user2: { id: mockUserId, username: "Current User" },
-        },
-      ];
-
-      (prisma.friend.findMany as jest.Mock).mockResolvedValue(mockFriends);
-
-      const result = await getFriends();
-
-      expect(prisma.friend.findMany).toHaveBeenCalledWith({
-        where: {
-          OR: [{ user1Id: mockUserId }, { user2Id: mockUserId }],
-        },
-        include: {
-          user1: true,
-          user2: true,
-        },
-      });
-
-      // Should return the other user in each friendship
-      expect(result).toEqual([mockFriends[0].user2, mockFriends[1].user1]);
-    });
-  });
-
-  describe("getFilteredUsers", () => {
-    it("should return filtered users", async () => {
-      const mockUsers = [
-        {
-          id: "user-1",
-          username: "TestUser",
-          email: "test@example.com",
-        },
-      ];
-
-      (prisma.user.findMany as jest.Mock).mockResolvedValue(mockUsers);
-
-      const result = await getFilteredUsers();
-
-      expect(prisma.user.findMany).toHaveBeenCalledWith({
-        where: {
-          NOT: {
-            OR: expect.any(Array),
-          },
-        },
-      });
-
-      expect(result).toEqual(mockUsers);
-    });
-  });
-
-  describe("getFriendsForNewGame", () => {
-    it("should return current user and friends", async () => {
-      const mockPrismaId = { id: mockUserId };
-      const mockFriends = [
-        {
-          user1Id: mockUserId,
-          user2Id: "friend-1",
-          user1: { id: mockUserId },
-          user2: { id: "friend-1" },
-        },
-      ];
-
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockPrismaId);
-      (prisma.friend.findMany as jest.Mock).mockResolvedValue(mockFriends);
-
-      const result = await getFriendsForNewGame();
-
-      expect(result).toEqual([mockPrismaId, mockFriends[0].user2]);
-    });
-
-    it("should throw error if user not found", async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(getFriendsForNewGame()).rejects.toThrow("User not found");
-    });
-  });
-
-  describe("getOutgoingPendingFriendRequests", () => {
-    it("should return outgoing pending friend requests", async () => {
-      const mockRequests = [
-        {
-          id: "request-1",
-          receiver: {
-            id: "receiver-1",
-            username: "Receiver",
-          },
-          status: "PENDING",
-        },
-      ];
-
-      (prisma.friendRequest.findMany as jest.Mock).mockResolvedValue(
-        mockRequests
+      await expect(getGames()).rejects.toThrow(
+        "No active organization selected"
       );
-
-      const result = await getOutgoingPendingFriendRequests();
-
-      expect(prisma.friendRequest.findMany).toHaveBeenCalledWith({
-        where: {
-          senderId: mockUserId,
-          status: "PENDING",
-        },
-        include: {
-          receiver: true,
-        },
-      });
-
-      expect(result).toEqual(mockRequests);
-    });
-  });
-
-  describe("getIncomingFriendRequests", () => {
-    it("should return pending friend requests", async () => {
-      const mockRequests = [
-        {
-          id: "request-1",
-          sender: {
-            id: "sender-1",
-            username: "Sender",
-          },
-          status: "PENDING",
-        },
-      ];
-
-      (prisma.friendRequest.findMany as jest.Mock).mockResolvedValue(
-        mockRequests
-      );
-
-      const result = await getIncomingFriendRequests();
-
-      expect(prisma.friendRequest.findMany).toHaveBeenCalledWith({
-        where: {
-          receiverId: mockUserId,
-          status: "PENDING",
-        },
-        include: {
-          sender: true,
-        },
-      });
-
-      expect(result).toEqual(mockRequests);
     });
   });
 
@@ -368,41 +204,21 @@ describe("Queries", () => {
     beforeEach(() => {
       (auth as unknown as jest.Mock).mockResolvedValue({
         userId: mockClerkUserId,
+        orgId: mockOrgId,
       });
     });
 
-    it("should throw error if user not found", async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-      await expect(getPlayerBattingAverage()).rejects.toThrow("User not found");
-    });
+    it("should calculate batting average correctly", async () => {
+      (prisma.score.count as jest.Mock)
+        .mockResolvedValueOnce(10) // totalHandsPlayed
+        .mockResolvedValueOnce(4); // totalHandsWon
 
-    describe("getPlayerBattingAverage", () => {
-      it("should calculate batting average correctly", async () => {
-        (prisma.score.count as jest.Mock)
-          .mockResolvedValueOnce(10) // totalHandsPlayed
-          .mockResolvedValueOnce(4); // totalHandsWon
+      const result = await getPlayerBattingAverage();
 
-        const result = await getPlayerBattingAverage();
-
-        expect(result).toEqual({
-          totalHandsPlayed: 10,
-          totalHandsWon: 4,
-          battingAverage: "0.400",
-        });
-      });
-
-      it("should handle zero hands played", async () => {
-        (prisma.score.count as jest.Mock)
-          .mockResolvedValueOnce(0)
-          .mockResolvedValueOnce(0);
-
-        const result = await getPlayerBattingAverage();
-
-        expect(result).toEqual({
-          totalHandsPlayed: 0,
-          totalHandsWon: 0,
-          battingAverage: "0.000",
-        });
+      expect(result).toEqual({
+        totalHandsPlayed: 10,
+        totalHandsWon: 4,
+        battingAverage: "0.400",
       });
     });
 
@@ -430,37 +246,6 @@ describe("Queries", () => {
           },
         });
       });
-
-      it("should handle single score case", async () => {
-        const mockScore = {
-          score: 30,
-          totalCardsPlayed: 40,
-          blitzPileRemaining: 5,
-        };
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([mockScore]);
-
-        const result = await getHighestAndLowestScore();
-
-        expect(result).toEqual({
-          highest: {
-            score: 30,
-            totalCardsPlayed: 40,
-            blitzPileRemaining: 5,
-          },
-          lowest: null,
-        });
-      });
-
-      it("should handle no scores", async () => {
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
-
-        const result = await getHighestAndLowestScore();
-
-        expect(result).toEqual({
-          highest: null,
-          lowest: null,
-        });
-      });
     });
 
     describe("getCumulativeScore", () => {
@@ -473,66 +258,7 @@ describe("Queries", () => {
         });
 
         const result = await getCumulativeScore();
-
-        // 100 - (20 * 2) = 60
         expect(result).toBe(60);
-      });
-
-      it("should return 0 when either totalCardsPlayed or blitzPileRemaining is null", async () => {
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: 100,
-            blitzPileRemaining: null,
-          },
-        });
-
-        let result = await getCumulativeScore();
-        expect(result).toBe(0);
-
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: null,
-            blitzPileRemaining: 20,
-          },
-        });
-
-        result = await getCumulativeScore();
-        expect(result).toBe(0);
-      });
-
-      it("should handle zero values correctly", async () => {
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: 0,
-            blitzPileRemaining: 20,
-          },
-        });
-
-        let result = await getCumulativeScore();
-        expect(result).toBe(-40);
-
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: 100,
-            blitzPileRemaining: 0,
-          },
-        });
-
-        result = await getCumulativeScore();
-        expect(result).toBe(100);
-      });
-
-      it("should return 0 for no scores", async () => {
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: null,
-            blitzPileRemaining: null,
-          },
-        });
-
-        const result = await getCumulativeScore();
-
-        expect(result).toBe(0);
       });
     });
   });

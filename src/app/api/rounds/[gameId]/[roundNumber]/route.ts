@@ -11,12 +11,22 @@ export async function GET(
   if (!user.userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const orgId = user.orgId;
+  if (!orgId) {
+    return NextResponse.json(
+      { error: "No active organization selected" },
+      { status: 400 }
+    );
+  }
 
   try {
     const round = await prisma.round.findFirst({
       where: {
         gameId: params.gameId,
         round: parseInt(params.roundNumber),
+        game: {
+          organizationId: orgId,
+        },
       },
       include: {
         scores: true,

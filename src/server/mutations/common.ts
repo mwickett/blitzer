@@ -18,6 +18,16 @@ export async function getAuthenticatedUser() {
 }
 
 /**
+ * Helper to require an active organization
+ * @throws {Error} If no active organization is selected
+ */
+export async function requireActiveOrgId() {
+  const { orgId } = await auth();
+  if (!orgId) throw new Error("No active organization selected");
+  return orgId;
+}
+
+/**
  * Helper function to get authenticated user's internal Prisma ID
  * @throws {Error} If user is not authenticated or not found
  */
@@ -32,4 +42,26 @@ export async function getAuthenticatedUserPrismaId() {
   if (!prismaUser) throw new Error("User not found");
 
   return { userId: user.userId, id: prismaUser.id, posthog };
+}
+
+/**
+ * Convenience: get auth context (user, prismaUserId, orgId, posthog)
+ */
+export async function getAuthContext() {
+  const { user, posthog } = await getAuthenticatedUser();
+  const orgId = await requireActiveOrgId();
+
+  const prismaUser = await prisma.user.findUnique({
+    where: { clerk_user_id: user.userId },
+    select: { id: true },
+  });
+
+  if (!prismaUser) throw new Error("User not found");
+
+  return {
+    clerkUserId: user.userId,
+    prismaUserId: prismaUser.id,
+    orgId,
+    posthog,
+  };
 }

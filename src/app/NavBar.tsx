@@ -6,6 +6,7 @@ import {
   SignedOut,
   SignInButton,
   SignUpButton,
+  OrganizationSwitcher,
 } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -15,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useLlmFeaturesFlag } from "@/hooks/useFeatureFlag";
 
-// Mobile nav link component
 function MobileNavLink({
   href,
   label,
@@ -47,29 +47,11 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const llmEnabled = useLlmFeaturesFlag();
 
-  // Define navigation items - conditionally include Insights link
   const navData = [
-    {
-      label: "Dashboard",
-      href: "/dashboard",
-    },
-    {
-      label: "Games",
-      href: "/games",
-    },
-    {
-      label: "Friends",
-      href: "/friends",
-    },
-    // Only include Insights if LLM features are enabled
-    ...(llmEnabled
-      ? [
-          {
-            label: "Insights",
-            href: "/insights",
-          },
-        ]
-      : []),
+    { label: "Dashboard", href: "/dashboard" },
+    { label: "Games", href: "/games" },
+    { label: "Organizations", href: "/organizations" },
+    ...(llmEnabled ? [{ label: "Insights", href: "/insights" }] : []),
   ];
 
   return (
@@ -134,6 +116,7 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
           </nav>
           <div className="flex w-full justify-end items-center gap-4 md:gap-2 lg:gap-4">
             <SignedIn>
+              <OrganizationSwitcher />
               <Button asChild>
                 <Link href="/games/new">New game</Link>
               </Button>

@@ -1,25 +1,33 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 const isProtectedRoute = createRouteMatcher([
   "/dashboard",
   "/insights",
   "/games",
-  "/friends",
+  "/organizations(.*)", // protect organizations UI too
   "/api/chat",
   "/api/dev",
 ]);
 
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)"]);
-
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) await auth.protect();
+  if (isProtectedRoute(req)) {
+    await auth.protect();
+    const { orgId } = await auth();
+
+    const isOrgPage = req.nextUrl.pathname.startsWith("/organizations");
+
+    // Enforce active org for everything except /organizations
+    if (!orgId && !isOrgPage) {
+      const url = new URL("/organizations", req.url);
+      return NextResponse.redirect(url);
+    }
+  }
 });
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
     "/(api|trpc)(.*)",
   ],
 };

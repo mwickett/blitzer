@@ -1,12 +1,24 @@
 import prisma from "@/server/db/db";
+import { auth } from "@clerk/nextjs/server";
 
 /**
- * Get game summary for a user
+ * Get game summary for a user scoped to active org
  * @param userId The clerk user ID
  * @returns Basic game statistics
  */
 export async function getUserGameSummary(userId: string) {
-  // Get user ID from clerk user ID
+  const { orgId } = await auth();
+
+  // Without an active org, return empty stats
+  if (!orgId) {
+    return {
+      gamesCount: 0,
+      winCount: 0,
+      lossCount: 0,
+      winRate: 0,
+    };
+  }
+
   const user = await prisma.user.findUnique({
     where: { clerk_user_id: userId },
     select: { id: true },
@@ -21,9 +33,9 @@ export async function getUserGameSummary(userId: string) {
     };
   }
 
-  // Get games where user is a player
   const games = await prisma.game.findMany({
     where: {
+      organizationId: orgId,
       players: {
         some: {
           userId: user.id,
@@ -44,18 +56,14 @@ export async function getUserGameSummary(userId: string) {
     },
   });
 
-  // Calculate wins
   let winCount = 0;
   let lossCount = 0;
 
   for (const game of games) {
-    // Only count completed games
     if (!game.isFinished) continue;
-
-    // Check if this user is the winner
     if (game.winnerId === user.id) {
       winCount++;
-    } else if (game.isFinished) {
+    } else {
       lossCount++;
     }
   }
@@ -69,12 +77,26 @@ export async function getUserGameSummary(userId: string) {
 }
 
 /**
- * Get detailed user statistics for LLM context
+ * Get detailed user statistics for LLM context scoped to active org
  * @param userId The clerk user ID
  * @returns Detailed game statistics
  */
 export async function getUserStats(userId: string) {
-  // Get user ID from clerk user ID
+  const { orgId } = await auth();
+
+  if (!orgId) {
+    return {
+      totalRounds: 0,
+      totalBlitzes: 0,
+      totalCardsPlayed: 0,
+      avgCardsPlayed: 0,
+      avgBlitzRemaining: 0,
+      blitzPercentage: 0,
+      highestScore: 0,
+      lowestScore: 0,
+    };
+  }
+
   const user = await prisma.user.findUnique({
     where: { clerk_user_id: userId },
     select: { id: true },
@@ -93,10 +115,14 @@ export async function getUserStats(userId: string) {
     };
   }
 
-  // Get all scores for this user
   const scores = await prisma.score.findMany({
     where: {
       userId: user.id,
+      round: {
+        game: {
+          organizationId: orgId,
+        },
+      },
     },
     include: {
       round: true,
@@ -116,12 +142,10 @@ export async function getUserStats(userId: string) {
     };
   }
 
-  // Calculate statistics
   let totalBlitzes = 0;
   let totalCardsPlayed = 0;
   let totalBlitzRemaining = 0;
 
-  // Calculate total score for each record (totalCardsPlayed - (blitzPileRemaining * 2))
   const calculatedScores = scores.map((score) => {
     return {
       ...score,
@@ -129,7 +153,6 @@ export async function getUserStats(userId: string) {
     };
   });
 
-  // Find highest and lowest scores
   let highestScore = Math.max(
     ...calculatedScores.map((s) => s.calculatedScore)
   );
@@ -138,14 +161,11 @@ export async function getUserStats(userId: string) {
   for (const score of scores) {
     totalCardsPlayed += score.totalCardsPlayed;
     totalBlitzRemaining += score.blitzPileRemaining;
-
-    // Count blitzes (when blitz pile is empty)
     if (score.blitzPileRemaining === 0) {
       totalBlitzes++;
     }
   }
 
-  // Calculate averages
   const avgCardsPlayed =
     scores.length > 0 ? totalCardsPlayed / scores.length : 0;
   const avgBlitzRemaining =
