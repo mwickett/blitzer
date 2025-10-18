@@ -8,46 +8,46 @@ datasource db {
 }
 
 model User {
-  id                     String          @id @default(uuid())
-  email                  String          @unique
-  clerk_user_id          String          @unique
-  createdAt              DateTime        @default(now()) @map("created_at")
-  updatedAt              DateTime        @default(now()) @map("updated_at")
-  username               String          @unique
+  id                     String                   @id @default(uuid())
+  email                  String                   @unique
+  clerk_user_id          String                   @unique
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @default(now()) @map("updated_at")
+  username               String                   @unique
   avatarUrl              String?
-  friends1               Friend[]        @relation("User1Friends")
-  friends2               Friend[]        @relation("User2Friends")
-  friendRequestsReceived FriendRequest[] @relation("FriendRequestsReceived")
-  friendRequestsSent     FriendRequest[] @relation("FriendRequestsSent")
+  friends1               Friend[]                 @relation("User1Friends")
+  friends2               Friend[]                 @relation("User2Friends")
+  friendRequestsReceived FriendRequest[]          @relation("FriendRequestsReceived")
+  friendRequestsSent     FriendRequest[]          @relation("FriendRequestsSent")
   games                  GamePlayers[]
   scores                 Score[]
-  createdGuests          GuestUser[]     @relation("CreatedGuests")
+  createdGuests          GuestUser[]              @relation("CreatedGuests")
   memberships            OrganizationMembership[]
 }
 
 model Organization {
-  id           String   @id @default(uuid())
-  clerk_org_id String   @unique
+  id           String                   @id @default(uuid())
+  clerk_org_id String                   @unique
   name         String
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @default(now()) @map("updated_at")
+  slug         String
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @default(now()) @map("updated_at")
   memberships  OrganizationMembership[]
   games        Game[]
 }
 
 model OrganizationMembership {
-  id             String        @id @default(uuid())
+  id             String       @id @default(uuid())
   userId         String
   organizationId String
-  role           String        @default("member")
-  createdAt      DateTime      @default(now()) @map("created_at")
-  user           User          @relation(fields: [userId], references: [id])
-  organization   Organization  @relation(fields: [organizationId], references: [id])
+  role           String       @default("member")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  user           User         @relation(fields: [userId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([userId, organizationId])
   @@index([organizationId])
 }
-
 
 model GuestUser {
   id               String        @id @default(uuid())

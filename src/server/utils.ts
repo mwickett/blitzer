@@ -6,14 +6,24 @@ export async function getOrgContext() {
   if (!userId) throw new Error("Unauthorized");
   if (!orgId) return { org: null, orgId: null };
 
-  let org = await prisma.organization.findUnique({ where: { clerk_org_id: orgId } });
+  let org = await prisma.organization.findUnique({
+    where: { clerk_org_id: orgId },
+  });
   if (!org) {
+    // Clerk should always provide orgSlug when orgId exists
+    if (!orgSlug) {
+      throw new Error("Organization slug not provided by Clerk");
+    }
+
+    // Note: Clerk's auth() only provides orgSlug, not the display name
+    // We use the slug as both name and slug for now
+    // TODO: Consider fetching full org details from Clerk API to get the actual name
     org = await prisma.organization.create({
       data: {
         clerk_org_id: orgId,
-        name: orgSlug || "Organization",
-        slug: orgSlug || null,
-      } as any,
+        name: orgSlug,
+        slug: orgSlug,
+      },
     });
   }
 
