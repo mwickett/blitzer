@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 const isProtectedRoute = createRouteMatcher([
   "/dashboard",
   "/insights",
-  "/games",
+  "/games(.*)",
   "/organizations(.*)", // protect organizations UI too
   "/api/chat",
   "/api/dev",
