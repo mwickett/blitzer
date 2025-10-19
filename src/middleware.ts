@@ -5,7 +5,7 @@ const isProtectedRoute = createRouteMatcher([
   "/dashboard",
   "/insights",
   "/games(.*)",
-  "/organizations(.*)", // protect organizations UI too
+  "/teams(.*)", // protect teams UI too
   "/api/chat",
   "/api/dev",
 ]);
@@ -15,11 +15,11 @@ export default clerkMiddleware(async (auth, req) => {
     await auth.protect();
     const { orgId } = await auth();
 
-    const isOrgPage = req.nextUrl.pathname.startsWith("/organizations");
+    const isTeamPage = req.nextUrl.pathname.startsWith("/teams");
 
-    // Enforce active org for everything except /organizations
-    if (!orgId && !isOrgPage) {
-      const url = new URL("/organizations", req.url);
+    // Enforce active org for everything except /teams
+    if (!orgId && !isTeamPage) {
+      const url = new URL("/teams", req.url);
       return NextResponse.redirect(url);
     }
   }

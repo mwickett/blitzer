@@ -14,7 +14,7 @@ export async function GET(
   const orgId = user.orgId;
   if (!orgId) {
     return NextResponse.json(
-      { error: "No active organization selected" },
+      { error: "No active team selected" },
       { status: 400 }
     );
   }

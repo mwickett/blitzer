@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/server/db/db";
-import { getAuthenticatedUser, requireActiveOrgId } from "./common";
+import { getAuthenticatedUser, requireActiveOrg } from "./common";
 import { sendGameCompleteEmail } from "../email";
 
 // Create a new game with support for guest players, scoped to active org
@@ -13,7 +13,7 @@ export async function createGame(
   }[]
 ) {
   const { user, posthog } = await getAuthenticatedUser();
-  const orgId = await requireActiveOrgId();
+  const orgId = await requireActiveOrg();
 
   const currentUser = await prisma.user.findUnique({
     where: { clerk_user_id: user.userId },
@@ -34,7 +34,7 @@ export async function createGame(
     const invalid = nonGuestUserIds.filter((id) => !memberIds.has(id));
     if (invalid.length > 0) {
       throw new Error(
-        "Some selected players are not members of the active organization"
+        "Some selected players are not members of the active team"
       );
     }
   }
@@ -256,7 +256,7 @@ export async function updateGameAsFinished(
 // Clone an existing game within the same org
 export async function cloneGame(originalGameId: string) {
   const { user, posthog } = await getAuthenticatedUser();
-  const orgId = await requireActiveOrgId();
+  const orgId = await requireActiveOrg();
 
   const originalGame = await prisma.game.findUnique({
     where: { id: originalGameId },
@@ -272,7 +272,7 @@ export async function cloneGame(originalGameId: string) {
 
   if (!originalGame) throw new Error("Original game not found");
   if (originalGame.organizationId !== orgId) {
-    throw new Error("Cannot clone game from a different organization");
+    throw new Error("Cannot clone game from a different team");
   }
 
   const newGameId = await prisma.$transaction(async (tx) => {

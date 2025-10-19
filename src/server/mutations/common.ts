@@ -19,11 +19,11 @@ export async function getAuthenticatedUser() {
 
 /**
  * Helper to require an active organization
- * @throws {Error} If no active organization is selected
+ * @throws {Error} If no active team is selected
  */
-export async function requireActiveOrgId() {
+export async function requireActiveOrg(): Promise<string> {
   const { orgId } = await auth();
-  if (!orgId) throw new Error("No active organization selected");
+  if (!orgId) throw new Error("No active team selected");
   return orgId;
 }
 
@@ -49,7 +49,7 @@ export async function getAuthenticatedUserPrismaId() {
  */
 export async function getAuthContext() {
   const { user, posthog } = await getAuthenticatedUser();
-  const orgId = await requireActiveOrgId();
+  const orgId = await requireActiveOrg();
 
   const prismaUser = await prisma.user.findUnique({
     where: { clerk_user_id: user.userId },

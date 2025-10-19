@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/server/db/db";
-import { getAuthenticatedUser, requireActiveOrgId } from "./common";
+import { getAuthenticatedUser, requireActiveOrg } from "./common";
 import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 
 // Create new round with scores
@@ -16,7 +16,7 @@ export async function createRoundForGame(
   }[]
 ) {
   const { user, posthog } = await getAuthenticatedUser();
-  const orgId = await requireActiveOrgId();
+  const orgId = await requireActiveOrg();
 
   const game = await prisma.game.findUnique({
     where: { id: gameId },
@@ -26,7 +26,7 @@ export async function createRoundForGame(
     throw new Error("Game not found");
   }
   if (game.organizationId !== orgId) {
-    throw new Error("Unauthorized for this organization");
+    throw new Error("Unauthorized for this team");
   }
 
   try {
@@ -112,7 +112,7 @@ export async function updateRoundScores(
   }[]
 ) {
   const { user, posthog } = await getAuthenticatedUser();
-  const orgId = await requireActiveOrgId();
+  const orgId = await requireActiveOrg();
 
   const game = await prisma.game.findUnique({
     where: { id: gameId },
@@ -127,7 +127,7 @@ export async function updateRoundScores(
   }
 
   if (game.organizationId !== orgId) {
-    throw new Error("Unauthorized for this organization");
+    throw new Error("Unauthorized for this team");
   }
 
   try {

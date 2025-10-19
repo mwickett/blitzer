@@ -9,7 +9,7 @@ import { getUserIdFromAuth } from "@/server/utils";
 // Get the active org ID, throw if missing
 async function requireActiveOrgId() {
   const { orgId } = await auth();
-  if (!orgId) throw new Error("No active organization selected");
+  if (!orgId) throw new Error("No active team selected");
   return orgId;
 }
 
@@ -17,7 +17,7 @@ async function requireActiveOrgId() {
 export async function getOrgMembers() {
   const { userId, orgId } = await auth();
   if (!userId) throw new Error("Unauthorized");
-  if (!orgId) throw new Error("No active organization selected");
+  if (!orgId) throw new Error("No active team selected");
 
   const memberships = await prisma.organizationMembership.findMany({
     where: { organizationId: orgId },

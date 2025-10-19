@@ -50,7 +50,7 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
   const navData = [
     { label: "Dashboard", href: "/dashboard" },
     { label: "Games", href: "/games" },
-    { label: "Organizations", href: "/organizations" },
+    { label: "Teams", href: "/teams" },
     ...(llmEnabled ? [{ label: "Insights", href: "/insights" }] : []),
   ];
 
