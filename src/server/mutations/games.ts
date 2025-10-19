@@ -115,7 +115,8 @@ export async function updateGameAsFinished(
     where: {
       id: gameId,
     },
-    include: {
+    select: {
+      organizationId: true,
       players: {
         include: {
           user: {
@@ -139,7 +140,7 @@ export async function updateGameAsFinished(
 
   if (!game) throw new Error("Game not found");
 
-  const orgId = (game as any).organizationId;
+  const orgId = game.organizationId;
 
   // Get winner's details
   let winnerName = "";
