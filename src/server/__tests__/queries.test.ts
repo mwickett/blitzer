@@ -194,9 +194,7 @@ describe("Queries (Org Scoped)", () => {
         userId: null,
         orgId: null,
       });
-      await expect(getGames()).rejects.toThrow(
-        "No active organization selected"
-      );
+      await expect(getGames()).rejects.toThrow("No active team selected");
     });
   });
 

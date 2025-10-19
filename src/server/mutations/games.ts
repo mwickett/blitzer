@@ -102,18 +102,20 @@ export async function createGame(
   }
 }
 
-// Update game as finished (unchanged)
+// Update game as finished with organization validation
 export async function updateGameAsFinished(
   gameId: string,
   winnerId: string,
   isGuestWinner: boolean = false
 ) {
   const { user, posthog } = await getAuthenticatedUser();
+  const orgId = await requireActiveOrg();
 
-  // Fetch game with all player details
-  const game = await prisma.game.findUnique({
+  // Fetch game with all player details, ensuring it belongs to active org
+  const game = await prisma.game.findFirst({
     where: {
       id: gameId,
+      organizationId: orgId,
     },
     select: {
       organizationId: true,
@@ -138,9 +140,9 @@ export async function updateGameAsFinished(
     },
   });
 
-  if (!game) throw new Error("Game not found");
-
-  const orgId = game.organizationId;
+  if (!game) {
+    throw new Error("Game not found or not accessible in your team");
+  }
 
   // Get winner's details
   let winnerName = "";
