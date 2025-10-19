@@ -8,6 +8,7 @@ import NavBar from "./NavBar";
 import "./globals.css";
 import PostHogPageView from "./PostHogPageView";
 import Footer from "@/components/Footer";
+import PostHogOrgSync from "./PostHogOrgSync";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -57,9 +58,8 @@ export default async function RootLayout({
         <CSPostHogProvider>
           <body className={`${inter.className} bg-brand`}>
             <Suspense fallback={null}>
-              <ClerkProvider dynamic>
-                <PostHogPageView />
-              </ClerkProvider>
+              <PostHogPageView />
+              <PostHogOrgSync />
             </Suspense>
             <NavBar>
               {children}

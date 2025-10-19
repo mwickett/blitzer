@@ -8,20 +8,22 @@ datasource db {
 }
 
 model User {
-  id                     String          @id @default(uuid())
-  email                  String          @unique
-  clerk_user_id          String          @unique
-  createdAt              DateTime        @default(now()) @map("created_at")
-  updatedAt              DateTime        @default(now()) @map("updated_at")
-  username               String          @unique
-  avatarUrl              String?
-  friends1               Friend[]        @relation("User1Friends")
-  friends2               Friend[]        @relation("User2Friends")
-  friendRequestsReceived FriendRequest[] @relation("FriendRequestsReceived")
-  friendRequestsSent     FriendRequest[] @relation("FriendRequestsSent")
-  games                  GamePlayers[]
-  scores                 Score[]
-  createdGuests          GuestUser[]     @relation("CreatedGuests")
+  id                      String                   @id @default(uuid())
+  email                   String                   @unique
+  clerk_user_id           String                   @unique
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @default(now()) @map("updated_at")
+  username                String                   @unique
+  avatarUrl               String?
+  friends1                Friend[]                 @relation("User1Friends")
+  friends2                Friend[]                 @relation("User2Friends")
+  friendRequestsReceived  FriendRequest[]          @relation("FriendRequestsReceived")
+  friendRequestsSent      FriendRequest[]          @relation("FriendRequestsSent")
+  games                   GamePlayers[]
+  scores                  Score[]
+  createdGuests           GuestUser[]              @relation("CreatedGuests")
+  // New: inverse relation for organization memberships
+  organizationMemberships OrganizationMembership[]
 }
 
 model GuestUser {
@@ -64,13 +66,17 @@ model Friend {
 }
 
 model Game {
-  id         String        @id @default(uuid())
-  createdAt  DateTime      @default(now()) @map("created_at")
-  endedAt    DateTime?     @map("ended_at")
-  isFinished Boolean       @default(false) @map("is_finished")
-  winnerId   String?
-  players    GamePlayers[]
-  rounds     Round[]
+  id             String        @id @default(uuid())
+  createdAt      DateTime      @default(now()) @map("created_at")
+  endedAt        DateTime?     @map("ended_at")
+  isFinished     Boolean       @default(false) @map("is_finished")
+  winnerId       String?
+  players        GamePlayers[]
+  rounds         Round[]
+  // New: scope games to an org. Optional for legacy rows.
+  organizationId String?
+
+  @@index([organizationId])
 }
 
 model Round {
@@ -115,6 +121,19 @@ model GamePlayers {
   @@unique([gameId, guestId], name: "gamePlayer_guestId", map: "game_players_game_id_guest_id")
   @@index([userId])
   @@index([guestId])
+}
+
+model OrganizationMembership {
+  id             String  @id @default(uuid())
+  organizationId String
+  userId         String
+  role           String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
 }
 
 enum FriendRequestStatus {

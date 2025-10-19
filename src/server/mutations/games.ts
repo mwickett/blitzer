@@ -1,10 +1,10 @@
 "use server";
 
 import prisma from "@/server/db/db";
-import { getAuthenticatedUser, getAuthenticatedUserPrismaId } from "./common";
+import { getAuthenticatedUser, requireActiveOrg } from "./common";
 import { sendGameCompleteEmail } from "../email";
 
-// Create a new game with support for guest players
+// Create a new game with support for guest players, scoped to active org
 export async function createGame(
   users: {
     id: string;
@@ -13,6 +13,8 @@ export async function createGame(
   }[]
 ) {
   const { user, posthog } = await getAuthenticatedUser();
+  const orgId = await requireActiveOrg();
+
   const currentUser = await prisma.user.findUnique({
     where: { clerk_user_id: user.userId },
     select: { id: true },
@@ -20,10 +22,29 @@ export async function createGame(
 
   if (!currentUser) throw new Error("User not found");
 
+  // Validate all non-guest players belong to the active org
+  const nonGuestUserIds = users.filter((u) => !u.isGuest).map((u) => u.id);
+  if (nonGuestUserIds.length > 0) {
+    const memberships = await prisma.organizationMembership.findMany({
+      where: { organizationId: orgId, userId: { in: nonGuestUserIds } },
+      select: { userId: true },
+    });
+
+    const memberIds = new Set(memberships.map((m) => m.userId));
+    const invalid = nonGuestUserIds.filter((id) => !memberIds.has(id));
+    if (invalid.length > 0) {
+      throw new Error(
+        "Some selected players are not members of the active team"
+      );
+    }
+  }
+
   try {
-    // Step 1: First create an empty game
+    // Step 1: create game with organization
     const newGame = await prisma.game.create({
-      data: {},
+      data: {
+        organizationId: orgId,
+      },
     });
 
     // Step 2: Create guest users if needed
@@ -45,7 +66,6 @@ export async function createGame(
       if (player.isGuest) {
         const dbGuestId = guestUserIds.get(player.id);
         if (dbGuestId) {
-          // For guest players, omit userId entirely
           await prisma.gamePlayers.create({
             data: {
               gameId: newGame.id,
@@ -54,7 +74,6 @@ export async function createGame(
           });
         }
       } else {
-        // For regular players, omit guestId entirely
         await prisma.gamePlayers.create({
           data: {
             gameId: newGame.id,
@@ -64,7 +83,6 @@ export async function createGame(
       }
     }
 
-    // Track event in PostHog
     posthog.capture({
       distinctId: user.userId,
       event: "create_game",
@@ -72,11 +90,11 @@ export async function createGame(
         gameId: newGame.id,
         playerCount: users.length,
         guestPlayerCount: users.filter((u) => u.isGuest).length,
+        organizationId: orgId,
       },
+      groups: { organization: orgId },
     });
 
-    // Return the game ID instead of redirecting
-    // This prevents the NEXT_REDIRECT error in the logs
     return { gameId: newGame.id };
   } catch (error) {
     console.error("Error creating game:", error);
@@ -84,20 +102,23 @@ export async function createGame(
   }
 }
 
-// Update game as finished
+// Update game as finished with organization validation
 export async function updateGameAsFinished(
   gameId: string,
   winnerId: string,
   isGuestWinner: boolean = false
 ) {
   const { user, posthog } = await getAuthenticatedUser();
+  const orgId = await requireActiveOrg();
 
-  // Fetch game with all player details
-  const game = await prisma.game.findUnique({
+  // Fetch game with all player details, ensuring it belongs to active org
+  const game = await prisma.game.findFirst({
     where: {
       id: gameId,
+      organizationId: orgId,
     },
-    include: {
+    select: {
+      organizationId: true,
       players: {
         include: {
           user: {
@@ -119,7 +140,9 @@ export async function updateGameAsFinished(
     },
   });
 
-  if (!game) throw new Error("Game not found");
+  if (!game) {
+    throw new Error("Game not found or not accessible in your team");
+  }
 
   // Get winner's details
   let winnerName = "";
@@ -140,7 +163,6 @@ export async function updateGameAsFinished(
     winnerName = winner.username;
   }
 
-  // Update game as finished
   await prisma.game.update({
     where: {
       id: gameId,
@@ -152,11 +174,8 @@ export async function updateGameAsFinished(
     },
   });
 
-  // Send emails to all registered players (can't send to guests)
-  // Process emails sequentially with delay to avoid rate limits
   const registeredPlayers = game.players.filter((player) => player.user);
 
-  // Track email batch in PostHog
   posthog.capture({
     distinctId: user.userId,
     event: "email_batch_started",
@@ -166,7 +185,9 @@ export async function updateGameAsFinished(
       recipientCount: registeredPlayers.length,
       winnerName,
       isGuestWinner,
+      organizationId: orgId || undefined,
     },
+    groups: orgId ? { organization: orgId } : undefined,
   });
 
   for (let i = 0; i < registeredPlayers.length; i++) {
@@ -174,7 +195,6 @@ export async function updateGameAsFinished(
     const userEmail = player.user!.email;
     const username = player.user!.username;
     const userId = player.user!.id;
-    // Use clerk_user_id if available for consistent tracking
     const userClerkId = player.user!.clerk_user_id || user.userId;
 
     try {
@@ -187,13 +207,11 @@ export async function updateGameAsFinished(
         userId: userClerkId,
       });
 
-      // Add delay between email sends to avoid rate limiting (Resend limit is 2 per second)
       if (i < registeredPlayers.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 600)); // 600ms delay between emails
+        await new Promise((resolve) => setTimeout(resolve, 600));
       }
     } catch (error) {
       console.error(`Failed to send email to ${username}:`, error);
-      // Track individual email failure
       posthog.capture({
         distinctId: user.userId,
         event: "email_batch_item_failed",
@@ -203,13 +221,13 @@ export async function updateGameAsFinished(
           recipientUsername: username,
           recipientId: userId,
           errorMessage: error instanceof Error ? error.message : String(error),
+          organizationId: orgId || undefined,
         },
+        groups: orgId ? { organization: orgId } : undefined,
       });
-      // Continue with other emails even if one fails
     }
   }
 
-  // Track email batch completion
   posthog.capture({
     distinctId: user.userId,
     event: "email_batch_completed",
@@ -219,7 +237,9 @@ export async function updateGameAsFinished(
       recipientCount: registeredPlayers.length,
       winnerName,
       isGuestWinner,
+      organizationId: orgId || undefined,
     },
+    groups: orgId ? { organization: orgId } : undefined,
   });
 
   posthog.capture({
@@ -229,15 +249,17 @@ export async function updateGameAsFinished(
       gameId: gameId,
       winnerId: winnerId,
       isGuestWinner: isGuestWinner,
+      organizationId: orgId || undefined,
     },
+    groups: orgId ? { organization: orgId } : undefined,
   });
 }
 
-// Clone an existing game
+// Clone an existing game within the same org
 export async function cloneGame(originalGameId: string) {
   const { user, posthog } = await getAuthenticatedUser();
+  const orgId = await requireActiveOrg();
 
-  // Fetch the original game with its players
   const originalGame = await prisma.game.findUnique({
     where: { id: originalGameId },
     include: {
@@ -251,10 +273,11 @@ export async function cloneGame(originalGameId: string) {
   });
 
   if (!originalGame) throw new Error("Original game not found");
+  if (originalGame.organizationId !== orgId) {
+    throw new Error("Cannot clone game from a different team");
+  }
 
-  // Start a transaction to ensure consistency
   const newGameId = await prisma.$transaction(async (tx) => {
-    // Create a new game with the same players
     const playerCreateInputs = originalGame.players.map((player) => {
       if (player.userId) {
         return { userId: player.userId };
@@ -266,6 +289,7 @@ export async function cloneGame(originalGameId: string) {
 
     const newGame = await tx.game.create({
       data: {
+        organizationId: originalGame.organizationId,
         players: {
           create: playerCreateInputs,
         },
@@ -278,7 +302,8 @@ export async function cloneGame(originalGameId: string) {
   posthog.capture({
     distinctId: user.userId,
     event: "clone_game",
-    properties: { originalGameId, newGameId },
+    properties: { originalGameId, newGameId, organizationId: orgId },
+    groups: { organization: orgId },
   });
 
   return newGameId;
