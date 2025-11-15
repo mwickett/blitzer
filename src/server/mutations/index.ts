@@ -10,6 +10,11 @@ import {
   rejectFriendRequest,
 } from "./friends";
 import { createGuestUser, getMyGuestUsers, inviteGuestUser } from "./guests";
+import {
+  createKeyMoment,
+  getKeyMomentsForGame,
+  deleteKeyMoment,
+} from "./keyMoments";
 
 // Re-export them
 export {
@@ -24,4 +29,7 @@ export {
   createGuestUser,
   getMyGuestUsers,
   inviteGuestUser,
+  createKeyMoment,
+  getKeyMomentsForGame,
+  deleteKeyMoment,
 };
