@@ -51,3 +51,7 @@ claude_desktop_config.json
 
 # Devin
 .envrc
+
+# User uploads (keep .gitkeep files)
+/public/uploads/key-moments/*
+!/public/uploads/key-moments/.gitkeep

@@ -35,3 +35,11 @@ import {
   inviteGuestUser,
 } from "./mutations/guests";
 export { createGuestUser, getMyGuestUsers, inviteGuestUser };
+
+// Re-export key moment mutations
+import {
+  createKeyMoment,
+  getKeyMomentsForGame,
+  deleteKeyMoment,
+} from "./mutations/keyMoments";
+export { createKeyMoment, getKeyMomentsForGame, deleteKeyMoment };

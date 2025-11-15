@@ -22,6 +22,7 @@ model User {
   games                  GamePlayers[]
   scores                 Score[]
   createdGuests          GuestUser[]     @relation("CreatedGuests")
+  keyMomentsUploaded     KeyMoment[]     @relation("UploadedKeyMoments")
 }
 
 model GuestUser {
@@ -71,15 +72,17 @@ model Game {
   winnerId   String?
   players    GamePlayers[]
   rounds     Round[]
+  keyMoments KeyMoment[]
 }
 
 model Round {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now()) @map("created_at")
-  gameId    String
-  round     Int
-  game      Game     @relation(fields: [gameId], references: [id])
-  scores    Score[]
+  id         String      @id @default(uuid())
+  createdAt  DateTime    @default(now()) @map("created_at")
+  gameId     String
+  round      Int
+  game       Game        @relation(fields: [gameId], references: [id])
+  scores     Score[]
+  keyMoments KeyMoment[]
 
   @@unique([gameId, round])
   @@index([gameId])
@@ -115,6 +118,23 @@ model GamePlayers {
   @@unique([gameId, guestId], name: "gamePlayer_guestId", map: "game_players_game_id_guest_id")
   @@index([userId])
   @@index([guestId])
+}
+
+model KeyMoment {
+  id               String   @id @default(uuid())
+  gameId           String
+  roundId          String?
+  uploadedByUserId String
+  imageUrl         String
+  description      String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  game             Game     @relation(fields: [gameId], references: [id])
+  round            Round?   @relation(fields: [roundId], references: [id])
+  uploadedBy       User     @relation("UploadedKeyMoments", fields: [uploadedByUserId], references: [id])
+
+  @@index([gameId])
+  @@index([roundId])
+  @@index([uploadedByUserId])
 }
 
 enum FriendRequestStatus {

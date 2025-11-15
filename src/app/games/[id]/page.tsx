@@ -4,6 +4,11 @@ import { getGameById } from "@/server/queries";
 import { notFound } from "next/navigation";
 import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
 import { isScoreChartsEnabled } from "@/featureFlags";
+import KeyMomentUpload from "@/components/KeyMomentUpload";
+import KeyMomentGallery from "@/components/KeyMomentGallery";
+import { getKeyMomentsForGame } from "@/server/mutations";
+import { auth } from "@clerk/nextjs/server";
+import prisma from "@/server/db/db";
 
 export default async function GameView(props: {
   params: Promise<{ id: string }>;
@@ -11,9 +16,24 @@ export default async function GameView(props: {
   const params = await props.params;
   const gameData = await getGameById(params.id);
   const showCharts = await isScoreChartsEnabled();
+  const user = await auth();
 
   if (!gameData) {
     notFound();
+  }
+
+  if (!user.userId) {
+    throw new Error("Unauthorized");
+  }
+
+  // Get current user's Prisma ID
+  const currentUser = await prisma.user.findUnique({
+    where: { clerk_user_id: user.userId },
+    select: { id: true },
+  });
+
+  if (!currentUser) {
+    throw new Error("User not found");
   }
 
   // Validate that game data is properly formed
@@ -60,8 +80,18 @@ export default async function GameView(props: {
   // calculate the current round number
   const currentRoundNumber = game.rounds.length + 1;
 
+  // Fetch key moments for the game
+  const keyMoments = await getKeyMomentsForGame(game.id);
+
   return (
-    <section className="py-6">
+    <section className="py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Game</h1>
+        {!game.isFinished && (
+          <KeyMomentUpload gameId={game.id} />
+        )}
+      </div>
+
       <ScoreDisplay
         displayScores={displayScores}
         numRounds={game.rounds.length}
@@ -69,11 +99,19 @@ export default async function GameView(props: {
         isFinished={game.isFinished}
         showCharts={showCharts}
       />
+      
       <ScoreEntry
         game={game}
         currentRoundNumber={currentRoundNumber}
         displayScores={displayScores}
       />
+
+      {keyMoments.length > 0 && (
+        <KeyMomentGallery
+          keyMoments={keyMoments}
+          currentUserId={currentUser.id}
+        />
+      )}
     </section>
   );
 }
