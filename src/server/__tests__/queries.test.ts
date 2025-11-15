@@ -1,5 +1,6 @@
 import {
   getGameById,
+  getGameByIdPublic,
   getGames,
   getFilteredUsers,
   getFriends,
@@ -147,6 +148,90 @@ describe("Queries", () => {
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
       const result = await getGameById("non-existent-game");
       expect(result).toBeNull();
+    });
+
+    it("should throw error if user not authenticated", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
+      await expect(getGameById("game-1")).rejects.toThrow("Unauthorized");
+    });
+  });
+
+  describe("getGameByIdPublic", () => {
+    it("should return game with players and rounds without authentication", async () => {
+      const mockGame = {
+        id: "game-1",
+        players: [
+          {
+            user: {
+              id: "user-1",
+              username: "Player 1",
+            },
+          },
+        ],
+        rounds: [
+          {
+            id: "round-1",
+            scores: [
+              {
+                userId: "user-1",
+                blitzPileRemaining: 5,
+                totalCardsPlayed: 20,
+              },
+            ],
+          },
+        ],
+      };
+
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+
+      const result = await getGameByIdPublic("game-1");
+
+      expect(prisma.game.findUnique).toHaveBeenCalledWith({
+        where: { id: "game-1" },
+        include: {
+          players: {
+            include: {
+              user: true,
+              guestUser: true,
+            },
+          },
+          rounds: {
+            include: {
+              scores: {
+                include: {
+                  user: true,
+                  guestUser: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      expect(result).toEqual(mockGame);
+    });
+
+    it("should return null if game not found", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
+      const result = await getGameByIdPublic("non-existent-game");
+      expect(result).toBeNull();
+    });
+
+    it("should work without authentication", async () => {
+      // Set auth to return null user to verify no authentication check is performed
+      (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
+      
+      const mockGame = {
+        id: "game-1",
+        players: [],
+        rounds: [],
+      };
+
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+
+      // Should not throw error even without authentication
+      const result = await getGameByIdPublic("game-1");
+      expect(result).toEqual(mockGame);
     });
   });
 

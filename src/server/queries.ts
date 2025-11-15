@@ -91,12 +91,42 @@ export async function getGames() {
   return games;
 }
 
-// Fetch a single game by ID
+// Fetch a single game by ID (authenticated)
 export async function getGameById(id: string) {
   const user = await auth();
 
   if (!user.userId) throw new Error("Unauthorized");
 
+  const game = await prisma.game.findUnique({
+    where: {
+      id: id,
+    },
+    include: {
+      players: {
+        include: {
+          user: true,
+          guestUser: true,
+        },
+      },
+      rounds: {
+        include: {
+          scores: {
+            include: {
+              user: true,
+              guestUser: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return game;
+}
+
+// Fetch a single game by ID (public - no authentication required)
+// This allows unauthenticated users to view game results from email links
+export async function getGameByIdPublic(id: string) {
   const game = await prisma.game.findUnique({
     where: {
       id: id,

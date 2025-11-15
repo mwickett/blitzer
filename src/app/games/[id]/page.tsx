@@ -1,15 +1,22 @@
 import ScoreEntry from "./scoreEntry";
 import ScoreDisplay from "./scoreDisplay";
-import { getGameById } from "@/server/queries";
+import { getGameByIdPublic } from "@/server/queries";
 import { notFound } from "next/navigation";
 import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
 import { isScoreChartsEnabled } from "@/featureFlags";
+import { auth } from "@clerk/nextjs/server";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 
 export default async function GameView(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
-  const gameData = await getGameById(params.id);
+  const user = await auth();
+  const isAuthenticated = !!user.userId;
+  
+  const gameData = await getGameByIdPublic(params.id);
   const showCharts = await isScoreChartsEnabled();
 
   if (!gameData) {
@@ -62,6 +69,21 @@ export default async function GameView(props: {
 
   return (
     <section className="py-6">
+      {!isAuthenticated && (
+        <Card className="mb-6 mx-4 md:mx-auto md:max-w-4xl">
+          <CardHeader>
+            <CardTitle>Sign in to participate</CardTitle>
+            <CardDescription>
+              You&apos;re viewing this game as a guest. Sign in to enter scores, track your stats, and create your own games.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href={`/sign-in?redirect_url=/games/${game.id}`}>
+              <Button className="w-full sm:w-auto">Sign In</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
       <ScoreDisplay
         displayScores={displayScores}
         numRounds={game.rounds.length}
@@ -69,11 +91,13 @@ export default async function GameView(props: {
         isFinished={game.isFinished}
         showCharts={showCharts}
       />
-      <ScoreEntry
-        game={game}
-        currentRoundNumber={currentRoundNumber}
-        displayScores={displayScores}
-      />
+      {isAuthenticated && (
+        <ScoreEntry
+          game={game}
+          currentRoundNumber={currentRoundNumber}
+          displayScores={displayScores}
+        />
+      )}
     </section>
   );
 }
