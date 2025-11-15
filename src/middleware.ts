@@ -3,13 +3,13 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isProtectedRoute = createRouteMatcher([
   "/dashboard",
   "/insights",
-  "/games",
+  "/games/((?!.*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*)", // Protect /games, /games/new etc but not /games/[uuid]
   "/friends",
   "/api/chat",
   "/api/dev",
 ]);
 
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)"]);
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/games/*"]); // Allow viewing individual games
 
 export default clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) await auth.protect();
