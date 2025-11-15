@@ -8,6 +8,7 @@ export interface GameWithPlayersAndScores extends Game {
     gameId: string;
     userId?: string;
     guestId?: string;
+    cardColour?: string | null;
     user?: User;
     guestUser?: GuestUser;
   }[];
@@ -27,6 +28,7 @@ export interface DisplayScores {
   userId?: string; // Keep for backward compatibility with tests
   username: string;
   isGuest: boolean;
+  cardColour?: string | null;
   scoresByRound: number[];
   total: number;
   isInLead?: boolean;
@@ -37,6 +39,7 @@ export interface ProcessedPlayerScore {
   id: string;
   username: string;
   isGuest: boolean;
+  cardColour?: string | null;
   scoresByRound: number[];
   total: number;
 }
@@ -75,6 +78,7 @@ function initializePlayerScoresMap(
       id: playerId,
       username: getPlayerName(player),
       isGuest: isGuestPlayer(player),
+      cardColour: player.cardColour || null,
       scoresByRound: [],
       total: 0,
     };
@@ -186,11 +190,12 @@ export default async function transformGameData(
 
   // Convert to final display scores
   return Object.entries(playerScoresMap).map(
-    ([id, { username, isGuest, scoresByRound, total }]) => ({
+    ([id, { username, isGuest, cardColour, scoresByRound, total }]) => ({
       id,
       userId: id, // Add userId for backward compatibility with tests
       username,
       isGuest,
+      cardColour,
       scoresByRound,
       total,
       isInLead: leaders.includes(id),

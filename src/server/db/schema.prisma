@@ -103,13 +103,14 @@ model Score {
 }
 
 model GamePlayers {
-  id        String     @id @default(uuid())
-  gameId    String
-  userId    String?
-  guestId   String?
-  game      Game       @relation(fields: [gameId], references: [id])
-  user      User?      @relation(fields: [userId], references: [id])
-  guestUser GuestUser? @relation(fields: [guestId], references: [id])
+  id         String     @id @default(uuid())
+  gameId     String
+  userId     String?
+  guestId    String?
+  cardColour String?
+  game       Game       @relation(fields: [gameId], references: [id])
+  user       User?      @relation(fields: [userId], references: [id])
+  guestUser  GuestUser? @relation(fields: [guestId], references: [id])
 
   @@unique([gameId, userId], name: "gamePlayer_userId", map: "game_players_game_id_user_id")
   @@unique([gameId, guestId], name: "gamePlayer_guestId", map: "game_players_game_id_guest_id")
