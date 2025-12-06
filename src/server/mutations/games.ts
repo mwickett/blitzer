@@ -10,6 +10,7 @@ export async function createGame(
     id: string;
     username?: string;
     isGuest?: boolean;
+    cardColour?: string | null;
   }[]
 ) {
   const { user, posthog } = await getAuthenticatedUser();
@@ -50,6 +51,7 @@ export async function createGame(
             data: {
               gameId: newGame.id,
               guestId: dbGuestId,
+              cardColour: player.cardColour || null,
             },
           });
         }
@@ -59,6 +61,7 @@ export async function createGame(
           data: {
             gameId: newGame.id,
             userId: player.id,
+            cardColour: player.cardColour || null,
           },
         });
       }

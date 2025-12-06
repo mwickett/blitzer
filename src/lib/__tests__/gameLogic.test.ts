@@ -26,8 +26,10 @@ describe("transformGameData", () => {
       isFinished: false,
       winnerId: null,
       players: players.map((player) => ({
+        id: `player-${player.userId}`,
         userId: player.userId,
         gameId: "test-game-id",
+        cardColour: null,
         user: {
           id: player.userId,
           clerk_user_id: `clerk-${player.userId}`,
@@ -46,6 +48,7 @@ describe("transformGameData", () => {
         scores: round.scores.map((score) => ({
           id: `score-${score.userId}-${round.roundNumber}`,
           userId: score.userId,
+          guestId: null,
           roundId: `round-${index}`,
           blitzPileRemaining: score.blitzPileRemaining,
           totalCardsPlayed: score.totalCardsPlayed,

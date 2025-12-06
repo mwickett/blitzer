@@ -21,6 +21,7 @@ import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 import { updateRoundScores } from "@/server/mutations";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
+import { getColourHex } from "@/lib/cardColours";
 
 const playerScoreSchema = z.object({
   id: z.string(),
@@ -253,15 +254,29 @@ function ScoreDisplay({
         <TableHeader>
           <TableRow>
             <TableHead className="w-24">Round</TableHead>
-            {displayScores.map((player) => (
-              <TableHead
-                key={player.id}
-                className={`text-xs ${player.isWinner ? "bg-green-50" : ""}`}
-              >
-                {player.isWinner ? `⭐ ${player.username} ⭐` : player.username}
-                {player.isGuest ? " (Guest)" : ""}
-              </TableHead>
-            ))}
+            {displayScores.map((player) => {
+              const colourHex = getColourHex(player.cardColour);
+              return (
+                <TableHead
+                  key={player.id}
+                  className={`text-xs ${player.isWinner ? "bg-green-50" : ""}`}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    {colourHex && (
+                      <div
+                        className="w-4 h-4 rounded-full border border-gray-300"
+                        style={{ backgroundColor: colourHex }}
+                        title={`${player.cardColour} deck`}
+                      />
+                    )}
+                    <span>
+                      {player.isWinner ? `⭐ ${player.username} ⭐` : player.username}
+                      {player.isGuest ? " (Guest)" : ""}
+                    </span>
+                  </div>
+                </TableHead>
+              );
+            })}
             {!isFinished && <TableHead className="w-24">Actions</TableHead>}
           </TableRow>
         </TableHeader>

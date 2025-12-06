@@ -6,6 +6,7 @@ import { useUser } from "@clerk/nextjs";
 import { createGame } from "@/server/mutations";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { CardColourSelector } from "@/components/CardColourSelector";
 
 // UI Components
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -44,7 +45,7 @@ import {
 
 type UserSubset = Pick<User, "id" | "username" | "clerk_user_id" | "avatarUrl">;
 
-type GamePlayer = UserSubset | { id: string; username: string; isGuest: true };
+type GamePlayer = (UserSubset | { id: string; username: string; isGuest: true }) & { cardColour?: string | null };
 
 interface NewGameChooserProps {
   users: UserSubset[];
@@ -72,7 +73,7 @@ export default function NewGameChooser({
         (user) => user.clerk_user_id === clerkUser.id // clerkUser is guaranteed to exist here
       );
       if (currentUser) {
-        setInGamePlayers([currentUser]);
+        setInGamePlayers([{ ...currentUser, cardColour: null }]);
       }
       // We removed the potentially incorrect fallback here.
       // If the logged-in user isn't in the `users` list for some reason, they won't be added automatically.
@@ -82,7 +83,7 @@ export default function NewGameChooser({
 
   const handleAddUser = (user: UserSubset) => {
     if (!inGamePlayers.some((p) => p.id === user.id)) {
-      setInGamePlayers([...inGamePlayers, user]);
+      setInGamePlayers([...inGamePlayers, { ...user, cardColour: null }]);
     }
     setOpen(false);
     resetAddPlayerState();
@@ -106,10 +107,19 @@ export default function NewGameChooser({
       id: guestId, // Temporary ID, will be replaced by real UUID on server
       username: guestName.trim(),
       isGuest: true as const, // Flag to identify guest users in the UI
+      cardColour: null as string | null,
     };
 
     setInGamePlayers((prev) => [...prev, tempGuestUser]);
     resetAddPlayerState();
+  };
+
+  const handleColourChange = (playerId: string, colour: string | null) => {
+    setInGamePlayers((prev) =>
+      prev.map((player) =>
+        player.id === playerId ? { ...player, cardColour: colour } : player
+      )
+    );
   };
 
   const resetAddPlayerState = () => {
@@ -183,7 +193,7 @@ export default function NewGameChooser({
                 <div
                   key={player.id}
                   className={cn(
-                    "relative flex sm:flex-col sm:items-center p-3 rounded-lg border border-[#e6d7c3] bg-white sm:h-[130px]",
+                    "relative flex flex-col p-3 rounded-lg border border-[#e6d7c3] bg-white",
                     isCurrentUser(player) && "ring-1 ring-[#8b5e3c]"
                   )}
                 >
@@ -198,44 +208,55 @@ export default function NewGameChooser({
                       <span className="sr-only">Remove</span>
                     </Button>
                   </div>
-                  <Avatar className="h-12 w-12 sm:mb-2 mr-3 sm:mr-0 flex-shrink-0">
-                    {"avatarUrl" in player && player.avatarUrl ? (
-                      <AvatarImage
-                        src={player.avatarUrl}
-                        alt={player.username}
-                      />
-                    ) : (
-                      <AvatarFallback className="bg-[#f0e6d2] text-[#2a0e02]">
-                        {getPlayerInitials(player.username)}
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                  <div className="flex flex-col justify-center w-full sm:items-center sm:h-[36px] sm:justify-between">
-                    <span className="font-medium text-[#2a0e02] text-sm">
-                      {player.username}
-                    </span>
-                    <div className="flex flex-wrap gap-1 mt-1 sm:mt-2 max-w-full">
-                      {isCurrentUser(player) && (
-                        <span className="text-xs bg-[#f0e6d2] text-[#5a341f] px-2 py-0.5 rounded-full">
-                          You
-                        </span>
+                  <div className="flex items-center mb-2">
+                    <Avatar className="h-12 w-12 mr-3 flex-shrink-0">
+                      {"avatarUrl" in player && player.avatarUrl ? (
+                        <AvatarImage
+                          src={player.avatarUrl}
+                          alt={player.username}
+                        />
+                      ) : (
+                        <AvatarFallback className="bg-[#f0e6d2] text-[#2a0e02]">
+                          {getPlayerInitials(player.username)}
+                        </AvatarFallback>
                       )}
-                      {isGuestPlayer(player) && (
-                        <span className="text-xs bg-[#e6d7c3] text-[#5a341f] px-2 py-0.5 rounded-full">
-                          Guest
-                        </span>
-                      )}
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-[#2a0e02] text-sm">
+                        {player.username}
+                      </span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {isCurrentUser(player) && (
+                          <span className="text-xs bg-[#f0e6d2] text-[#5a341f] px-2 py-0.5 rounded-full">
+                            You
+                          </span>
+                        )}
+                        {isGuestPlayer(player) && (
+                          <span className="text-xs bg-[#e6d7c3] text-[#5a341f] px-2 py-0.5 rounded-full">
+                            Guest
+                          </span>
+                        )}
+                      </div>
                     </div>
+                  </div>
+                  <div className="mt-1">
+                    <label className="text-xs text-[#5a341f] mb-1 block">
+                      Card Colour (optional)
+                    </label>
+                    <CardColourSelector
+                      value={player.cardColour}
+                      onChange={(colour) => handleColourChange(player.id, colour)}
+                    />
                   </div>
                 </div>
               ))}
 
               {!addingPlayer && (
                 <button
-                  className="flex items-center sm:flex-col sm:items-center justify-start sm:justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] transition-colors sm:h-[130px]"
+                  className="flex flex-col items-center justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] transition-colors min-h-[130px]"
                   onClick={startAddingPlayer}
                 >
-                  <div className="h-12 w-12 rounded-full bg-[#f0e6d2] flex items-center justify-center sm:mb-2 mr-3 sm:mr-0 flex-shrink-0">
+                  <div className="h-12 w-12 rounded-full bg-[#f0e6d2] flex items-center justify-center mb-2 flex-shrink-0">
                     <Plus className="h-6 w-6 text-[#8b5e3c]" />
                   </div>
                   <span className="font-medium text-[#5a341f] text-sm">
@@ -245,7 +266,7 @@ export default function NewGameChooser({
               )}
 
               {addingPlayer && (
-                <div className="flex flex-col p-3 rounded-lg border border-[#e6d7c3] bg-white sm:h-[130px]">
+                <div className="flex flex-col p-3 rounded-lg border border-[#e6d7c3] bg-white min-h-[130px]">
                   <Tabs
                     value={activeTab}
                     onValueChange={setActiveTab}
