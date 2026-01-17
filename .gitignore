@@ -51,3 +51,6 @@ claude_desktop_config.json
 
 # Devin
 .envrc
+
+# clerk configuration (can include secrets)
+/.clerk/

@@ -3,14 +3,12 @@ import ScoreDisplay from "./scoreDisplay";
 import { getGameById } from "@/server/queries";
 import { notFound } from "next/navigation";
 import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
-import { isScoreChartsEnabled } from "@/featureFlags";
 
 export default async function GameView(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
   const gameData = await getGameById(params.id);
-  const showCharts = await isScoreChartsEnabled();
 
   if (!gameData) {
     notFound();
@@ -67,7 +65,6 @@ export default async function GameView(props: {
         numRounds={game.rounds.length}
         gameId={game.id}
         isFinished={game.isFinished}
-        showCharts={showCharts}
       />
       <ScoreEntry
         game={game}
