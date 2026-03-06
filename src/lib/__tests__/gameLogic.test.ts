@@ -7,6 +7,9 @@ jest.mock("@/server/mutations", () => ({
 }));
 
 describe("transformGameData", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
   // Helper function to create a mock game with players and scores
   const createMockGame = (
     players: Array<{ userId: string; username: string }>,
@@ -198,4 +201,86 @@ describe("transformGameData", () => {
     expect(leadPlayers).toHaveLength(2);
     expect(leadPlayers[0].total).toBe(leadPlayers[1].total);
   });
+
+  it("marks guest winners correctly when finishing a game", async () => {
+    const mockGame: GameWithPlayersAndScores = {
+      id: "guest-game-id",
+      createdAt: new Date(),
+      endedAt: null,
+      isFinished: false,
+      winnerId: null,
+      players: [
+        {
+          id: "gp-guest",
+          gameId: "guest-game-id",
+          guestId: "guest-1",
+          guestUser: {
+            id: "guest-1",
+            name: "Guest Winner",
+            ownerId: "owner-1",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        },
+        {
+          id: "gp-user",
+          gameId: "guest-game-id",
+          userId: "user-1",
+          user: {
+            id: "user-1",
+            clerk_user_id: "clerk-user-1",
+            email: "user1@test.com",
+            username: "Player 1",
+            avatarUrl: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          } as User,
+        },
+      ],
+      rounds: [
+        {
+          id: "round-1",
+          gameId: "guest-game-id",
+          round: 1,
+          createdAt: new Date(),
+          scores: [
+            {
+              id: "score-guest",
+              userId: null,
+              guestId: "guest-1",
+              roundId: "round-1",
+              blitzPileRemaining: 0,
+              totalCardsPlayed: 80,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            } as Score,
+            {
+              id: "score-user",
+              userId: "user-1",
+              guestId: null,
+              roundId: "round-1",
+              blitzPileRemaining: 0,
+              totalCardsPlayed: 20,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            } as Score,
+          ],
+        } as Round & { scores: Score[] },
+      ],
+    };
+
+    const result = await transformGameData(mockGame);
+    const updateGameAsFinished = jest.requireMock("@/server/mutations")
+      .updateGameAsFinished as jest.Mock;
+
+    expect(result.find((player) => player.id === "guest-1")?.isWinner).toBe(
+      true
+    );
+    expect(updateGameAsFinished).toHaveBeenCalledWith(
+      "guest-game-id",
+      "guest-1",
+      true
+    );
+  });
+
 });
