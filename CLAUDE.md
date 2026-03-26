@@ -79,6 +79,19 @@ npm run lint                # Run ESLint
 
 **Testing**: Jest with Testing Library, configured for Next.js App Router
 
+## Working Style
+
+- When reviewing code or making changes, avoid excessive modifications beyond what was requested. Focus on the specific ask before suggesting broader refactors.
+- When asked to review or explain the codebase, provide a concise summary first before diving into details. Do not generate report files or offer to write files unless explicitly asked.
+- Only change what is requested. Flag issues but don't fix them unless asked.
+
+## Analytics / PostHog
+
+- PostHog is used for analytics and feature flags. The client-side API key is intentionally public by design — do not flag it as a security issue.
+- When adding tracking events, ensure no PII (emails, names, IPs) is included in event properties.
+- Use consistent event naming conventions (snake_case) across both client-side and server-side API routes.
+- All server actions include PostHog event tracking — maintain this pattern when adding new actions.
+
 ## Development Workflow
 
 1. **Schema Changes**: Modify `src/server/db/schema.prisma` → Run `npx prisma migrate dev`
