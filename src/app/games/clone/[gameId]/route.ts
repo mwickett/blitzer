@@ -2,24 +2,32 @@ import { cloneGame } from "@/server/mutations";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-export async function GET(request: Request, props: { params: Promise<{ gameId: string }> }) {
+export async function GET(
+  request: Request,
+  props: { params: Promise<{ gameId: string }> }
+) {
   const params = await props.params;
-  const user = await auth();
-  if (!user.userId) {
-    return new Response('Unauthorized', { status: 401 });
+  const { userId, orgId } = await auth();
+
+  if (!userId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  if (!orgId) {
+    return new Response("No active circle", { status: 403 });
   }
 
   const { gameId } = params;
 
   if (!gameId || typeof gameId !== "string") {
-    return new Response('Missing game ID', { status: 400 });
+    return new Response("Missing game ID", { status: 400 });
   }
 
   try {
     const newGame = await cloneGame(gameId);
-    return NextResponse.json({newGameId: newGame}, { status: 200 })
+    return NextResponse.json({ newGameId: newGame }, { status: 200 });
   } catch (err) {
     console.error("Failed to clone game:", err);
-    return new Response('Failed to clone game', { status: 500 });
+    return new Response("Failed to clone game", { status: 500 });
   }
 }
