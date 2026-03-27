@@ -83,12 +83,6 @@ describe("Queries", () => {
   });
 
   describe("getGameById", () => {
-    beforeEach(() => {
-      (auth as unknown as jest.Mock).mockResolvedValue({
-        userId: mockClerkUserId,
-      });
-    });
-
     it("should return game with players and rounds", async () => {
       const mockGame = {
         id: "game-1",

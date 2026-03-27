@@ -69,6 +69,6 @@ export function calculateRoundScore(score: Score | ScoreValidation): number {
 }
 
 // Check if score meets winning threshold
-export function isWinningScore(total: number): boolean {
-  return total >= GAME_RULES.POINTS_TO_WIN;
+export function isWinningScore(total: number, threshold: number = GAME_RULES.POINTS_TO_WIN): boolean {
+  return total >= threshold;
 }

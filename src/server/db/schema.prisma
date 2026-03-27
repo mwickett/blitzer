@@ -64,13 +64,14 @@ model Friend {
 }
 
 model Game {
-  id         String        @id @default(uuid())
-  createdAt  DateTime      @default(now()) @map("created_at")
-  endedAt    DateTime?     @map("ended_at")
-  isFinished Boolean       @default(false) @map("is_finished")
-  winnerId   String?
-  players    GamePlayers[]
-  rounds     Round[]
+  id           String        @id @default(uuid())
+  createdAt    DateTime      @default(now()) @map("created_at")
+  endedAt      DateTime?     @map("ended_at")
+  isFinished   Boolean       @default(false) @map("is_finished")
+  winnerId     String?
+  winThreshold Int           @default(75) @map("win_threshold")
+  players      GamePlayers[]
+  rounds       Round[]
 }
 
 model Round {

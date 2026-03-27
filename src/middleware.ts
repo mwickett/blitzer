@@ -4,14 +4,19 @@ const isProtectedRoute = createRouteMatcher([
   "/dashboard",
   "/insights",
   "/games",
+  "/games/new",
+  "/games/clone(.*)",
   "/friends",
   "/api/chat",
   "/api/dev",
 ]);
 
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)"]);
+// Game detail pages (/games/[uuid]) are public so email link recipients can view results
+const isPublicGameDetail = (pathname: string) =>
+  /^\/games\/[0-9a-f-]{36}$/.test(pathname);
 
 export default clerkMiddleware(async (auth, req) => {
+  if (isPublicGameDetail(req.nextUrl.pathname)) return;
   if (isProtectedRoute(req)) await auth.protect();
 });
 

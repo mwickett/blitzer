@@ -25,7 +25,7 @@ const WelcomeEmailTemplate = ({ username }: WelcomeEmailProps) => {
       <Preview>{previewText}</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Section>
+          <Section style={contentSection}>
             <img
               src="https://blitzer.fun/img/blitzer-logo.png"
               alt="Blitzer Logo"
@@ -102,6 +102,10 @@ const listItem = {
   color: "#290806",
   marginLeft: "18px",
   marginBottom: "4px",
+};
+
+const contentSection = {
+  padding: "0 48px",
 };
 
 const buttonContainer = {
