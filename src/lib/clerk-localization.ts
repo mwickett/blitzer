@@ -35,4 +35,17 @@ export const circleLocalization = {
     action__createOrganization: "Create circle",
     action__invitationAccept: "Join",
   },
+  taskChooseOrganization: {
+    title: "Setup your circle",
+    subtitle: "Enter your circle details to continue",
+    createOrganization: {
+      title: "Create Circle",
+      subtitle: "Enter your circle details to continue",
+      formButtonSubmit: "Create circle",
+      formFieldLabel__name: "Name",
+      formFieldLabel__slug: "Slug",
+      formFieldInputPlaceholder__name: "My Circle",
+      formFieldInputPlaceholder__slug: "my-circle",
+    },
+  },
 };
