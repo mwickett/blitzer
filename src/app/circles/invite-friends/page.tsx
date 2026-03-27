@@ -1,5 +1,6 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import prisma from "@/server/db/db";
 import legacyFriends from "@/data/legacy-friends.json";
 import InviteFriends from "./InviteFriends";
 
@@ -26,9 +27,9 @@ export default async function InviteFriendsPage() {
     redirect("/dashboard");
   }
 
-  // Get ALL current circle members (paginate — Clerk defaults to 10 per page)
+  // Get ALL current circle member Clerk user IDs (paginate — Clerk defaults to 10 per page)
   const client = await clerkClient();
-  const memberEmails = new Set<string>();
+  const memberClerkIds: string[] = [];
   let memberOffset = 0;
   while (true) {
     const page = await client.organizations.getOrganizationMembershipList({
@@ -37,14 +38,24 @@ export default async function InviteFriendsPage() {
       offset: memberOffset,
     });
     for (const m of page.data) {
-      const email = m.publicUserData?.identifier;
-      if (email) {
-        memberEmails.add(email.toLowerCase());
+      if (m.publicUserData?.userId) {
+        memberClerkIds.push(m.publicUserData.userId);
       }
     }
     if (page.data.length < 100) break;
     memberOffset += 100;
   }
+
+  // Look up member emails from our database (canonical source of truth)
+  const memberUsers = memberClerkIds.length > 0
+    ? await prisma.user.findMany({
+        where: { clerk_user_id: { in: memberClerkIds } },
+        select: { email: true },
+      })
+    : [];
+  const memberEmails = new Set(
+    memberUsers.map((u) => u.email.toLowerCase())
+  );
 
   // Get ALL pending invitations (paginate)
   const pendingEmails = new Set<string>();

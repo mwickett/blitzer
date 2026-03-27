@@ -38,10 +38,9 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
   // redirect to dashboard. Circle creation uses Clerk's
   // afterCreateOrganizationUrl to redirect to /circles/invite-friends
   // directly, which survives component remounts.
+  // Note: only redirect, don't setState — avoids cascading renders.
   useEffect(() => {
     if (organization && step !== "done" && step !== "create") {
-      // Org became active while on invitations step = user accepted an invite
-      setStep("done");
       router.push("/dashboard");
     }
   }, [organization, step, router]);

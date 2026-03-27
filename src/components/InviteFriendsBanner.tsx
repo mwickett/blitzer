@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
 import { useAuth, useOrganization } from "@clerk/nextjs";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -9,26 +9,51 @@ interface InviteFriendsBannerProps {
   uninvitedCount: number;
 }
 
+function useLocalStorage(key: string): [boolean, () => void] {
+  const subscribe = useCallback(
+    (callback: () => void) => {
+      const handler = (e: StorageEvent) => {
+        if (e.key === key) callback();
+      };
+      window.addEventListener("storage", handler);
+      return () => window.removeEventListener("storage", handler);
+    },
+    [key]
+  );
+
+  const getSnapshot = useCallback(
+    () => localStorage.getItem(key) === "true",
+    [key]
+  );
+
+  const getServerSnapshot = useCallback(() => true, []);
+
+  const isDismissed = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot
+  );
+
+  const dismiss = useCallback(() => {
+    localStorage.setItem(key, "true");
+    // Force re-render by dispatching a storage event won't work same-tab,
+    // so we use a state toggle below
+    window.dispatchEvent(
+      new StorageEvent("storage", { key, newValue: "true" })
+    );
+  }, [key]);
+
+  return [isDismissed, dismiss];
+}
+
 export default function InviteFriendsBanner({
   uninvitedCount,
 }: InviteFriendsBannerProps) {
   const { userId } = useAuth();
   const { organization } = useOrganization();
-  const [dismissed, setDismissed] = useState(true); // default hidden to avoid flash
 
   const storageKey = `blitzer:invite-banner-dismissed:${userId}:${organization?.id}`;
-
-  useEffect(() => {
-    if (userId && organization?.id) {
-      const isDismissed = localStorage.getItem(storageKey) === "true";
-      setDismissed(isDismissed);
-    }
-  }, [userId, organization?.id, storageKey]);
-
-  const handleDismiss = () => {
-    localStorage.setItem(storageKey, "true");
-    setDismissed(true);
-  };
+  const [dismissed, dismiss] = useLocalStorage(storageKey);
 
   if (dismissed || uninvitedCount === 0) {
     return null;
@@ -53,7 +78,7 @@ export default function InviteFriendsBanner({
           <Button size="sm" className="bg-[#5a341f] hover:bg-[#3d1a0a]" asChild>
             <Link href="/circles/invite-friends">Invite</Link>
           </Button>
-          <Button size="sm" variant="ghost" onClick={handleDismiss}>
+          <Button size="sm" variant="ghost" onClick={dismiss}>
             Dismiss
           </Button>
         </div>

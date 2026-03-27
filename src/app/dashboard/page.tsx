@@ -5,6 +5,7 @@ import {
   getLongestAndShortestGamesByRounds,
 } from "@/server/queries";
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import prisma from "@/server/db/db";
 import legacyFriends from "@/data/legacy-friends.json";
 import BasicStatBlock from "@/components/BasicStatBlock";
 import InviteFriendsBanner from "@/components/InviteFriendsBanner";
@@ -29,7 +30,7 @@ export default async function Dashboard() {
     if (allFriends.length > 0) {
       const client = await clerkClient();
 
-      const memberEmails = new Set<string>();
+      const memberClerkIds: string[] = [];
       let memberOffset = 0;
       while (true) {
         const page =
@@ -39,14 +40,23 @@ export default async function Dashboard() {
             offset: memberOffset,
           });
         for (const m of page.data) {
-          const email = m.publicUserData?.identifier;
-          if (email) {
-            memberEmails.add(email.toLowerCase());
+          if (m.publicUserData?.userId) {
+            memberClerkIds.push(m.publicUserData.userId);
           }
         }
         if (page.data.length < 100) break;
         memberOffset += 100;
       }
+
+      const memberUsers = memberClerkIds.length > 0
+        ? await prisma.user.findMany({
+            where: { clerk_user_id: { in: memberClerkIds } },
+            select: { email: true },
+          })
+        : [];
+      const memberEmails = new Set(
+        memberUsers.map((u) => u.email.toLowerCase())
+      );
 
       const pendingEmails = new Set<string>();
       let inviteOffset = 0;
