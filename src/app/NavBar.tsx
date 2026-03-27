@@ -5,6 +5,7 @@ import {
   Show,
   SignInButton,
   SignUpButton,
+  OrganizationSwitcher,
 } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -55,10 +56,6 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
     {
       label: "Games",
       href: "/games",
-    },
-    {
-      label: "Friends",
-      href: "/friends",
     },
     // Only include Insights if LLM features are enabled
     ...(llmEnabled
@@ -133,6 +130,11 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
           </nav>
           <div className="flex w-full justify-end items-center gap-4 md:gap-2 lg:gap-4">
             <Show when="signed-in">
+              <OrganizationSwitcher
+                hidePersonal
+                afterSelectOrganizationUrl="/dashboard"
+                afterCreateOrganizationUrl="/dashboard"
+              />
               <Button asChild>
                 <Link href="/games/new">New game</Link>
               </Button>
