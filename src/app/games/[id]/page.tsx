@@ -3,6 +3,7 @@ import ScoreDisplay from "./scoreDisplay";
 import { getGameById } from "@/server/queries";
 import { notFound } from "next/navigation";
 import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
+import { auth } from "@clerk/nextjs/server";
 
 export default async function GameView(props: {
   params: Promise<{ id: string }>;
@@ -58,6 +59,9 @@ export default async function GameView(props: {
   // calculate the current round number
   const currentRoundNumber = game.rounds.length + 1;
 
+  const { userId } = await auth();
+  const isAuthenticated = !!userId;
+
   return (
     <section className="py-6">
       <ScoreDisplay
@@ -66,11 +70,13 @@ export default async function GameView(props: {
         gameId={game.id}
         isFinished={game.isFinished}
       />
-      <ScoreEntry
-        game={game}
-        currentRoundNumber={currentRoundNumber}
-        displayScores={displayScores}
-      />
+      {isAuthenticated && (
+        <ScoreEntry
+          game={game}
+          currentRoundNumber={currentRoundNumber}
+          displayScores={displayScores}
+        />
+      )}
     </section>
   );
 }

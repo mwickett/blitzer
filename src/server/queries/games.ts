@@ -40,12 +40,8 @@ export async function getGames() {
   return games;
 }
 
-// Fetch a single game by ID
+// Fetch a single game by ID (public - no auth required)
 export async function getGameById(id: string) {
-  const user = await auth();
-
-  if (!user.userId) throw new Error("Unauthorized");
-
   const game = await prisma.game.findUnique({
     where: {
       id: id,
