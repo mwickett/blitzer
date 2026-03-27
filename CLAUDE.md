@@ -87,10 +87,10 @@ npm run lint                # Run ESLint
 
 ## Analytics / PostHog
 
-- PostHog is used for analytics and feature flags. The client-side API key is intentionally public by design — do not flag it as a security issue.
+- PostHog is used for analytics and feature flags. The public PostHog project key exposed to the client (via `NEXT_PUBLIC_POSTHOG_KEY`) is intentionally public — do not flag it as a security issue. All other PostHog keys or secrets (personal API keys, server-side secrets) must be treated as sensitive.
 - When adding tracking events, ensure no PII (emails, names, IPs) is included in event properties.
 - Use consistent event naming conventions (snake_case) across both client-side and server-side API routes.
-- All server actions include PostHog event tracking — maintain this pattern when adding new actions.
+- Server actions should include PostHog event tracking — maintain this pattern when adding new actions.
 
 ## Development Workflow
 
