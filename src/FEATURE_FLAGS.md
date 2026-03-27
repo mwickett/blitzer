@@ -2,6 +2,12 @@
 
 Blitzer uses PostHog for feature flags. This document explains how to use feature flags in the application.
 
+## Current Active Flags
+
+| Flag Key | Purpose | Where Used |
+|----------|---------|------------|
+| `llm-features` | Controls visibility of the Insights/LLM chat nav link | `NavBar.tsx` |
+
 ## Creating Feature Flags
 
 Feature flags are managed in the PostHog dashboard:
@@ -9,7 +15,7 @@ Feature flags are managed in the PostHog dashboard:
 1. Log in to the PostHog dashboard
 2. Navigate to "Feature Flags" in the left sidebar
 3. Click "New Feature Flag"
-4. Enter a key (e.g., `score-charts`)
+4. Enter a key (e.g., `my-feature`)
 5. Configure rollout percentages and conditions
 6. Save the feature flag
 
@@ -18,16 +24,11 @@ Feature flags are managed in the PostHog dashboard:
 ### In Server Components
 
 ```tsx
-import { isFeatureEnabled, isScoreChartsEnabled } from "@/featureFlags";
+import { isFeatureEnabled } from "@/featureFlags";
 
 export default async function MyServerComponent() {
-  // Option 1: Use the generic function
   const myFeatureEnabled = await isFeatureEnabled("my-feature-key");
-
-  // Option 2: Use a specific helper function (when available)
-  const scoreChartsEnabled = await isScoreChartsEnabled();
-
-  return <div>{scoreChartsEnabled && <ScoreCharts />}</div>;
+  return <div>{myFeatureEnabled && <MyFeature />}</div>;
 }
 ```
 
@@ -35,33 +36,11 @@ export default async function MyServerComponent() {
 
 ```tsx
 "use client";
-import { useFeatureFlag, useScoreChartsFlag } from "@/hooks/useFeatureFlag";
+import { useFeatureFlag } from "@/hooks/useFeatureFlag";
 
 export default function MyClientComponent() {
-  // Option 1: Use the generic hook
   const myFeatureEnabled = useFeatureFlag("my-feature-key");
-
-  // Option 2: Use a specific helper hook (when available)
-  const scoreChartsEnabled = useScoreChartsFlag();
-
-  return <div>{scoreChartsEnabled && <ClientScoreCharts />}</div>;
-}
-```
-
-## Adding New Feature Flags
-
-1. Create the flag in PostHog dashboard
-2. For frequently used flags, add helper functions:
-
-```typescript
-// In src/featureFlags.ts
-export async function isNewFeatureEnabled(): Promise<boolean> {
-  return isFeatureEnabled("new-feature-key");
-}
-
-// In src/hooks/useFeatureFlag.ts
-export function useNewFeatureFlag(): boolean {
-  return useFeatureFlag("new-feature-key");
+  return <div>{myFeatureEnabled && <MyFeature />}</div>;
 }
 ```
 
@@ -70,7 +49,4 @@ export function useNewFeatureFlag(): boolean {
 - Feature flags are only evaluated for authenticated users
 - The server-side implementation uses Clerk authentication to identify users
 - The client-side implementation also respects authentication status
-- PostHog's feature flags support:
-  - Percentage-based rollouts
-  - User property targeting
-  - A/B testing variants
+- PostHog's feature flags support percentage-based rollouts, user property targeting, and A/B testing variants
