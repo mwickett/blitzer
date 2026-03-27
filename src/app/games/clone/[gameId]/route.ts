@@ -19,7 +19,7 @@ export async function GET(request: Request, props: { params: Promise<{ gameId: s
     const newGame = await cloneGame(gameId);
     return NextResponse.json({newGameId: newGame}, { status: 200 })
   } catch (err) {
-    console.log(err);
+    console.error("Failed to clone game:", err);
     return new Response('Failed to clone game', { status: 500 });
   }
 }

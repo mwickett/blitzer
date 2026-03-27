@@ -1,3 +1,4 @@
+import React from "react";
 import { Resend } from "resend";
 import { WelcomeEmail } from "@/components/email/welcome-template";
 import { FriendRequestEmail } from "@/components/email/friend-request-template";
@@ -8,10 +9,14 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sender = "Blitzer <hello@blitzer.fun>";
 
+export const EMAIL_MAX_RETRY_ATTEMPTS = 3;
+export const EMAIL_RETRY_BASE_DELAY_MS = 1000;
+export const EMAIL_INTER_SEND_DELAY_MS = 600;
+
 async function sendEmail(options: {
   to: string[];
   subject: string;
-  react: any;
+  react: React.ReactElement;
   text: string;
   emailType?: string; // Type of email for analytics (welcome, game_complete, friend_request, etc.)
   userId?: string; // User ID for analytics if available
@@ -20,10 +25,8 @@ async function sendEmail(options: {
   const distinctId = options.userId || "system";
   const emailType = options.emailType || "unknown";
 
-  // Maximum number of attempts
-  const maxAttempts = 3;
-  // Delay between attempts (in ms), increases with each retry
-  const baseDelay = 1000;
+  const maxAttempts = EMAIL_MAX_RETRY_ATTEMPTS;
+  const baseDelay = EMAIL_RETRY_BASE_DELAY_MS;
 
   // Common properties for PostHog events
   const emailProperties = {
@@ -99,9 +102,6 @@ async function sendEmail(options: {
 
           // Otherwise, wait and retry
           const delay = baseDelay * attempt;
-          console.log(
-            `Rate limit hit. Retrying after ${delay}ms (attempt ${attempt}/${maxAttempts})`
-          );
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }
@@ -188,9 +188,6 @@ async function sendEmail(options: {
 
         // Otherwise, wait and retry
         const delay = baseDelay * attempt;
-        console.log(
-          `Rate limit hit. Retrying after ${delay}ms (attempt ${attempt}/${maxAttempts})`
-        );
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }

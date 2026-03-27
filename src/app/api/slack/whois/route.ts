@@ -140,8 +140,20 @@ async function getUserStats(userId: string) {
   };
 }
 
+interface SlackUserStats {
+  user: { createdAt: Date; username: string; email: string };
+  friendCount: number;
+  totalGames: number;
+  recentGames: number;
+  totalRounds: number;
+  roundsWon: number;
+  battingAverage: string;
+  cumulativeScore: number;
+  lastActivity: Date | undefined;
+}
+
 // Format stats for Slack display
-function formatSlackResponse(stats: any) {
+function formatSlackResponse(stats: SlackUserStats) {
   const { user, friendCount, totalGames, recentGames, totalRounds, roundsWon, battingAverage, cumulativeScore, lastActivity } = stats;
   
   const memberSince = user.createdAt.toLocaleDateString();

@@ -1,7 +1,39 @@
-import { tool, jsonSchema } from "ai";
+import { tool, zodSchema } from "ai";
+import { z } from "zod";
 import prisma from "@/server/db/db-readonly";
 import PostHogClient from "@/app/posthog";
 import { Prisma } from "@/generated/prisma/client";
+
+// ── Constants ────────────────────────────────────────────────────────────────
+const MAX_RECENT_GAMES = 50;
+const MAX_TREND_PERIODS = 365;
+const DEFAULT_TREND_PERIODS = 26;
+const MAX_OPPONENTS = 50;
+const DEFAULT_LIMIT = 10;
+
+// ── Zod Schemas ──────────────────────────────────────────────────────────────
+const getUserOverviewSchema = z.object({});
+
+const getRecentGamesSchema = z.object({
+  limit: z.number().int().min(1).max(MAX_RECENT_GAMES).default(DEFAULT_LIMIT).optional(),
+  finishedOnly: z.boolean().default(false).optional(),
+});
+
+const getExtremesSchema = z.object({});
+
+const getCumulativeScoreSchema = z.object({});
+
+const getTrendsSchema = z.object({
+  by: z.enum(["day", "week", "month"]).default("week").optional(),
+  limit: z.number().int().min(1).max(MAX_TREND_PERIODS).default(DEFAULT_TREND_PERIODS).optional(),
+});
+
+const getOpponentStatsSchema = z.object({
+  limit: z.number().int().min(1).max(MAX_OPPONENTS).default(DEFAULT_LIMIT).optional(),
+  includeGuests: z.boolean().default(true).optional(),
+});
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 // Minimal helper: resolve internal user id from Clerk user id (auth userId)
 async function getInternalUserId(clerkUserId: string) {
@@ -13,6 +45,55 @@ async function getInternalUserId(clerkUserId: string) {
   return user.id;
 }
 
+// Small helper to capture tool telemetry
+function captureTool(
+  posthog: ReturnType<typeof PostHogClient>,
+  distinctId: string,
+  event: string,
+  properties: Record<string, unknown>
+) {
+  try {
+    posthog.capture({ distinctId, event, properties });
+  } catch (_) {
+    // ignore telemetry errors
+  }
+}
+
+// Wrap a tool execute function with tracing
+async function runWithTracing<T>(
+  posthog: ReturnType<typeof PostHogClient>,
+  distinctId: string,
+  toolName: string,
+  params: unknown,
+  fn: () => Promise<T>,
+  countRows?: (result: T) => number
+): Promise<T> {
+  const start = Date.now();
+  try {
+    const result = await fn();
+    const rows = countRows ? countRows(result) : undefined;
+    captureTool(posthog, distinctId, "ai_tool_call", {
+      tool_name: toolName,
+      ok: true,
+      duration_ms: Date.now() - start,
+      rows_returned: rows,
+      params: params ? JSON.stringify(params).slice(0, 2000) : undefined,
+    });
+    return result;
+  } catch (error) {
+    captureTool(posthog, distinctId, "ai_tool_call", {
+      tool_name: toolName,
+      ok: false,
+      duration_ms: Date.now() - start,
+      error_message: error instanceof Error ? error.message : String(error),
+      params: params ? JSON.stringify(params).slice(0, 2000) : undefined,
+    });
+    throw error;
+  }
+}
+
+// ── Tools ────────────────────────────────────────────────────────────────────
+
 // Tool: basic user overview combining counts & simple rates
 const getUserOverview = (
   clerkUserId: string,
@@ -21,11 +102,7 @@ const getUserOverview = (
   tool({
     description:
       "Summarize the user's overall gameplay: games played, wins/losses, win rate, and aggregate stats.",
-    inputSchema: jsonSchema({
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    }),
+    inputSchema: zodSchema(getUserOverviewSchema),
     execute: async () => {
       const internalId = await getInternalUserId(clerkUserId);
       return await runWithTracing(
@@ -101,16 +178,9 @@ const getRecentGames = (
   tool({
     description:
       "Get a list of the user's recent games with status and round counts.",
-    inputSchema: jsonSchema<{ limit?: number; finishedOnly?: boolean }>({
-      type: "object",
-      properties: {
-        limit: { type: "integer", minimum: 1, maximum: 50, default: 10 },
-        finishedOnly: { type: "boolean", default: false },
-      },
-      additionalProperties: false,
-    }),
+    inputSchema: zodSchema(getRecentGamesSchema),
     execute: async (args: { limit?: number; finishedOnly?: boolean }) => {
-      const { limit = 10, finishedOnly = false } = args || {};
+      const { limit = DEFAULT_LIMIT, finishedOnly = false } = args || {};
       const internalId = await getInternalUserId(clerkUserId);
 
       const games = await runWithTracing(
@@ -150,11 +220,7 @@ const getExtremes = (
   tool({
     description:
       "Get the user's highest and lowest single-round calculated scores.",
-    inputSchema: jsonSchema({
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    }),
+    inputSchema: zodSchema(getExtremesSchema),
     execute: async () => {
       const internalId = await getInternalUserId(clerkUserId);
 
@@ -169,7 +235,7 @@ const getExtremes = (
             totalCardsPlayed: number;
             blitzPileRemaining: number;
           }>>`
-      SELECT 
+      SELECT
         ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) as score,
         "totalCardsPlayed",
         "blitzPileRemaining"
@@ -205,11 +271,7 @@ const getCumulativeScore = (
   tool({
     description:
       "Compute the user's cumulative score across all rounds: sum(totalCardsPlayed) - 2*sum(blitzPileRemaining).",
-    inputSchema: jsonSchema({
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    }),
+    inputSchema: zodSchema(getCumulativeScoreSchema),
     execute: async () => {
       const internalId = await getInternalUserId(clerkUserId);
 
@@ -231,68 +293,14 @@ const getCumulativeScore = (
     },
   });
 
-// Small helper to capture tool telemetry
-function captureTool(
-  posthog: ReturnType<typeof PostHogClient>,
-  distinctId: string,
-  event: string,
-  properties: Record<string, unknown>
-) {
-  try {
-    posthog.capture({ distinctId, event, properties });
-  } catch (_) {
-    // ignore telemetry errors
-  }
-}
-
-// Wrap a tool execute function with tracing
-async function runWithTracing<T>(
-  posthog: ReturnType<typeof PostHogClient>,
-  distinctId: string,
-  toolName: string,
-  params: unknown,
-  fn: () => Promise<T>,
-  countRows?: (result: T) => number
-): Promise<T> {
-  const start = Date.now();
-  try {
-    const result = await fn();
-    const rows = countRows ? countRows(result) : undefined;
-    captureTool(posthog, distinctId, "ai_tool_call", {
-      tool_name: toolName,
-      ok: true,
-      duration_ms: Date.now() - start,
-      rows_returned: rows,
-      params: params ? JSON.stringify(params).slice(0, 2000) : undefined,
-    });
-    return result;
-  } catch (error) {
-    captureTool(posthog, distinctId, "ai_tool_call", {
-      tool_name: toolName,
-      ok: false,
-      duration_ms: Date.now() - start,
-      error_message: error instanceof Error ? error.message : String(error),
-      params: params ? JSON.stringify(params).slice(0, 2000) : undefined,
-    });
-    throw error;
-  }
-}
-
 // Trends tool: aggregate by day/week/month
 const getTrends = (clerkUserId: string, posthog: ReturnType<typeof PostHogClient>) =>
   tool({
     description:
       "Time series of user's performance aggregated by day, week, or month.",
-    inputSchema: jsonSchema<{ by?: "day" | "week" | "month"; limit?: number }>({
-      type: "object",
-      properties: {
-        by: { type: "string", enum: ["day", "week", "month"], default: "week" },
-        limit: { type: "integer", minimum: 1, maximum: 365, default: 26 },
-      },
-      additionalProperties: false,
-    }),
+    inputSchema: zodSchema(getTrendsSchema),
     execute: async (args: { by?: "day" | "week" | "month"; limit?: number }) => {
-      const { by = "week", limit = 26 } = args || {};
+      const { by = "week", limit = DEFAULT_TREND_PERIODS } = args || {};
       const internalId = await getInternalUserId(clerkUserId);
 
       const dateTrunc = by === "day" ? "day" : by === "month" ? "month" : "week";
@@ -309,7 +317,7 @@ const getTrends = (clerkUserId: string, posthog: ReturnType<typeof PostHogClient
             total_cards: bigint;
             total_blitz_rem: bigint;
           }>>(
-            Prisma.sql`SELECT 
+            Prisma.sql`SELECT
               date_trunc(${Prisma.raw("'" + dateTrunc + "'")}, "created_at") AS period,
               COUNT(*) as rounds,
               SUM("totalCardsPlayed") as total_cards,
@@ -348,16 +356,9 @@ const getOpponentStats = (
   tool({
     description:
       "Win/loss record versus opponents the user has played with, including guests.",
-    inputSchema: jsonSchema<{ limit?: number; includeGuests?: boolean }>({
-      type: "object",
-      properties: {
-        limit: { type: "integer", minimum: 1, maximum: 50, default: 10 },
-        includeGuests: { type: "boolean", default: true },
-      },
-      additionalProperties: false,
-    }),
+    inputSchema: zodSchema(getOpponentStatsSchema),
     execute: async (args: { limit?: number; includeGuests?: boolean }) => {
-      const { limit = 10, includeGuests = true } = args || {};
+      const { limit = DEFAULT_LIMIT, includeGuests = true } = args || {};
       const internalId = await getInternalUserId(clerkUserId);
 
       const result = await runWithTracing(
