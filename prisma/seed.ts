@@ -14,6 +14,12 @@ import { createClerkClient } from "@clerk/backend";
 import { Pool } from "pg";
 
 async function main() {
+  // Only run on preview deploys and local dev — never production
+  if (process.env.VERCEL_ENV === "production") {
+    console.log("Skipping seed in production");
+    return;
+  }
+
   const clerkSecretKey = process.env.CLERK_SECRET_KEY;
   const databaseUrl = process.env.DATABASE_URL;
 
