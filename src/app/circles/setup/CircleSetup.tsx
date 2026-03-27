@@ -34,11 +34,13 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
     hasCircle ? "done" : "invitations"
   );
 
-  // When org becomes active mid-flow (after creating or accepting),
-  // redirect to dashboard. Must be in useEffect, not during render.
+  // When org becomes active after accepting an invitation,
+  // redirect to dashboard. Circle creation uses Clerk's
+  // afterCreateOrganizationUrl to redirect to /circles/invite-friends
+  // directly, which survives component remounts.
+  // Note: only redirect, don't setState — avoids cascading renders.
   useEffect(() => {
-    if (organization && step !== "done") {
-      setStep("done");
+    if (organization && step !== "done" && step !== "create") {
       router.push("/dashboard");
     }
   }, [organization, step, router]);
@@ -62,7 +64,9 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
   const pendingInvitations = userInvitations?.data ?? [];
 
   const handleAcceptInvitation = async (invitationId: string) => {
-    const invitation = pendingInvitations.find((inv) => inv.id === invitationId);
+    const invitation = pendingInvitations.find(
+      (inv) => inv.id === invitationId
+    );
     if (!invitation) return;
 
     try {
@@ -74,7 +78,6 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
 
   return (
     <div className="space-y-6">
-      {/* Step 1: Pending invitations */}
       {step === "invitations" && (
         <Card>
           <CardHeader>
@@ -110,17 +113,13 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
             )}
           </CardContent>
           <CardFooter>
-            <Button
-              variant="outline"
-              onClick={() => setStep("create")}
-            >
+            <Button variant="outline" onClick={() => setStep("create")}>
               Create a new circle instead
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* Step 2: Create a circle */}
       {step === "create" && (
         <Card>
           <CardHeader>
@@ -129,7 +128,7 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
           <CardContent>
             <CreateOrganization
               skipInvitationScreen={true}
-              afterCreateOrganizationUrl="/circles/setup"
+              afterCreateOrganizationUrl="/circles/invite-friends"
             />
           </CardContent>
         </Card>

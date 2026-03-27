@@ -9,6 +9,7 @@ const isProtectedRoute = createRouteMatcher([
   "/games/clone(.*)",
   "/games/legacy",
   "/circles/setup",
+  "/circles/invite-friends",
   "/api/chat",
   "/api/dev",
 ]);
@@ -17,9 +18,9 @@ const isProtectedRoute = createRouteMatcher([
 const isPublicGameDetail = (pathname: string) =>
   /^\/games\/[0-9a-f-]{36}$/.test(pathname);
 
-// Circle setup page requires auth but NOT an active circle
-const isCircleSetupRoute = (pathname: string) =>
-  pathname === "/circles/setup";
+// These circle pages require auth but NOT an active circle
+const isCircleExemptRoute = (pathname: string) =>
+  pathname === "/circles/setup" || pathname === "/circles/invite-friends";
 
 export default clerkMiddleware(async (auth, req) => {
   if (isPublicGameDetail(req.nextUrl.pathname)) return;
@@ -33,7 +34,7 @@ export default clerkMiddleware(async (auth, req) => {
   if (
     userId &&
     !orgId &&
-    !isCircleSetupRoute(req.nextUrl.pathname) &&
+    !isCircleExemptRoute(req.nextUrl.pathname) &&
     !isPublicGameDetail(req.nextUrl.pathname) &&
     isProtectedRoute(req)
   ) {

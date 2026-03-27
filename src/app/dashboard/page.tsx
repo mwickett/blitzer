@@ -4,8 +4,16 @@ import {
   getCumulativeScore,
   getLongestAndShortestGamesByRounds,
 } from "@/server/queries";
-
+import { auth, clerkClient } from "@clerk/nextjs/server";
+import prisma from "@/server/db/db";
+import legacyFriends from "@/data/legacy-friends.json";
 import BasicStatBlock from "@/components/BasicStatBlock";
+import InviteFriendsBanner from "@/components/InviteFriendsBanner";
+
+const friendMap = legacyFriends as Record<
+  string,
+  { username: string; email: string }[]
+>;
 
 export default async function Dashboard() {
   const battingAverage = await getPlayerBattingAverage();
@@ -13,8 +21,71 @@ export default async function Dashboard() {
   const cumulativeScore = await getCumulativeScore();
   const { longest, shortest } = await getLongestAndShortestGamesByRounds();
 
+  // Compute uninvited friend count for the banner
+  // Paginate Clerk API calls (defaults to 10 per page)
+  let uninvitedCount = 0;
+  const { userId, orgId } = await auth();
+  if (userId && orgId) {
+    const allFriends = friendMap[userId] ?? [];
+    if (allFriends.length > 0) {
+      const client = await clerkClient();
+
+      const memberClerkIds: string[] = [];
+      let memberOffset = 0;
+      while (true) {
+        const page =
+          await client.organizations.getOrganizationMembershipList({
+            organizationId: orgId,
+            limit: 100,
+            offset: memberOffset,
+          });
+        for (const m of page.data) {
+          if (m.publicUserData?.userId) {
+            memberClerkIds.push(m.publicUserData.userId);
+          }
+        }
+        if (page.data.length < 100) break;
+        memberOffset += 100;
+      }
+
+      const memberUsers = memberClerkIds.length > 0
+        ? await prisma.user.findMany({
+            where: { clerk_user_id: { in: memberClerkIds } },
+            select: { email: true },
+          })
+        : [];
+      const memberEmails = new Set(
+        memberUsers.map((u) => u.email.toLowerCase())
+      );
+
+      const pendingEmails = new Set<string>();
+      let inviteOffset = 0;
+      while (true) {
+        const page =
+          await client.organizations.getOrganizationInvitationList({
+            organizationId: orgId,
+            status: ["pending"],
+            limit: 100,
+            offset: inviteOffset,
+          });
+        for (const inv of page.data) {
+          pendingEmails.add(inv.emailAddress.toLowerCase());
+        }
+        if (page.data.length < 100) break;
+        inviteOffset += 100;
+      }
+
+      uninvitedCount = allFriends.filter(
+        (f) =>
+          !memberEmails.has(f.email.toLowerCase()) &&
+          !pendingEmails.has(f.email.toLowerCase())
+      ).length;
+    }
+  }
+
   return (
     <section className="border-zinc-500 p-5">
+      <InviteFriendsBanner uninvitedCount={uninvitedCount} />
       <div className="mb-4">
         <BasicStatBlock
           label="Batting Average"
