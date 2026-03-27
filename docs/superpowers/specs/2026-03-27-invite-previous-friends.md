@@ -24,12 +24,13 @@ A static JSON file (`src/data/legacy-friends.json`) extracted from the productio
 
 ## Flow
 
-### Entry Point A: Post-Circle Creation
+### Entry Point A: Post-Circle Creation Only
 
-1. User creates a circle on `/circles/setup`
-2. `CircleSetup.tsx` redirects to `/circles/invite-friends` instead of `/dashboard`
-3. User sees their previous friends list with invite buttons
-4. User taps to invite, or clicks "Skip" / "Done" to go to dashboard
+1. User **creates** a circle on `/circles/setup` (not accepts an invitation)
+2. `CircleSetup.tsx` detects the "just created" case (vs. accepted invite) and redirects to `/circles/invite-friends`
+3. Users who **accepted** an existing circle invitation skip this step and go straight to `/dashboard` — the circle already has members, so the invite flow isn't relevant
+4. User sees their previous friends list with invite buttons
+5. User taps to invite, or clicks "Skip" / "Done" to go to dashboard
 
 ### Entry Point B: Dashboard Banner
 
@@ -44,8 +45,9 @@ A static JSON file (`src/data/legacy-friends.json`) extracted from the productio
 Server component:
 1. Read legacy friend map for the current user's Clerk ID
 2. Fetch current circle members via Clerk API
-3. Filter out friends who are already circle members
-4. Pass the filtered list to the client component
+3. Fetch pending circle invitations via Clerk API
+4. Filter out friends who are already circle members OR have a pending invitation
+5. Pass the filtered list to the client component (count reflects only truly uninvited friends)
 
 Client component (`InviteFriends.tsx`):
 1. Render each friend as a row: avatar initials, username, truncated email, "Invite" button
@@ -59,6 +61,7 @@ Client component (`InviteFriends.tsx`):
 
 `inviteFriendToCircle(email: string)` in `src/server/mutations/circles.ts`:
 - Gets `userId` and `orgId` from `auth()`
+- **Validates the email is in the caller's legacy friend map** before proceeding — rejects requests for emails not in the allowlist. This prevents the action from being used as a general-purpose invite endpoint.
 - Calls `clerkClient().organizations.createOrganizationInvitation()` with `role: "org:member"`
 - Returns `{ success: true }` or `{ success: false, error: string }`
 - Tracks `invite_friend_to_circle` event in PostHog
@@ -69,8 +72,9 @@ Client-side only. `localStorage` key: `blitzer:invite-banner-dismissed:${clerkUs
 
 ## Access Control
 
-- `/circles/invite-friends` requires authentication + active circle (middleware already enforces this)
-- The invite server action requires `auth().orgId` before sending invitations
+- `/circles/invite-friends` must be added to the middleware `isProtectedRoute` matcher (it is not currently listed)
+- The invite server action requires `auth().orgId` and validates the target email against the caller's legacy friend allowlist
+- **Clerk role assumption:** The custom "member" role configured in the Clerk dashboard includes `org:sys_memberships:manage`, which grants invitation permission. This feature does not work on Clerk's default role configuration.
 
 ## Scope
 
