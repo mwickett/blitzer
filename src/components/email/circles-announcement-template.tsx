@@ -65,8 +65,15 @@ const CirclesAnnouncementTemplate = ({
             <Text style={subtitle}>What you need to do</Text>
             <Text style={paragraph}>
               Next time you sign in, you&apos;ll be asked to create a circle.
-              Give it a name (e.g. &quot;Family Game Night&quot;) and you&apos;re
-              good to go. You can invite other players from the circle settings.
+              Give it a name (e.g. &quot;Family Game Night&quot;) and
+              you&apos;ll see a list of your previous Blitzer friends — just
+              tap to invite them to your new circle. You can also invite
+              friends later from your dashboard.
+            </Text>
+            <Text style={paragraph}>
+              Play with different groups? You can create multiple circles — one
+              for family, one for your Wednesday crew, one for work. Switch
+              between them anytime from the circle picker in the top nav.
             </Text>
             <Section style={buttonContainer}>
               <Button href="https://blitzer.fun" style={button}>
@@ -75,7 +82,7 @@ const CirclesAnnouncementTemplate = ({
             </Section>
             <Hr style={hr} />
             <Text style={footer}>
-              This inbox isn&apos;t monitored, replies won&apos;t be read.
+              Questions or problems? Reach out to mike@wickett.ca
             </Text>
           </Section>
         </Container>
