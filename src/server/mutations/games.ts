@@ -2,7 +2,7 @@
 
 import prisma from "@/server/db/db";
 import { getAuthenticatedUser, getAuthenticatedUserPrismaId } from "./common";
-import { sendGameCompleteEmail } from "../email";
+import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 
 // Create a new game with support for guest players
 export async function createGame(
@@ -189,7 +189,7 @@ export async function updateGameAsFinished(
 
       // Add delay between email sends to avoid rate limiting (Resend limit is 2 per second)
       if (i < registeredPlayers.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 600)); // 600ms delay between emails
+        await new Promise((resolve) => setTimeout(resolve, EMAIL_INTER_SEND_DELAY_MS)); // delay between emails to avoid rate limiting
       }
     } catch (error) {
       console.error(`Failed to send email to ${username}:`, error);

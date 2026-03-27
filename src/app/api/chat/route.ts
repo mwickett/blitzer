@@ -35,9 +35,7 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
 
     // Check if API key is configured
-    const hasApiKey =
-      process.env.OPENAI_API_KEY &&
-      process.env.OPENAI_API_KEY !== "sk-your-openai-api-key";
+    const hasApiKey = !!process.env.OPENAI_API_KEY;
 
     if (!hasApiKey) {
       return new Response(
