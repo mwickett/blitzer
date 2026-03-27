@@ -1,6 +1,7 @@
 import {
   getGameById,
   getGames,
+  getLegacyGames,
   getFilteredUsers,
   getFriends,
   getFriendsForNewGame,
@@ -71,11 +72,13 @@ jest.mock("@/app/posthog", () => ({
 describe("Queries", () => {
   const mockUserId = "test-user-id";
   const mockClerkUserId = "clerk-test-user-id";
+  const mockOrgId = "org_test123";
 
   beforeEach(() => {
     jest.clearAllMocks();
     (auth as unknown as jest.Mock).mockResolvedValue({
       userId: mockClerkUserId,
+      orgId: mockOrgId,
     });
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({
       id: mockUserId,
@@ -145,11 +148,12 @@ describe("Queries", () => {
   });
 
   describe("getGames", () => {
-    it("should return games for authenticated user", async () => {
+    it("should return games for the active circle", async () => {
       const mockGames = [
         {
           id: "game-1",
           createdAt: new Date(),
+          organizationId: mockOrgId,
           players: [{ user: { clerk_user_id: mockClerkUserId } }],
           rounds: [],
         },
@@ -161,13 +165,7 @@ describe("Queries", () => {
 
       expect(prisma.game.findMany).toHaveBeenCalledWith({
         where: {
-          players: {
-            some: {
-              user: {
-                clerk_user_id: mockClerkUserId,
-              },
-            },
-          },
+          organizationId: mockOrgId,
         },
         include: {
           players: {
@@ -187,8 +185,19 @@ describe("Queries", () => {
     });
 
     it("should throw error if user not authenticated", async () => {
-      (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: null,
+        orgId: null,
+      });
       await expect(getGames()).rejects.toThrow("Unauthorized");
+    });
+
+    it("should throw error if no active circle", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockClerkUserId,
+        orgId: null,
+      });
+      await expect(getGames()).rejects.toThrow("No active circle");
     });
   });
 

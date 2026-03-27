@@ -4,15 +4,46 @@ import prisma from "@/server/db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
 
-// Fetch all games that the current user is a part of
+// Fetch all games in the active circle
 export async function getGames() {
   const user = await auth();
   const posthog = posthogClient();
 
   if (!user.userId) throw new Error("Unauthorized");
+  if (!user.orgId) throw new Error("No active circle");
 
   const games = await prisma.game.findMany({
     where: {
+      organizationId: user.orgId,
+    },
+    include: {
+      players: {
+        include: {
+          user: true,
+          guestUser: true,
+        },
+      },
+      rounds: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  posthog.capture({ distinctId: user.userId, event: "get_games" });
+
+  return games;
+}
+
+// Fetch games without an organizationId (pre-circle legacy games)
+export async function getLegacyGames() {
+  const user = await auth();
+
+  if (!user.userId) throw new Error("Unauthorized");
+
+  const games = await prisma.game.findMany({
+    where: {
+      organizationId: null,
       players: {
         some: {
           user: {
@@ -34,8 +65,6 @@ export async function getGames() {
       createdAt: "desc",
     },
   });
-
-  posthog.capture({ distinctId: user.userId, event: "get_games" });
 
   return games;
 }

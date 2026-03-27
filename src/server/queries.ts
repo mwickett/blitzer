@@ -2,6 +2,7 @@
 export {
   getGames,
   getGameById,
+  getLegacyGames,
   getFriends,
   getFriendsForNewGame,
   getIncomingFriendRequests,
