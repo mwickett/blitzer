@@ -42,6 +42,7 @@ jest.mock("../db/db", () => ({
     },
     user: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
     },
     gamePlayers: {
       create: jest.fn(),
@@ -54,8 +55,15 @@ jest.mock("../db/db", () => ({
 type AuthResult = { userId: string | null };
 type AuthFn = () => Promise<AuthResult>;
 
+const mockGetOrganizationMembershipList = jest.fn();
 jest.mock("@clerk/nextjs/server", () => ({
   auth: jest.fn() as jest.MockedFunction<AuthFn>,
+  clerkClient: jest.fn().mockResolvedValue({
+    organizations: {
+      getOrganizationMembershipList: (...args: unknown[]) =>
+        mockGetOrganizationMembershipList(...args),
+    },
+  }),
 }));
 
 // Create a mock capture function we can make assertions on
@@ -264,6 +272,18 @@ describe("Game Mutations", () => {
         id: "new-game-id",
       });
       (prisma.gamePlayers.create as jest.Mock).mockResolvedValue({});
+      // Mock Clerk membership check — player-2 has clerk ID "clerk-player-2"
+      mockGetOrganizationMembershipList.mockResolvedValue({
+        data: [
+          { publicUserData: { userId: mockUserId } },
+          { publicUserData: { userId: "clerk-player-2" } },
+        ],
+      });
+      // Mock Prisma lookup of clerk_user_ids for submitted player IDs
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([
+        { id: "prisma-user-id", clerk_user_id: mockUserId },
+        { id: "player-2", clerk_user_id: "clerk-player-2" },
+      ]);
 
       const players = [
         { id: "prisma-user-id", username: "TestUser" },

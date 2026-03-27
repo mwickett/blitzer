@@ -4,6 +4,9 @@
  *
  * Limitation: Clerk's hosted Account Portal pages will still say
  * "Organization" — acceptable since those interactions are rare.
+ *
+ * Keys must match Clerk's __internal_LocalizationResource type.
+ * Only override leaf string values — no invented nesting.
  */
 export const circleLocalization = {
   organizationSwitcher: {
@@ -13,17 +16,13 @@ export const circleLocalization = {
     title: "Circle",
   },
   organizationProfile: {
-    title: "Circle Settings",
-    start: {
+    navbar: {
       title: "Circle Settings",
-      subtitle: "Manage your circle settings",
+      description: "Manage your circle settings",
     },
-    membersPage: {
-      title: "Members",
-      action__invite: "Invite",
-      start: {
-        title: "Members",
-      },
+    start: {
+      headerTitle__members: "Members",
+      headerTitle__general: "General",
     },
   },
   createOrganization: {

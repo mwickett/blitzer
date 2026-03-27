@@ -28,6 +28,3 @@ import {
 } from "./mutations/guests";
 export { createGuestUser, getCircleGuestUsers, inviteGuestUser };
 
-// Re-export circle-related mutations
-import { inviteFriendToCircle } from "./mutations/circles";
-export { inviteFriendToCircle };

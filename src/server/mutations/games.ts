@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/server/db/db";
+import { clerkClient } from "@clerk/nextjs/server";
 import { getAuthenticatedUserWithOrg } from "./common";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 
@@ -21,6 +22,37 @@ export async function createGame(
 
   if (!currentUser) throw new Error("User not found");
 
+  // Validate that non-guest players are members of the active circle
+  const regularPlayerIds = users
+    .filter((u) => !u.isGuest)
+    .map((u) => u.id);
+
+  if (regularPlayerIds.length > 0) {
+    const client = await clerkClient();
+    const memberships =
+      await client.organizations.getOrganizationMembershipList({
+        organizationId: orgId,
+      });
+
+    const memberClerkIds = new Set(
+      memberships.data
+        .map((m) => m.publicUserData?.userId)
+        .filter(Boolean)
+    );
+
+    // Look up clerk_user_ids for the submitted player Prisma IDs
+    const players = await prisma.user.findMany({
+      where: { id: { in: regularPlayerIds } },
+      select: { id: true, clerk_user_id: true },
+    });
+
+    for (const player of players) {
+      if (!memberClerkIds.has(player.clerk_user_id)) {
+        throw new Error("All players must be members of the active circle");
+      }
+    }
+  }
+
   try {
     // Step 1: First create a game (with optional custom win threshold)
     const newGame = await prisma.game.create({
@@ -38,6 +70,7 @@ export async function createGame(
           data: {
             name: player.username,
             createdById: currentUser.id,
+            organizationId: orgId,
           },
         });
         guestUserIds.set(player.id, guestUser.id);
