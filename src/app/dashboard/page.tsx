@@ -39,8 +39,9 @@ export default async function Dashboard() {
             offset: memberOffset,
           });
         for (const m of page.data) {
-          if (m.publicUserData?.identifier) {
-            memberEmails.add(m.publicUserData.identifier);
+          const email = m.publicUserData?.identifier;
+          if (email) {
+            memberEmails.add(email.toLowerCase());
           }
         }
         if (page.data.length < 100) break;
@@ -58,14 +59,16 @@ export default async function Dashboard() {
             offset: inviteOffset,
           });
         for (const inv of page.data) {
-          pendingEmails.add(inv.emailAddress);
+          pendingEmails.add(inv.emailAddress.toLowerCase());
         }
         if (page.data.length < 100) break;
         inviteOffset += 100;
       }
 
       uninvitedCount = allFriends.filter(
-        (f) => !memberEmails.has(f.email) && !pendingEmails.has(f.email)
+        (f) =>
+          !memberEmails.has(f.email.toLowerCase()) &&
+          !pendingEmails.has(f.email.toLowerCase())
       ).length;
     }
   }

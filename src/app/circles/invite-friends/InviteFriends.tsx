@@ -29,12 +29,13 @@ export default function InviteFriends({ friends }: InviteFriendsProps) {
   const { organization } = useOrganization();
   const [invitedEmails, setInvitedEmails] = useState<Set<string>>(new Set());
   const [errors, setErrors] = useState<Map<string, string>>(new Map());
-  const [inviting, setInviting] = useState<string | null>(null);
+  const [invitingEmails, setInvitingEmails] = useState<Set<string>>(new Set());
 
   const circleName = organization?.name ?? "your circle";
 
   const handleInvite = async (friend: Friend) => {
-    setInviting(friend.email);
+    if (invitingEmails.has(friend.email)) return; // already in flight
+    setInvitingEmails((prev) => new Set(prev).add(friend.email));
     const result = await inviteFriendToCircle(friend.email);
 
     if (result.success) {
@@ -49,7 +50,11 @@ export default function InviteFriends({ friends }: InviteFriendsProps) {
         new Map(prev).set(friend.email, result.error ?? "Failed")
       );
     }
-    setInviting(null);
+    setInvitingEmails((prev) => {
+      const next = new Set(prev);
+      next.delete(friend.email);
+      return next;
+    });
   };
 
   if (friends.length === 0) {
@@ -84,7 +89,7 @@ export default function InviteFriends({ friends }: InviteFriendsProps) {
           {friends.map((friend) => {
             const isInvited = invitedEmails.has(friend.email);
             const error = errors.get(friend.email);
-            const isLoading = inviting === friend.email;
+            const isLoading = invitingEmails.has(friend.email);
 
             return (
               <div
