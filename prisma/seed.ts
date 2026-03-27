@@ -63,6 +63,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Seed failed:", err);
-  process.exit(1);
+  // Don't fail the build if seeding fails — it's non-critical for previews
+  console.error("Seed failed (non-fatal):", err.message || err);
 });
