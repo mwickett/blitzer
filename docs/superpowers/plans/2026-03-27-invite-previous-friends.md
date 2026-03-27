@@ -130,7 +130,23 @@ export async function inviteFriendToCircle(email: string) {
     });
 
     return { success: true };
-  } catch (error) {
+  } catch (error: unknown) {
+    // Clerk throws an error for duplicate invitations — treat as success
+    const isDuplicate =
+      error &&
+      typeof error === "object" &&
+      "errors" in error &&
+      Array.isArray((error as { errors: { code: string }[] }).errors) &&
+      (error as { errors: { code: string }[] }).errors.some(
+        (e) =>
+          e.code === "duplicate_record" ||
+          e.code === "already_a_member_in_organization"
+      );
+
+    if (isDuplicate) {
+      return { success: true };
+    }
+
     console.error("Failed to invite friend to circle:", error);
     return {
       success: false,
@@ -280,26 +296,41 @@ export default async function InviteFriendsPage() {
     redirect("/dashboard");
   }
 
-  // Get current circle members to filter out
+  // Get ALL current circle members (paginate — Clerk defaults to 10 per page)
   const client = await clerkClient();
-  const memberships = await client.organizations.getOrganizationMembershipList({
-    organizationId: orgId,
-  });
-  const memberEmails = new Set(
-    memberships.data
-      .map((m) => m.publicUserData?.identifier)
-      .filter(Boolean)
-  );
+  const memberEmails = new Set<string>();
+  let memberOffset = 0;
+  while (true) {
+    const page = await client.organizations.getOrganizationMembershipList({
+      organizationId: orgId,
+      limit: 100,
+      offset: memberOffset,
+    });
+    for (const m of page.data) {
+      if (m.publicUserData?.identifier) {
+        memberEmails.add(m.publicUserData.identifier);
+      }
+    }
+    if (page.data.length < 100) break;
+    memberOffset += 100;
+  }
 
-  // Get pending invitations to filter out
-  const invitations =
-    await client.organizations.getOrganizationInvitationList({
+  // Get ALL pending invitations (paginate)
+  const pendingEmails = new Set<string>();
+  let inviteOffset = 0;
+  while (true) {
+    const page = await client.organizations.getOrganizationInvitationList({
       organizationId: orgId,
       status: ["pending"],
+      limit: 100,
+      offset: inviteOffset,
     });
-  const pendingEmails = new Set(
-    invitations.data.map((inv) => inv.emailAddress)
-  );
+    for (const inv of page.data) {
+      pendingEmails.add(inv.emailAddress);
+    }
+    if (page.data.length < 100) break;
+    inviteOffset += 100;
+  }
 
   // Filter to only uninvited friends
   const uninvitedFriends = allFriends.filter(
@@ -508,7 +539,7 @@ Replace the contents of `src/app/circles/setup/CircleSetup.tsx`:
 ```typescript
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   useOrganizationList,
   useOrganization,
@@ -542,20 +573,15 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
     hasCircle ? "done" : "invitations"
   );
 
-  // Track whether the user is creating (vs accepting an invite)
-  // so we know where to redirect after org becomes active
-  const isCreating = useRef(false);
-
+  // When org becomes active after accepting an invitation,
+  // redirect to dashboard. Circle creation uses Clerk's
+  // afterCreateOrganizationUrl to redirect to /circles/invite-friends
+  // directly, which survives component remounts.
   useEffect(() => {
-    if (organization && step !== "done") {
+    if (organization && step !== "done" && step !== "create") {
+      // Org became active while on invitations step = user accepted an invite
       setStep("done");
-      if (isCreating.current) {
-        // User just created a circle — show invite friends flow
-        router.push("/circles/invite-friends");
-      } else {
-        // User accepted an existing invitation — circle already has members
-        router.push("/dashboard");
-      }
+      router.push("/dashboard");
     }
   }, [organization, step, router]);
 
@@ -583,17 +609,11 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
     );
     if (!invitation) return;
 
-    isCreating.current = false;
     try {
       await invitation.accept();
     } catch (error) {
       console.error("Failed to accept invitation:", error);
     }
-  };
-
-  const handleStartCreate = () => {
-    isCreating.current = true;
-    setStep("create");
   };
 
   return (
@@ -633,7 +653,7 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
             )}
           </CardContent>
           <CardFooter>
-            <Button variant="outline" onClick={handleStartCreate}>
+            <Button variant="outline" onClick={() => setStep("create")}>
               Create a new circle instead
             </Button>
           </CardFooter>
@@ -648,7 +668,7 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
           <CardContent>
             <CreateOrganization
               skipInvitationScreen={true}
-              afterCreateOrganizationUrl="/circles/setup"
+              afterCreateOrganizationUrl="/circles/invite-friends"
             />
           </CardContent>
         </Card>
@@ -658,7 +678,10 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
 }
 ```
 
-The key change: a `useRef` (`isCreating`) tracks whether the user clicked "Create" vs accepted an invite. The `useEffect` reads this to decide the redirect destination.
+The key changes:
+- `CreateOrganization` uses `afterCreateOrganizationUrl="/circles/invite-friends"` — Clerk handles the redirect directly after creation, which survives component remounts and page navigations. No ref needed.
+- The `useEffect` only handles the invitation acceptance case (org appears while on the invitations step) and redirects to `/dashboard`.
+- The `step !== "create"` guard in the useEffect prevents the effect from racing with Clerk's own redirect during circle creation.
 
 - [ ] **Step 2: Commit**
 
@@ -783,29 +806,49 @@ export default async function Dashboard() {
   const { longest, shortest } = await getLongestAndShortestGamesByRounds();
 
   // Compute uninvited friend count for the banner
+  // Paginate Clerk API calls (defaults to 10 per page)
   let uninvitedCount = 0;
   const { userId, orgId } = await auth();
   if (userId && orgId) {
     const allFriends = friendMap[userId] ?? [];
     if (allFriends.length > 0) {
       const client = await clerkClient();
-      const memberships =
-        await client.organizations.getOrganizationMembershipList({
-          organizationId: orgId,
-        });
-      const memberEmails = new Set(
-        memberships.data
-          .map((m) => m.publicUserData?.identifier)
-          .filter(Boolean)
-      );
-      const invitations =
-        await client.organizations.getOrganizationInvitationList({
-          organizationId: orgId,
-          status: ["pending"],
-        });
-      const pendingEmails = new Set(
-        invitations.data.map((inv) => inv.emailAddress)
-      );
+
+      const memberEmails = new Set<string>();
+      let memberOffset = 0;
+      while (true) {
+        const page =
+          await client.organizations.getOrganizationMembershipList({
+            organizationId: orgId,
+            limit: 100,
+            offset: memberOffset,
+          });
+        for (const m of page.data) {
+          if (m.publicUserData?.identifier) {
+            memberEmails.add(m.publicUserData.identifier);
+          }
+        }
+        if (page.data.length < 100) break;
+        memberOffset += 100;
+      }
+
+      const pendingEmails = new Set<string>();
+      let inviteOffset = 0;
+      while (true) {
+        const page =
+          await client.organizations.getOrganizationInvitationList({
+            organizationId: orgId,
+            status: ["pending"],
+            limit: 100,
+            offset: inviteOffset,
+          });
+        for (const inv of page.data) {
+          pendingEmails.add(inv.emailAddress);
+        }
+        if (page.data.length < 100) break;
+        inviteOffset += 100;
+      }
+
       uninvitedCount = allFriends.filter(
         (f) => !memberEmails.has(f.email) && !pendingEmails.has(f.email)
       ).length;
