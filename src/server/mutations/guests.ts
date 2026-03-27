@@ -1,38 +1,42 @@
 "use server";
 
 import prisma from "@/server/db/db";
-import { getAuthenticatedUserPrismaId } from "./common";
+import { getAuthenticatedUserPrismaId, getAuthenticatedUserWithOrg } from "./common";
 
 // Create a guest user
 export async function createGuestUser(name: string) {
-  const {
-    userId: clerkUserId,
-    id,
-    posthog,
-  } = await getAuthenticatedUserPrismaId();
+  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
+
+  const prismaUser = await prisma.user.findUnique({
+    where: { clerk_user_id: user.userId },
+    select: { id: true },
+  });
+
+  if (!prismaUser) throw new Error("User not found");
 
   const guestUser = await prisma.guestUser.create({
     data: {
       name,
-      createdById: id,
+      createdById: prismaUser.id,
+      organizationId: orgId,
     },
   });
 
   posthog.capture({
-    distinctId: clerkUserId,
+    distinctId: user.userId,
     event: "create_guest_user",
-    properties: { guestId: guestUser.id, guestName: name },
+    properties: { guestId: guestUser.id, guestName: name, organizationId: orgId },
   });
 
   return guestUser;
 }
 
-// Get guest users created by the current user
-export async function getMyGuestUsers() {
-  const { id } = await getAuthenticatedUserPrismaId();
+// Get guest users in the active circle
+export async function getCircleGuestUsers() {
+  const { orgId } = await getAuthenticatedUserWithOrg();
 
   const guestUsers = await prisma.guestUser.findMany({
-    where: { createdById: id },
+    where: { organizationId: orgId },
     orderBy: { createdAt: "desc" },
   });
 

@@ -9,7 +9,7 @@ import {
   acceptFriendRequest,
   rejectFriendRequest,
 } from "./friends";
-import { createGuestUser, getMyGuestUsers, inviteGuestUser } from "./guests";
+import { createGuestUser, getCircleGuestUsers, inviteGuestUser } from "./guests";
 
 // Re-export them
 export {
@@ -22,6 +22,6 @@ export {
   acceptFriendRequest,
   rejectFriendRequest,
   createGuestUser,
-  getMyGuestUsers,
+  getCircleGuestUsers,
   inviteGuestUser,
 };

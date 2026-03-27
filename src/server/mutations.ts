@@ -31,7 +31,7 @@ export { createFriendRequest, acceptFriendRequest, rejectFriendRequest };
 // Re-export guest-related mutations
 import {
   createGuestUser,
-  getMyGuestUsers,
+  getCircleGuestUsers,
   inviteGuestUser,
 } from "./mutations/guests";
-export { createGuestUser, getMyGuestUsers, inviteGuestUser };
+export { createGuestUser, getCircleGuestUsers, inviteGuestUser };
