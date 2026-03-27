@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { User, FriendRequest } from "@prisma/client";
+import { User, FriendRequest } from "@/generated/prisma/client";
 
 import { acceptFriendRequest, rejectFriendRequest } from "@/server/mutations";
 

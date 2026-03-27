@@ -1,5 +1,5 @@
 import transformGameData, { GameWithPlayersAndScores } from "../gameLogic";
-import { Game, User, Round, Score } from "@prisma/client";
+import { Game, User, Round, Score } from "@/generated/prisma/client";
 
 // Mock the updateGameAsFinished function
 jest.mock("@/server/mutations", () => ({

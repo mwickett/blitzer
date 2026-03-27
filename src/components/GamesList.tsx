@@ -30,7 +30,7 @@ import {
   differenceInWeeks,
   isThisYear,
 } from "date-fns";
-import { Game, GamePlayers, User } from "@prisma/client";
+import { Game, GamePlayers, User } from "@/generated/prisma/client";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 

@@ -1,7 +1,7 @@
 import { tool, jsonSchema } from "ai";
 import prisma from "@/server/db/db-readonly";
 import PostHogClient from "@/app/posthog";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 // Minimal helper: resolve internal user id from Clerk user id (auth userId)
 async function getInternalUserId(clerkUserId: string) {
@@ -21,7 +21,7 @@ const getUserOverview = (
   tool({
     description:
       "Summarize the user's overall gameplay: games played, wins/losses, win rate, and aggregate stats.",
-    parameters: jsonSchema({
+    inputSchema: jsonSchema({
       type: "object",
       properties: {},
       additionalProperties: false,
@@ -101,7 +101,7 @@ const getRecentGames = (
   tool({
     description:
       "Get a list of the user's recent games with status and round counts.",
-    parameters: jsonSchema<{ limit?: number; finishedOnly?: boolean }>({
+    inputSchema: jsonSchema<{ limit?: number; finishedOnly?: boolean }>({
       type: "object",
       properties: {
         limit: { type: "integer", minimum: 1, maximum: 50, default: 10 },
@@ -150,7 +150,7 @@ const getExtremes = (
   tool({
     description:
       "Get the user's highest and lowest single-round calculated scores.",
-    parameters: jsonSchema({
+    inputSchema: jsonSchema({
       type: "object",
       properties: {},
       additionalProperties: false,
@@ -205,7 +205,7 @@ const getCumulativeScore = (
   tool({
     description:
       "Compute the user's cumulative score across all rounds: sum(totalCardsPlayed) - 2*sum(blitzPileRemaining).",
-    parameters: jsonSchema({
+    inputSchema: jsonSchema({
       type: "object",
       properties: {},
       additionalProperties: false,
@@ -283,7 +283,7 @@ const getTrends = (clerkUserId: string, posthog: ReturnType<typeof PostHogClient
   tool({
     description:
       "Time series of user's performance aggregated by day, week, or month.",
-    parameters: jsonSchema<{ by?: "day" | "week" | "month"; limit?: number }>({
+    inputSchema: jsonSchema<{ by?: "day" | "week" | "month"; limit?: number }>({
       type: "object",
       properties: {
         by: { type: "string", enum: ["day", "week", "month"], default: "week" },
@@ -348,7 +348,7 @@ const getOpponentStats = (
   tool({
     description:
       "Win/loss record versus opponents the user has played with, including guests.",
-    parameters: jsonSchema<{ limit?: number; includeGuests?: boolean }>({
+    inputSchema: jsonSchema<{ limit?: number; includeGuests?: boolean }>({
       type: "object",
       properties: {
         limit: { type: "integer", minimum: 1, maximum: 50, default: 10 },

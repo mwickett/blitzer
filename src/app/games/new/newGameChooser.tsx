@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User } from "@prisma/client";
+import { User } from "@/generated/prisma/client";
 import { useUser } from "@clerk/nextjs";
 import { createGame } from "@/server/mutations";
 import { cn } from "@/lib/utils";

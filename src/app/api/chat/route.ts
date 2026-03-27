@@ -110,7 +110,7 @@ export async function POST(req: Request) {
     // immediate shutdown of the client
 
     // Return streaming response
-    return result.toDataStreamResponse();
+    return result.toUIMessageStreamResponse();
   } catch (error) {
     console.error("Error calling OpenAI:", error);
 

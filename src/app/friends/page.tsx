@@ -13,7 +13,7 @@ import {
   getOutgoingPendingFriendRequests,
 } from "@/server/queries";
 
-import { User, FriendRequest } from "@prisma/client";
+import { User, FriendRequest } from "@/generated/prisma/client";
 
 import IncomingFriendRequests from "./_components/IncomingFriendRequests";
 

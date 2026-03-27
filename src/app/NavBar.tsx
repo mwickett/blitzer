@@ -2,8 +2,7 @@
 
 import {
   UserButton,
-  SignedIn,
-  SignedOut,
+  Show,
   SignInButton,
   SignUpButton,
 } from "@clerk/nextjs";
@@ -133,16 +132,16 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
             ))}
           </nav>
           <div className="flex w-full justify-end items-center gap-4 md:gap-2 lg:gap-4">
-            <SignedIn>
+            <Show when="signed-in">
               <Button asChild>
                 <Link href="/games/new">New game</Link>
               </Button>
               <UserButton />
-            </SignedIn>
-            <SignedOut>
+            </Show>
+            <Show when="signed-out">
               <SignInButton>Sign In</SignInButton>
               <SignUpButton>Sign Up</SignUpButton>
-            </SignedOut>
+            </Show>
           </div>
         </div>
       </header>
