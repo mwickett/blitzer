@@ -1,0 +1,2 @@
+-- This migration is intentionally empty.
+-- All changes were applied in 20251018000000_add_organizations.
