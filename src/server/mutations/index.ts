@@ -4,11 +4,6 @@
 // Import and re-export async functions directly
 import { createGame, updateGameAsFinished, cloneGame } from "./games";
 import { createRoundForGame, updateRoundScores } from "./rounds";
-import {
-  createFriendRequest,
-  acceptFriendRequest,
-  rejectFriendRequest,
-} from "./friends";
 import { createGuestUser, getCircleGuestUsers, inviteGuestUser } from "./guests";
 import { inviteFriendToCircle } from "./circles";
 
@@ -19,9 +14,6 @@ export {
   cloneGame,
   createRoundForGame,
   updateRoundScores,
-  createFriendRequest,
-  acceptFriendRequest,
-  rejectFriendRequest,
   createGuestUser,
   getCircleGuestUsers,
   inviteGuestUser,

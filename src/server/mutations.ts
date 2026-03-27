@@ -20,14 +20,6 @@ export { createGame, updateGameAsFinished, cloneGame };
 import { createRoundForGame, updateRoundScores } from "./mutations/rounds";
 export { createRoundForGame, updateRoundScores };
 
-// Re-export friend-related mutations
-import {
-  createFriendRequest,
-  acceptFriendRequest,
-  rejectFriendRequest,
-} from "./mutations/friends";
-export { createFriendRequest, acceptFriendRequest, rejectFriendRequest };
-
 // Re-export guest-related mutations
 import {
   createGuestUser,

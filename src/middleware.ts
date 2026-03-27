@@ -8,7 +8,6 @@ const isProtectedRoute = createRouteMatcher([
   "/games/new",
   "/games/clone(.*)",
   "/games/legacy",
-  "/friends",
   "/circles/setup",
   "/api/chat",
   "/api/dev",

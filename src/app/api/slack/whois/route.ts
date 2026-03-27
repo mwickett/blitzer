@@ -58,13 +58,6 @@ async function getUserStats(userId: string) {
 
   if (!user) return null;
 
-  // Get friend count
-  const friendCount = await prisma.friend.count({
-    where: {
-      OR: [{ user1Id: userId }, { user2Id: userId }],
-    },
-  });
-
   // Get total games played
   const totalGames = await prisma.game.count({
     where: {
@@ -129,7 +122,6 @@ async function getUserStats(userId: string) {
 
   return {
     user,
-    friendCount,
     totalGames,
     recentGames,
     totalRounds,
@@ -142,7 +134,6 @@ async function getUserStats(userId: string) {
 
 interface SlackUserStats {
   user: { createdAt: Date; username: string; email: string };
-  friendCount: number;
   totalGames: number;
   recentGames: number;
   totalRounds: number;
@@ -154,7 +145,7 @@ interface SlackUserStats {
 
 // Format stats for Slack display
 function formatSlackResponse(stats: SlackUserStats) {
-  const { user, friendCount, totalGames, recentGames, totalRounds, roundsWon, battingAverage, cumulativeScore, lastActivity } = stats;
+  const { user, totalGames, recentGames, totalRounds, roundsWon, battingAverage, cumulativeScore, lastActivity } = stats;
   
   const memberSince = user.createdAt.toLocaleDateString();
   const lastSeen = lastActivity ? lastActivity.toLocaleDateString() : "Never";
@@ -179,10 +170,6 @@ function formatSlackResponse(stats: SlackUserStats) {
           {
             type: "mrkdwn",
             text: `*Member Since:*\n${memberSince}`,
-          },
-          {
-            type: "mrkdwn",
-            text: `*Friends:*\n${friendCount}`,
           },
           {
             type: "mrkdwn",

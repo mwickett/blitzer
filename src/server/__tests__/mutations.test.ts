@@ -12,9 +12,6 @@ import {
   createRoundForGame,
   updateGameAsFinished,
   updateRoundScores,
-  createFriendRequest,
-  acceptFriendRequest,
-  rejectFriendRequest,
   cloneGame,
 } from "../mutations";
 import {
@@ -48,16 +45,6 @@ jest.mock("../db/db", () => ({
     },
     gamePlayers: {
       create: jest.fn(),
-    },
-    friend: {
-      create: jest.fn(),
-      findFirst: jest.fn(),
-    },
-    friendRequest: {
-      create: jest.fn(),
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn(),
     },
     $transaction: jest.fn((callback) => Promise.all(callback)),
   },
@@ -113,7 +100,7 @@ describe("Game Mutations", () => {
     ];
 
     it("should create a new round with scores", async () => {
-      const mockGame = { id: mockGameId };
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
       const mockRound = { id: "round-1", scores: validScores };
 
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
@@ -132,7 +119,7 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if validation fails", async () => {
-      const mockGame = { id: mockGameId };
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       const invalidScores = [
@@ -162,7 +149,7 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if database operation fails", async () => {
-      const mockGame = { id: mockGameId };
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
       (prisma.round.create as jest.Mock).mockRejectedValue(
         new Error("Database error")
@@ -206,7 +193,7 @@ describe("Game Mutations", () => {
     ];
 
     it("should update scores for a round", async () => {
-      const mockGame = { id: mockGameId, isFinished: false };
+      const mockGame = { id: mockGameId, isFinished: false, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
       (prisma.$transaction as jest.Mock).mockResolvedValue([{ count: 1 }]);
 
@@ -221,7 +208,7 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if validation fails", async () => {
-      const mockGame = { id: mockGameId, isFinished: false };
+      const mockGame = { id: mockGameId, isFinished: false, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       const invalidScores = [
@@ -251,7 +238,7 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if game is finished", async () => {
-      const mockGame = { id: mockGameId, isFinished: true };
+      const mockGame = { id: mockGameId, isFinished: true, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       await expect(

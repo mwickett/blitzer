@@ -15,10 +15,6 @@ model User {
   updatedAt              DateTime                 @default(now()) @map("updated_at")
   username               String                   @unique
   avatarUrl              String?
-  friends1               Friend[]                 @relation("User1Friends")
-  friends2               Friend[]                 @relation("User2Friends")
-  friendRequestsReceived FriendRequest[]          @relation("FriendRequestsReceived")
-  friendRequestsSent     FriendRequest[]          @relation("FriendRequestsSent")
   games                  GamePlayers[]
   scores                 Score[]
   createdGuests          GuestUser[]              @relation("CreatedGuests")
@@ -40,30 +36,6 @@ model GuestUser {
 
   @@index([createdById])
   @@index([organizationId])
-}
-
-model FriendRequest {
-  id         String              @id @default(uuid())
-  senderId   String
-  receiverId String
-  status     FriendRequestStatus @default(PENDING)
-  createdAt  DateTime            @default(now()) @map("created_at")
-  updatedAt  DateTime            @default(now()) @map("updated_at")
-  receiver   User                @relation("FriendRequestsReceived", fields: [receiverId], references: [id])
-  sender     User                @relation("FriendRequestsSent", fields: [senderId], references: [id])
-
-  @@unique([senderId, receiverId])
-}
-
-model Friend {
-  id        String   @id @default(uuid())
-  user1Id   String
-  user2Id   String
-  createdAt DateTime @default(now()) @map("created_at")
-  user1     User     @relation("User1Friends", fields: [user1Id], references: [id])
-  user2     User     @relation("User2Friends", fields: [user2Id], references: [id])
-
-  @@unique([user1Id, user2Id])
 }
 
 model Game {
@@ -136,8 +108,3 @@ model OrganizationMembership {
   @@index([userId])
 }
 
-enum FriendRequestStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}

@@ -1,7 +1,6 @@
 import React from "react";
 import { Resend } from "resend";
 import { WelcomeEmail } from "@/components/email/welcome-template";
-import { FriendRequestEmail } from "@/components/email/friend-request-template";
 import { GameCompleteEmail } from "@/components/email/game-complete-template";
 import posthogClient from "@/app/posthog";
 
@@ -279,22 +278,3 @@ export async function sendGameCompleteEmail(params: {
   });
 }
 
-export async function sendFriendRequestEmail(params: {
-  email: string;
-  username: string;
-  fromUsername: string;
-  userId?: string;
-}): Promise<EmailResult> {
-  const emailTemplate = FriendRequestEmail({
-    username: params.username,
-    fromUsername: params.fromUsername,
-  });
-  return await sendEmail({
-    to: [params.email],
-    subject: `${params.fromUsername} sent you a friend request on Blitzer`,
-    react: emailTemplate.component,
-    text: await emailTemplate.text,
-    emailType: "friend_request",
-    userId: params.userId,
-  });
-}
