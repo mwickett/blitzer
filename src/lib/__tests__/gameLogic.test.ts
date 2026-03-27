@@ -28,6 +28,7 @@ describe("transformGameData", () => {
       endedAt: null,
       isFinished: false,
       winnerId: null,
+      winThreshold: 75,
       players: players.map((player) => ({
         userId: player.userId,
         gameId: "test-game-id",
@@ -209,6 +210,7 @@ describe("transformGameData", () => {
       endedAt: null,
       isFinished: false,
       winnerId: null,
+      winThreshold: 75,
       players: [
         {
           id: "gp-guest",

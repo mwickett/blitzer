@@ -10,7 +10,8 @@ export async function createGame(
     id: string;
     username?: string;
     isGuest?: boolean;
-  }[]
+  }[],
+  winThreshold?: number
 ) {
   const { user, posthog } = await getAuthenticatedUser();
   const currentUser = await prisma.user.findUnique({
@@ -21,9 +22,11 @@ export async function createGame(
   if (!currentUser) throw new Error("User not found");
 
   try {
-    // Step 1: First create an empty game
+    // Step 1: First create a game (with optional custom win threshold)
     const newGame = await prisma.game.create({
-      data: {},
+      data: {
+        ...(winThreshold && winThreshold !== 75 ? { winThreshold } : {}),
+      },
     });
 
     // Step 2: Create guest users if needed
@@ -72,6 +75,7 @@ export async function createGame(
         gameId: newGame.id,
         playerCount: users.length,
         guestPlayerCount: users.filter((u) => u.isGuest).length,
+        win_threshold: winThreshold ?? 75,
       },
     });
 
@@ -266,6 +270,9 @@ export async function cloneGame(originalGameId: string) {
 
     const newGame = await tx.game.create({
       data: {
+        ...(originalGame.winThreshold !== 75
+          ? { winThreshold: originalGame.winThreshold }
+          : {}),
         players: {
           create: playerCreateInputs,
         },

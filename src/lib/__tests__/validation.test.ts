@@ -100,6 +100,11 @@ describe("Game Rules", () => {
       expect(isWinningScore(GAME_RULES.POINTS_TO_WIN + 1)).toBe(true);
     });
 
+    it("should use custom threshold when provided", () => {
+      expect(isWinningScore(49, 50)).toBe(false);
+      expect(isWinningScore(50, 50)).toBe(true);
+    });
+
     it("should identify valid blitz scores", () => {
       expect(isValidBlitz({ blitzPileRemaining: 0, totalCardsPlayed: 4 })).toBe(
         true

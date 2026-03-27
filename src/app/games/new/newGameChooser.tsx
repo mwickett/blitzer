@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { User } from "@/generated/prisma/client";
 import { useUser } from "@clerk/nextjs";
 import { createGame } from "@/server/mutations";
+import { GAME_RULES } from "@/lib/validation/gameRules";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
@@ -60,6 +61,12 @@ export default function NewGameChooser({
   const [guestName, setGuestName] = useState("");
   const [guestError, setGuestError] = useState("");
   const [isInitialUserSet, setIsInitialUserSet] = useState(false);
+  const [winThreshold, setWinThreshold] = useState<number>(GAME_RULES.POINTS_TO_WIN);
+  const [showCustomThreshold, setShowCustomThreshold] = useState(false);
+
+  const THRESHOLD_PRESETS = [50, 75, 100] as const;
+  const MIN_THRESHOLD = 25;
+  const MAX_THRESHOLD = 200;
 
   const { user: clerkUser } = useUser();
   const router = useRouter();
@@ -148,7 +155,7 @@ export default function NewGameChooser({
   // Handle game creation and redirect
   const handleCreateGame = async () => {
     try {
-      const result = await createGame(inGamePlayers);
+      const result = await createGame(inGamePlayers, winThreshold);
       if (result && result.gameId) {
         router.push(`/games/${result.gameId}`);
       }
@@ -350,6 +357,68 @@ export default function NewGameChooser({
               )}
             </div>
           </div>
+        </div>
+
+        <div className="border-t border-[#e6d7c3] pt-4 mt-4">
+          <h2 className="text-base font-medium text-[#2a0e02] mb-3">
+            Winning Score
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {THRESHOLD_PRESETS.map((preset) => (
+              <Button
+                key={preset}
+                variant={winThreshold === preset && !showCustomThreshold ? "default" : "outline"}
+                size="sm"
+                className={cn(
+                  "min-w-[60px]",
+                  winThreshold === preset && !showCustomThreshold
+                    ? "bg-[#5a341f] hover:bg-[#3d1a0a] text-white"
+                    : "border-[#e6d7c3] text-[#2a0e02]"
+                )}
+                onClick={() => {
+                  setWinThreshold(preset);
+                  setShowCustomThreshold(false);
+                }}
+              >
+                {preset}
+              </Button>
+            ))}
+            <Button
+              variant={showCustomThreshold ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "min-w-[60px]",
+                showCustomThreshold
+                  ? "bg-[#5a341f] hover:bg-[#3d1a0a] text-white"
+                  : "border-[#e6d7c3] text-[#2a0e02]"
+              )}
+              onClick={() => {
+                setShowCustomThreshold(true);
+              }}
+            >
+              Custom
+            </Button>
+          </div>
+          {showCustomThreshold && (
+            <div className="mt-3">
+              <Input
+                type="number"
+                min={MIN_THRESHOLD}
+                max={MAX_THRESHOLD}
+                value={winThreshold}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (!isNaN(val)) {
+                    setWinThreshold(Math.min(MAX_THRESHOLD, Math.max(MIN_THRESHOLD, val)));
+                  }
+                }}
+                className="border-[#e6d7c3] w-32"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {MIN_THRESHOLD}&ndash;{MAX_THRESHOLD} points
+              </p>
+            </div>
+          )}
         </div>
       </CardContent>
       <CardFooter className="bg-[#f7f2e9] border-t border-[#e6d7c3] p-4 flex justify-end">

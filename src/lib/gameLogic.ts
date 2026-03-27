@@ -86,7 +86,8 @@ function initializePlayerScoresMap(
 // Function to process game scores
 function processGameScores(
   rounds: (Round & { scores: Score[] })[],
-  playerScoresMap: Record<string, ProcessedPlayerScore>
+  playerScoresMap: Record<string, ProcessedPlayerScore>,
+  winThreshold: number
 ): {
   maxScore: number;
   leaders: string[];
@@ -127,7 +128,7 @@ function processGameScores(
         leaders.push(playerId);
       }
 
-      if (isWinningScore(playerScore.total)) {
+      if (isWinningScore(playerScore.total, winThreshold)) {
         playersAboveThreshold.push({
           id: playerId,
           total: playerScore.total,
@@ -176,7 +177,8 @@ export default async function transformGameData(
   // Process scores from all rounds
   const { maxScore, leaders, playersAboveThreshold } = processGameScores(
     game.rounds,
-    playerScoresMap
+    playerScoresMap,
+    game.winThreshold
   );
 
   // Determine the winner

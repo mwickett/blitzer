@@ -64,6 +64,11 @@ export default async function GameView(props: {
 
   return (
     <section className="py-6">
+      {game.winThreshold !== 75 && (
+        <p className="text-center text-sm text-muted-foreground mb-2">
+          Playing to {game.winThreshold} points
+        </p>
+      )}
       <ScoreDisplay
         displayScores={displayScores}
         numRounds={game.rounds.length}
