@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/server/db/db";
-import { getAuthenticatedUser } from "./common";
+import { getAuthenticatedUserWithOrg } from "./common";
 import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 
 // Create new round with scores
@@ -15,7 +15,7 @@ export async function createRoundForGame(
     totalCardsPlayed: number;
   }[]
 ) {
-  const { user, posthog } = await getAuthenticatedUser();
+  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
 
   const game = await prisma.game.findUnique({
     where: { id: gameId },
@@ -23,6 +23,11 @@ export async function createRoundForGame(
 
   if (!game) {
     throw new Error("Game not found");
+  }
+
+  // Verify game belongs to the active circle
+  if (game.organizationId !== orgId) {
+    throw new Error("Game does not belong to your active circle");
   }
 
   // Validate scores using centralized validation
@@ -107,7 +112,7 @@ export async function updateRoundScores(
     totalCardsPlayed: number;
   }[]
 ) {
-  const { user, posthog } = await getAuthenticatedUser();
+  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
 
   // Check if game exists and is not finished
   const game = await prisma.game.findUnique({
@@ -116,6 +121,10 @@ export async function updateRoundScores(
 
   if (!game) {
     throw new Error("Game not found");
+  }
+
+  if (game.organizationId !== orgId) {
+    throw new Error("Game does not belong to your active circle");
   }
 
   if (game.isFinished) {

@@ -52,21 +52,18 @@ export default function Home() {
             <Show when="signed-out">
               <div className="flex flex-col sm:flex-row gap-4">
                 <SignUpButton>
-                  <Button
-                    size="lg"
-                    className="font-semibold px-8 py-6 text-lg bg-brandAccent hover:bg-brandAccent/90"
+                  <button
+                    className="inline-flex items-center justify-center rounded-md font-semibold px-8 py-3 text-lg bg-brandAccent hover:bg-brandAccent/90 text-white"
                   >
-                    Get Started <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
+                    <span className="inline-flex items-center">Get Started <ArrowRight className="ml-2 h-5 w-5" /></span>
+                  </button>
                 </SignUpButton>
                 <SignInButton>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="font-semibold px-8 py-6 text-lg border-brandAccent text-brandAccent"
+                  <button
+                    className="inline-flex items-center justify-center rounded-md font-semibold px-8 py-3 text-lg border border-brandAccent text-brandAccent bg-transparent hover:bg-brandAccent/10"
                   >
                     Sign In
-                  </Button>
+                  </button>
                 </SignInButton>
               </div>
             </Show>

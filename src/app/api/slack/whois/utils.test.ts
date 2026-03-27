@@ -20,7 +20,7 @@ function verifySlackRequest(body: string, timestamp: string, signature: string, 
 }
 
 function formatSlackResponse(stats: any) {
-  const { user, friendCount, totalGames, recentGames, totalRounds, roundsWon, battingAverage, cumulativeScore, lastActivity } = stats;
+  const { user, totalGames, recentGames, totalRounds, roundsWon, battingAverage, cumulativeScore, lastActivity } = stats;
   
   const memberSince = user.createdAt.toLocaleDateString();
   const lastSeen = lastActivity ? lastActivity.toLocaleDateString() : "Never";
@@ -45,10 +45,6 @@ function formatSlackResponse(stats: any) {
           {
             type: "mrkdwn",
             text: `*Member Since:*\n${memberSince}`,
-          },
-          {
-            type: "mrkdwn",
-            text: `*Friends:*\n${friendCount}`,
           },
           {
             type: "mrkdwn",
@@ -137,7 +133,6 @@ describe("Slack Integration Utils", () => {
           email: "test@example.com",
           createdAt: new Date("2024-01-01"),
         },
-        friendCount: 5,
         totalGames: 10,
         recentGames: 3,
         totalRounds: 25,
@@ -156,7 +151,6 @@ describe("Slack Integration Utils", () => {
       // Check that stats are included in the response
       const fieldsText = JSON.stringify(result.blocks);
       expect(fieldsText).toContain("test@example.com");
-      expect(fieldsText).toContain("5"); // friend count
       expect(fieldsText).toContain("10"); // total games
       expect(fieldsText).toContain("3"); // recent games
       expect(fieldsText).toContain("0.320"); // batting average
@@ -169,7 +163,6 @@ describe("Slack Integration Utils", () => {
           email: "test@example.com",
           createdAt: new Date("2024-01-01"),
         },
-        friendCount: 0,
         totalGames: 0,
         recentGames: 0,
         totalRounds: 0,

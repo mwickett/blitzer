@@ -1,7 +1,8 @@
 "use server";
 
 import prisma from "@/server/db/db";
-import { getAuthenticatedUser, getAuthenticatedUserPrismaId } from "./common";
+import { clerkClient } from "@clerk/nextjs/server";
+import { getAuthenticatedUserWithOrg } from "./common";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 
 // Create a new game with support for guest players
@@ -13,7 +14,7 @@ export async function createGame(
   }[],
   winThreshold?: number
 ) {
-  const { user, posthog } = await getAuthenticatedUser();
+  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
   const currentUser = await prisma.user.findUnique({
     where: { clerk_user_id: user.userId },
     select: { id: true },
@@ -21,10 +22,42 @@ export async function createGame(
 
   if (!currentUser) throw new Error("User not found");
 
+  // Validate that non-guest players are members of the active circle
+  const regularPlayerIds = users
+    .filter((u) => !u.isGuest)
+    .map((u) => u.id);
+
+  if (regularPlayerIds.length > 0) {
+    const client = await clerkClient();
+    const memberships =
+      await client.organizations.getOrganizationMembershipList({
+        organizationId: orgId,
+      });
+
+    const memberClerkIds = new Set(
+      memberships.data
+        .map((m) => m.publicUserData?.userId)
+        .filter(Boolean)
+    );
+
+    // Look up clerk_user_ids for the submitted player Prisma IDs
+    const players = await prisma.user.findMany({
+      where: { id: { in: regularPlayerIds } },
+      select: { id: true, clerk_user_id: true },
+    });
+
+    for (const player of players) {
+      if (!memberClerkIds.has(player.clerk_user_id)) {
+        throw new Error("All players must be members of the active circle");
+      }
+    }
+  }
+
   try {
     // Step 1: First create a game (with optional custom win threshold)
     const newGame = await prisma.game.create({
       data: {
+        organizationId: orgId,
         ...(winThreshold && winThreshold !== 75 ? { winThreshold } : {}),
       },
     });
@@ -37,6 +70,7 @@ export async function createGame(
           data: {
             name: player.username,
             createdById: currentUser.id,
+            organizationId: orgId,
           },
         });
         guestUserIds.set(player.id, guestUser.id);
@@ -94,7 +128,7 @@ export async function updateGameAsFinished(
   winnerId: string,
   isGuestWinner: boolean = false
 ) {
-  const { user, posthog } = await getAuthenticatedUser();
+  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
 
   // Fetch game with all player details
   const game = await prisma.game.findUnique({
@@ -124,6 +158,10 @@ export async function updateGameAsFinished(
   });
 
   if (!game) throw new Error("Game not found");
+
+  if (game.organizationId !== orgId) {
+    throw new Error("Game does not belong to your active circle");
+  }
 
   // Get winner's details
   let winnerName = "";
@@ -239,7 +277,7 @@ export async function updateGameAsFinished(
 
 // Clone an existing game
 export async function cloneGame(originalGameId: string) {
-  const { user, posthog } = await getAuthenticatedUser();
+  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
 
   // Fetch the original game with its players
   const originalGame = await prisma.game.findUnique({
@@ -256,6 +294,10 @@ export async function cloneGame(originalGameId: string) {
 
   if (!originalGame) throw new Error("Original game not found");
 
+  if (originalGame.organizationId !== orgId) {
+    throw new Error("Game does not belong to your active circle");
+  }
+
   // Start a transaction to ensure consistency
   const newGameId = await prisma.$transaction(async (tx) => {
     // Create a new game with the same players
@@ -270,6 +312,7 @@ export async function cloneGame(originalGameId: string) {
 
     const newGame = await tx.game.create({
       data: {
+        organizationId: orgId,
         ...(originalGame.winThreshold !== 75
           ? { winThreshold: originalGame.winThreshold }
           : {}),

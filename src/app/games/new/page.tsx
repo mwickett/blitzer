@@ -1,22 +1,35 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
-import type { User } from "@/generated/prisma/client";
 import NewGameChooser from "./newGameChooser";
 
 export default async function NewGamePage() {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
 
   if (!userId) {
     return <div>Please sign in</div>;
   }
 
+  if (!orgId) {
+    return <div>Please join a circle first</div>;
+  }
+
+  // Get circle members from Clerk
+  const client = await clerkClient();
+  const memberships = await client.organizations.getOrganizationMembershipList({
+    organizationId: orgId,
+  });
+
+  // Extract Clerk user IDs from memberships
+  const clerkUserIds = memberships.data
+    .map((m) => m.publicUserData?.userId)
+    .filter((id): id is string => !!id);
+
+  // Look up Prisma users by their clerk_user_ids
   const users = await prisma.user.findMany({
     where: {
-      NOT: {
-        clerk_user_id: "",
-      },
+      clerk_user_id: { in: clerkUserIds },
     },
     select: {
       id: true,

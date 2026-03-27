@@ -59,8 +59,15 @@ export default async function GameView(props: {
   // calculate the current round number
   const currentRoundNumber = game.rounds.length + 1;
 
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
   const isAuthenticated = !!userId;
+
+  // ScoreEntry is only visible to circle members for non-finished games
+  const canEnterScores =
+    isAuthenticated &&
+    !game.isFinished &&
+    !!game.organizationId &&
+    game.organizationId === orgId;
 
   return (
     <section className="py-6">
@@ -75,7 +82,7 @@ export default async function GameView(props: {
         gameId={game.id}
         isFinished={game.isFinished}
       />
-      {isAuthenticated && (
+      {canEnterScores && (
         <ScoreEntry
           game={game}
           currentRoundNumber={currentRoundNumber}

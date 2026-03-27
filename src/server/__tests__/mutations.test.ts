@@ -12,11 +12,13 @@ import {
   createRoundForGame,
   updateGameAsFinished,
   updateRoundScores,
-  createFriendRequest,
-  acceptFriendRequest,
-  rejectFriendRequest,
   cloneGame,
 } from "../mutations";
+import {
+  getAuthenticatedUser,
+  getAuthenticatedUserPrismaId,
+  getAuthenticatedUserWithOrg,
+} from "../mutations/common";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
@@ -40,16 +42,10 @@ jest.mock("../db/db", () => ({
     },
     user: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
     },
-    friend: {
+    gamePlayers: {
       create: jest.fn(),
-      findFirst: jest.fn(),
-    },
-    friendRequest: {
-      create: jest.fn(),
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn(),
     },
     $transaction: jest.fn((callback) => Promise.all(callback)),
   },
@@ -59,8 +55,15 @@ jest.mock("../db/db", () => ({
 type AuthResult = { userId: string | null };
 type AuthFn = () => Promise<AuthResult>;
 
+const mockGetOrganizationMembershipList = jest.fn();
 jest.mock("@clerk/nextjs/server", () => ({
   auth: jest.fn() as jest.MockedFunction<AuthFn>,
+  clerkClient: jest.fn().mockResolvedValue({
+    organizations: {
+      getOrganizationMembershipList: (...args: unknown[]) =>
+        mockGetOrganizationMembershipList(...args),
+    },
+  }),
 }));
 
 // Create a mock capture function we can make assertions on
@@ -80,10 +83,14 @@ describe("Game Mutations", () => {
   const mockUserId = "test-user-id";
   const mockGameId = "test-game-id";
   const mockTargetUserId = "target-user-id";
+  const mockOrgId = "org_test123";
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (auth as unknown as jest.Mock).mockResolvedValue({ userId: mockUserId });
+    (auth as unknown as jest.Mock).mockResolvedValue({
+      userId: mockUserId,
+      orgId: mockOrgId,
+    });
   });
 
   describe("createRoundForGame", () => {
@@ -101,7 +108,7 @@ describe("Game Mutations", () => {
     ];
 
     it("should create a new round with scores", async () => {
-      const mockGame = { id: mockGameId };
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
       const mockRound = { id: "round-1", scores: validScores };
 
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
@@ -120,7 +127,7 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if validation fails", async () => {
-      const mockGame = { id: mockGameId };
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       const invalidScores = [
@@ -150,7 +157,7 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if database operation fails", async () => {
-      const mockGame = { id: mockGameId };
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
       (prisma.round.create as jest.Mock).mockRejectedValue(
         new Error("Database error")
@@ -194,7 +201,7 @@ describe("Game Mutations", () => {
     ];
 
     it("should update scores for a round", async () => {
-      const mockGame = { id: mockGameId, isFinished: false };
+      const mockGame = { id: mockGameId, isFinished: false, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
       (prisma.$transaction as jest.Mock).mockResolvedValue([{ count: 1 }]);
 
@@ -209,7 +216,7 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if validation fails", async () => {
-      const mockGame = { id: mockGameId, isFinished: false };
+      const mockGame = { id: mockGameId, isFinished: false, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       const invalidScores = [
@@ -239,7 +246,7 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if game is finished", async () => {
-      const mockGame = { id: mockGameId, isFinished: true };
+      const mockGame = { id: mockGameId, isFinished: true, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       await expect(
@@ -253,6 +260,92 @@ describe("Game Mutations", () => {
       await expect(
         updateRoundScores(mockGameId, mockRoundId, validScores)
       ).rejects.toThrow("Game not found");
+    });
+  });
+
+  describe("createGame", () => {
+    it("should create a game with organizationId from active circle", async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: "prisma-user-id",
+      });
+      (prisma.game.create as jest.Mock).mockResolvedValue({
+        id: "new-game-id",
+      });
+      (prisma.gamePlayers.create as jest.Mock).mockResolvedValue({});
+      // Mock Clerk membership check — player-2 has clerk ID "clerk-player-2"
+      mockGetOrganizationMembershipList.mockResolvedValue({
+        data: [
+          { publicUserData: { userId: mockUserId } },
+          { publicUserData: { userId: "clerk-player-2" } },
+        ],
+      });
+      // Mock Prisma lookup of clerk_user_ids for submitted player IDs
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([
+        { id: "prisma-user-id", clerk_user_id: mockUserId },
+        { id: "player-2", clerk_user_id: "clerk-player-2" },
+      ]);
+
+      const players = [
+        { id: "prisma-user-id", username: "TestUser" },
+        { id: "player-2", username: "Player2" },
+      ];
+
+      const result = await createGame(players);
+
+      expect(prisma.game.create).toHaveBeenCalledWith({
+        data: {
+          organizationId: mockOrgId,
+        },
+      });
+      expect(result).toEqual({ gameId: "new-game-id" });
+    });
+
+    it("should throw if no active circle", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockUserId,
+        orgId: null,
+      });
+
+      await expect(createGame([{ id: "user-1" }])).rejects.toThrow(
+        "No active circle"
+      );
+    });
+  });
+
+  describe("getAuthenticatedUserWithOrg", () => {
+    it("should return user with orgId when circle is active", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockUserId,
+        orgId: "org_test123",
+      });
+
+      const result = await getAuthenticatedUserWithOrg();
+
+      expect(result.user.userId).toBe(mockUserId);
+      expect(result.orgId).toBe("org_test123");
+      expect(result.posthog).toBeDefined();
+    });
+
+    it("should throw if user has no active circle", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockUserId,
+        orgId: null,
+      });
+
+      await expect(getAuthenticatedUserWithOrg()).rejects.toThrow(
+        "No active circle"
+      );
+    });
+
+    it("should throw if user is not authenticated", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: null,
+        orgId: null,
+      });
+
+      await expect(getAuthenticatedUserWithOrg()).rejects.toThrow(
+        "Unauthorized"
+      );
     });
   });
 });

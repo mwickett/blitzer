@@ -2,11 +2,7 @@
 export {
   getGames,
   getGameById,
-  getFriends,
-  getFriendsForNewGame,
-  getIncomingFriendRequests,
-  getOutgoingPendingFriendRequests,
-  getFilteredUsers,
+  getLegacyGames,
   getPlayerBattingAverage,
   getHighestAndLowestScore,
   getCumulativeScore,

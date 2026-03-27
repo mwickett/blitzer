@@ -35,12 +35,6 @@ export default function Footer() {
             >
               Games
             </Link>
-            <Link
-              href="/friends"
-              className="text-gray-700 hover:text-brandAccent transition-colors"
-            >
-              Friends
-            </Link>
             <a
               href="https://wickett.notion.site/Vision-for-Blitzer-a802db0123d54ef6881598c67cd4a147?pvs=4"
               target="_blank"
