@@ -46,6 +46,9 @@ jest.mock("../db/db", () => ({
     user: {
       findUnique: jest.fn(),
     },
+    gamePlayers: {
+      create: jest.fn(),
+    },
     friend: {
       create: jest.fn(),
       findFirst: jest.fn(),
@@ -85,10 +88,14 @@ describe("Game Mutations", () => {
   const mockUserId = "test-user-id";
   const mockGameId = "test-game-id";
   const mockTargetUserId = "target-user-id";
+  const mockOrgId = "org_test123";
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (auth as unknown as jest.Mock).mockResolvedValue({ userId: mockUserId });
+    (auth as unknown as jest.Mock).mockResolvedValue({
+      userId: mockUserId,
+      orgId: mockOrgId,
+    });
   });
 
   describe("createRoundForGame", () => {
@@ -258,6 +265,43 @@ describe("Game Mutations", () => {
       await expect(
         updateRoundScores(mockGameId, mockRoundId, validScores)
       ).rejects.toThrow("Game not found");
+    });
+  });
+
+  describe("createGame", () => {
+    it("should create a game with organizationId from active circle", async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: "prisma-user-id",
+      });
+      (prisma.game.create as jest.Mock).mockResolvedValue({
+        id: "new-game-id",
+      });
+      (prisma.gamePlayers.create as jest.Mock).mockResolvedValue({});
+
+      const players = [
+        { id: "prisma-user-id", username: "TestUser" },
+        { id: "player-2", username: "Player2" },
+      ];
+
+      const result = await createGame(players);
+
+      expect(prisma.game.create).toHaveBeenCalledWith({
+        data: {
+          organizationId: mockOrgId,
+        },
+      });
+      expect(result).toEqual({ gameId: "new-game-id" });
+    });
+
+    it("should throw if no active circle", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockUserId,
+        orgId: null,
+      });
+
+      await expect(createGame([{ id: "user-1" }])).rejects.toThrow(
+        "No active circle"
+      );
     });
   });
 

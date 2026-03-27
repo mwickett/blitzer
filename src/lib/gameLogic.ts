@@ -160,7 +160,12 @@ async function determineWinner(
       );
       const isGuestWinner = !!winnerPlayer?.guestId;
 
-      await updateGameAsFinished(game.id, winnerId, isGuestWinner);
+      try {
+        await updateGameAsFinished(game.id, winnerId, isGuestWinner);
+      } catch {
+        // Viewer isn't authenticated or isn't in the right circle —
+        // game finalization will happen when a circle member views it.
+      }
     }
     return winnerId;
   }
