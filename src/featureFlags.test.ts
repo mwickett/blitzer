@@ -18,12 +18,11 @@ jest.mock("./featureFlags", () => {
   return {
     ...originalModule,
     isFeatureEnabled: jest.fn(originalModule.isFeatureEnabled),
-    isScoreChartsEnabled: jest.fn(originalModule.isScoreChartsEnabled),
   };
 });
 
 // Import after mocking
-import { isFeatureEnabled, isScoreChartsEnabled } from "./featureFlags";
+import { isFeatureEnabled } from "./featureFlags";
 
 describe("Feature Flags", () => {
   afterEach(() => {
@@ -59,10 +58,5 @@ describe("Feature Flags", () => {
     });
   });
 
-  // For the isScoreChartsEnabled test, let's just create a simpler test
-  describe("isScoreChartsEnabled", () => {
-    it("exists and is a function", () => {
-      expect(typeof isScoreChartsEnabled).toBe("function");
-    });
-  });
+
 });
