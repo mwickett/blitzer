@@ -36,12 +36,6 @@ Key application sections have custom error boundaries:
   - Handles errors in the games listing page
   - Provides a user-friendly recovery UI
 
-- **Game Detail**: `src/app/games/[id]/error.tsx`
-
-  - Handles errors in specific game views
-  - Captures game ID context with errors
-  - Offers options to retry or return to games list
-
 - **Dashboard**: `src/app/dashboard/error.tsx`
   - Handles errors in the dashboard section
   - Provides recovery options

@@ -11,7 +11,7 @@ Blitzer is a companion web app for Dutch Blitz card game players to track scores
 ```bash
 # Development
 npm run dev                  # Start development server with turbopack
-npm install                  # Install dependencies
+npm install                  # Install dependencies (runs prisma generate via postinstall)
 
 # Testing
 npm test                     # Run Jest tests
@@ -21,7 +21,7 @@ npm run test:coverage        # Run tests with coverage report
 # Database
 npx prisma migrate dev       # Create and apply migration (after schema changes)
 npx prisma studio           # Open database viewer
-npx prisma generate          # Generate Prisma client
+npx prisma generate          # Generate Prisma client (to src/generated/prisma/)
 
 # Build & Quality
 npm run build               # Build for production (includes migrations)
@@ -58,9 +58,13 @@ npm run lint                # Run ESLint
 
 ## Key Technical Details
 
-**Database**: PostgreSQL via Neon, managed through Prisma ORM
+**Database**: PostgreSQL via Neon, managed through Prisma 7
 
 - Schema: `src/server/db/schema.prisma`
+- Config: `prisma.config.ts` (datasource URL, schema path, migrations path)
+- Generated client: `src/generated/prisma/` (gitignored, regenerated on `npm install`)
+- Import Prisma types from `@/generated/prisma/client`, not `@prisma/client`
+- Uses `@prisma/adapter-pg` driver adapter for database connections
 - Always run `npx prisma migrate dev` after schema changes
 
 **Authentication**: Clerk handles auth, user data synced via webhooks
@@ -69,13 +73,13 @@ npm run lint                # Run ESLint
 
 - Server: `isFeatureEnabled()` from `src/featureFlags.ts`
 - Client: `useFeatureFlag()` from `src/hooks/useFeatureFlag.ts`
-- Current flags documented in `src/FEATURE_FLAGS.md`
+- Active flag: `llm-features` (controls Insights nav link visibility)
 
 **Analytics & Error Tracking**:
 
 - PostHog for analytics and feature flags
 - Sentry for error monitoring
-- All server actions include PostHog event tracking
+- Server actions should include PostHog event tracking
 
 **Testing**: Jest with Testing Library, configured for Next.js App Router
 
