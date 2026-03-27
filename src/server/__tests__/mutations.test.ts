@@ -17,6 +17,11 @@ import {
   rejectFriendRequest,
   cloneGame,
 } from "../mutations";
+import {
+  getAuthenticatedUser,
+  getAuthenticatedUserPrismaId,
+  getAuthenticatedUserWithOrg,
+} from "../mutations/common";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
@@ -253,6 +258,43 @@ describe("Game Mutations", () => {
       await expect(
         updateRoundScores(mockGameId, mockRoundId, validScores)
       ).rejects.toThrow("Game not found");
+    });
+  });
+
+  describe("getAuthenticatedUserWithOrg", () => {
+    it("should return user with orgId when circle is active", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockUserId,
+        orgId: "org_test123",
+      });
+
+      const result = await getAuthenticatedUserWithOrg();
+
+      expect(result.user.userId).toBe(mockUserId);
+      expect(result.orgId).toBe("org_test123");
+      expect(result.posthog).toBeDefined();
+    });
+
+    it("should throw if user has no active circle", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockUserId,
+        orgId: null,
+      });
+
+      await expect(getAuthenticatedUserWithOrg()).rejects.toThrow(
+        "No active circle"
+      );
+    });
+
+    it("should throw if user is not authenticated", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: null,
+        orgId: null,
+      });
+
+      await expect(getAuthenticatedUserWithOrg()).rejects.toThrow(
+        "Unauthorized"
+      );
     });
   });
 });
