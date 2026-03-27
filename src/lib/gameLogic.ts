@@ -152,14 +152,12 @@ async function determineWinner(
       (player) => player.total === highestScore
     );
 
-    // TODO: handle multiple winners
     const winnerId = potentialWinners[0].id;
     if (!game.isFinished) {
-      const isGuestWinner = game.players.some(
-        (p) =>
-          (p.guestId === winnerId || p.userId === winnerId) &&
-          p.guestId !== undefined
+      const winnerPlayer = game.players.find(
+        (player) => player.guestId === winnerId || player.userId === winnerId
       );
+      const isGuestWinner = !!winnerPlayer?.guestId;
 
       await updateGameAsFinished(game.id, winnerId, isGuestWinner);
     }
