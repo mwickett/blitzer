@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { circleLocalization } from "@/lib/clerk-localization";
 import { Analytics } from "@vercel/analytics/react";
 import { CSPostHogProvider } from "./PostHogProvider";
 import { Inter } from "next/font/google";
@@ -52,7 +53,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider localization={circleLocalization}>
       <html lang="en">
         <CSPostHogProvider>
           <body className={`${inter.className} bg-brand`}>
