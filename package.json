@@ -18,7 +18,6 @@
     "@ai-sdk/react": "^3.0.142",
     "@clerk/nextjs": "^7.0.7",
     "@eslint/compat": "^2.0.3",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.200.0",
     "@posthog/ai": "^7.12.2",
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
