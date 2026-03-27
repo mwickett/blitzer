@@ -1,4 +1,4 @@
-import { Game, User, Score, Round, GuestUser } from "@prisma/client";
+import { Game, User, Score, Round, GuestUser } from "@/generated/prisma/client";
 import { updateGameAsFinished } from "@/server/mutations";
 import { calculateRoundScore, isWinningScore } from "./validation/gameRules";
 

@@ -2,7 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
-import type { User } from "@prisma/client";
+import type { User } from "@/generated/prisma/client";
 import NewGameChooser from "./newGameChooser";
 
 export default async function NewGamePage() {

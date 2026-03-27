@@ -12,7 +12,7 @@ import {
 } from "../queries";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 // Mock dependencies
 jest.mock("../db/db", () => {
@@ -44,7 +44,7 @@ jest.mock("../db/db", () => {
 });
 
 // Mock Prisma.sql template literal tag
-jest.mock("@prisma/client", () => ({
+jest.mock("@/generated/prisma/client", () => ({
   Prisma: {
     sql: jest.fn((strings, ...values) => ({
       strings,

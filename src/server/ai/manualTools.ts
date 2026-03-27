@@ -1,7 +1,7 @@
 import { z } from "zod";
 import prisma from "@/server/db/db-readonly";
 import PostHogClient from "@/app/posthog";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 async function getInternalUserId(clerkUserId: string) {
   const user = await prisma.user.findUnique({

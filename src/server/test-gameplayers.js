@@ -1,7 +1,7 @@
 // A simple script to test the GamePlayers model
 // Run with: node src/server/test-gameplayers.js
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../generated/prisma';
 const prisma = new PrismaClient();
 
 async function main() {

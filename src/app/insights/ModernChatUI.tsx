@@ -4,30 +4,24 @@ import { useChat } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function ModernChatUI() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [input, setInput] = useState("");
 
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit: originalHandleSubmit,
-    status,
-    error,
-  } = useChat({
-    api: "/api/chat",
-  });
+  const { messages, sendMessage, status, error } = useChat();
 
   // Check if the chat is in a loading state (either submitted or streaming)
   const isLoading = status === "submitted" || status === "streaming";
 
-  // Custom submit handler to maintain focus
+  // Custom submit handler
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    originalHandleSubmit(e);
-    // Focus will be handled by useEffect
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    sendMessage({ text: input });
+    setInput("");
   };
 
   // Function to scroll to bottom of messages
@@ -124,7 +118,7 @@ export default function ModernChatUI() {
             <Input
               ref={inputRef}
               value={input}
-              onChange={handleInputChange}
+              onChange={(e) => setInput(e.target.value)}
               placeholder="Ask about your game data..."
               disabled={isLoading}
               className="flex-1"

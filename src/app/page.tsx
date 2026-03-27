@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SignInButton, SignedIn, SignedOut, SignUpButton } from "@clerk/nextjs";
+import { SignInButton, Show, SignUpButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import {
@@ -39,7 +39,7 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <SignedIn>
+            <Show when="signed-in">
               <Link href="/dashboard">
                 <Button
                   size="lg"
@@ -48,8 +48,8 @@ export default function Home() {
                   Go to Dashboard <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-            </SignedIn>
-            <SignedOut>
+            </Show>
+            <Show when="signed-out">
               <div className="flex flex-col sm:flex-row gap-4">
                 <SignUpButton>
                   <Button
@@ -69,7 +69,7 @@ export default function Home() {
                   </Button>
                 </SignInButton>
               </div>
-            </SignedOut>
+            </Show>
           </div>
         </div>
       </section>
@@ -226,7 +226,7 @@ export default function Home() {
             </p>
           </div>
 
-          <SignedOut>
+          <Show when="signed-out">
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
               <SignUpButton>
                 <Button
@@ -250,8 +250,8 @@ export default function Home() {
                 </Button>
               </a>
             </div>
-          </SignedOut>
-          <SignedIn>
+          </Show>
+          <Show when="signed-in">
             <Link href="/games/new">
               <Button
                 size="lg"
@@ -260,7 +260,7 @@ export default function Home() {
                 Start a New Game <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-          </SignedIn>
+          </Show>
         </div>
       </section>
     </main>

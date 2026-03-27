@@ -1,6 +1,6 @@
 "use client";
 
-import { User } from "@prisma/client";
+import { User } from "@/generated/prisma/client";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
