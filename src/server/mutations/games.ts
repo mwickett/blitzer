@@ -298,6 +298,26 @@ export async function updateGameAsFinished(
   });
 }
 
+// Save user's default accent color preference
+export async function saveUserAccentColor(color: string) {
+  const { user, posthog } = await getAuthenticatedUserWithOrg();
+  const currentUser = await prisma.user.findUnique({
+    where: { clerk_user_id: user.userId },
+  });
+  if (!currentUser) throw new Error("User not found");
+
+  await prisma.user.update({
+    where: { id: currentUser.id },
+    data: { accentColor: color },
+  });
+
+  posthog.capture({
+    distinctId: user.userId,
+    event: "set_accent_color",
+    properties: { color },
+  });
+}
+
 // Clone an existing game
 export async function cloneGame(originalGameId: string) {
   const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
