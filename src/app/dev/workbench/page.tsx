@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { ScoreEntryCard } from "@/components/scoring/ScoreEntryCard";
+import { ColorPicker } from "@/components/scoring/ColorPicker";
+import { getEntryStatus, type PlayerEntry } from "@/components/scoring/types";
+import { ACCENT_COLORS } from "@/lib/scoring/colors";
 
 // --- Types ---
 
@@ -11,23 +15,7 @@ type Player = {
   colorLabel: string;
 };
 
-type RoundEntry = {
-  blitzRemaining: number | null;
-  cardsPlayed: number | null;
-};
-
 type RoundData = Record<string, { blitzRemaining: number; cardsPlayed: number }>;
-
-// --- Dutch Blitz Colors ---
-
-const DUTCH_BLITZ_COLORS = [
-  { value: "#3b82f6", label: "Blue" },
-  { value: "#ef4444", label: "Red" },
-  { value: "#eab308", label: "Yellow" },
-  { value: "#22c55e", label: "Green" },
-  { value: "#8b5cf6", label: "Purple" },
-  { value: "#f97316", label: "Orange" },
-];
 
 // --- Score Calculation ---
 
@@ -138,71 +126,6 @@ function RaceTrack({ players, scores, winThreshold = 75, pillThreshold = 8 }: {
         })}
       </div>
       <div className="h-5" />
-    </div>
-  );
-}
-
-// --- Color Picker ---
-
-function ColorPicker({ value, onChange, usedColors }: { value: string; onChange: (color: string) => void; usedColors: string[] }) {
-  return (
-    <div className="flex gap-1.5 flex-wrap">
-      {DUTCH_BLITZ_COLORS.map((c) => {
-        const isUsed = usedColors.includes(c.value) && c.value !== value;
-        return (
-          <button key={c.value} onClick={() => !isUsed && onChange(c.value)}
-            className={`w-7 h-7 rounded-full border-2 transition-all ${value === c.value ? "border-[#290806] scale-110" : isUsed ? "border-transparent opacity-25 cursor-not-allowed" : "border-transparent hover:border-[#d1bfa8] cursor-pointer"}`}
-            style={{ backgroundColor: c.value }} title={isUsed ? `${c.label} (taken)` : c.label} disabled={isUsed} />
-        );
-      })}
-    </div>
-  );
-}
-
-// --- Score Entry Card ---
-
-function ScoreEntryCard({ player, score, entry, onUpdate, status }: {
-  player: Player; score: number; entry: RoundEntry;
-  onUpdate: (field: "blitzRemaining" | "cardsPlayed", value: number | null) => void;
-  status: "empty" | "partial" | "complete";
-}) {
-  const statusIcon = {
-    empty: { bg: "bg-[#f0e6d2]", text: "text-[#d1bfa8]", icon: "○" },
-    partial: { bg: "bg-[#fef3c7]", text: "text-[#b45309]", icon: "½" },
-    complete: { bg: "bg-[#dcfce7]", text: "text-[#2a6517]", icon: "✓" },
-  }[status];
-
-  return (
-    <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-3 flex items-center gap-2.5" style={{ borderLeftWidth: "5px", borderLeftColor: player.color }}>
-      <div className="w-16 flex-shrink-0">
-        <div className="text-sm font-semibold text-[#290806]">{player.name}</div>
-        <div className={`text-[11px] ${score < 0 ? "text-[#b91c1c]" : "text-[#8b5e3c]"}`}>{score} pts</div>
-      </div>
-      <div className="flex gap-2 flex-1">
-        <div className="flex-1">
-          <label className="block text-[9px] text-[#8b5e3c] uppercase tracking-wider font-medium mb-1">Blitz left</label>
-          <input type="text" inputMode="numeric" pattern="[0-9]*" value={entry.blitzRemaining !== null ? String(entry.blitzRemaining) : ""}
-            onChange={(e) => {
-              const raw = e.target.value.replace(/[^0-9]/g, "");
-              if (raw === "") { onUpdate("blitzRemaining", null); return; }
-              const n = parseInt(raw, 10);
-              if (!isNaN(n)) onUpdate("blitzRemaining", Math.min(10, Math.max(0, n)));
-            }}
-            className="w-full h-11 bg-[#fff7ea] border-[1.5px] border-[#e6d7c3] rounded-lg text-[#290806] text-xl font-semibold text-center focus:border-[#8b5e3c] focus:outline-none transition-colors" placeholder="—" />
-        </div>
-        <div className="flex-1">
-          <label className="block text-[9px] text-[#8b5e3c] uppercase tracking-wider font-medium mb-1">Cards played</label>
-          <input type="text" inputMode="numeric" pattern="[0-9]*" value={entry.cardsPlayed !== null ? String(entry.cardsPlayed) : ""}
-            onChange={(e) => {
-              const raw = e.target.value.replace(/[^0-9]/g, "");
-              if (raw === "") { onUpdate("cardsPlayed", null); return; }
-              const n = parseInt(raw, 10);
-              if (!isNaN(n)) onUpdate("cardsPlayed", Math.min(40, Math.max(0, n)));
-            }}
-            className="w-full h-11 bg-[#fff7ea] border-[1.5px] border-[#e6d7c3] rounded-lg text-[#290806] text-xl font-semibold text-center focus:border-[#8b5e3c] focus:outline-none transition-colors" placeholder="—" />
-        </div>
-      </div>
-      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${statusIcon.bg} ${statusIcon.text}`}>{statusIcon.icon}</div>
     </div>
   );
 }
@@ -333,29 +256,21 @@ const DEFAULT_PLAYERS: Player[] = [
 export default function WorkbenchPage() {
   const [players, setPlayers] = useState<Player[]>(DEFAULT_PLAYERS);
   const [rounds, setRounds] = useState<RoundData[]>([]);
-  const [roundEntries, setRoundEntries] = useState<Record<string, RoundEntry>>(
+  const [roundEntries, setRoundEntries] = useState<Record<string, PlayerEntry>>(
     () => Object.fromEntries(DEFAULT_PLAYERS.map((p) => [p.id, { blitzRemaining: null, cardsPlayed: null }]))
   );
   const [winThreshold, setWinThreshold] = useState(75);
   const [pillThreshold, setPillThreshold] = useState(8);
   const [editingPlayers, setEditingPlayers] = useState(false);
   const [editingRound, setEditingRound] = useState<number | null>(null);
-  const [undoState, setUndoState] = useState<{ roundNumber: number; previousRounds: RoundData[]; previousEntries: Record<string, RoundEntry> } | null>(null);
+  const [undoState, setUndoState] = useState<{ roundNumber: number; previousRounds: RoundData[]; previousEntries: Record<string, PlayerEntry> } | null>(null);
 
   const usedColors = players.map((p) => p.color);
   const scores = useMemo(() => calcScores(players, rounds), [players, rounds]);
   const roundNumber = rounds.length + 1;
 
-  const getEntryStatus = useCallback((entry: RoundEntry): "empty" | "partial" | "complete" => {
-    const hasBlitz = entry.blitzRemaining !== null && !isNaN(entry.blitzRemaining);
-    const hasCards = entry.cardsPlayed !== null && !isNaN(entry.cardsPlayed);
-    if (hasBlitz && hasCards) return "complete";
-    if (hasBlitz || hasCards) return "partial";
-    return "empty";
-  }, []);
-
-  const allComplete = useMemo(() => Object.values(roundEntries).every((e) => getEntryStatus(e) === "complete"), [roundEntries, getEntryStatus]);
-  const remainingCount = useMemo(() => Object.values(roundEntries).filter((e) => getEntryStatus(e) !== "complete").length, [roundEntries, getEntryStatus]);
+  const allComplete = useMemo(() => Object.values(roundEntries).every((e) => getEntryStatus(e) === "complete"), [roundEntries]);
+  const remainingCount = useMemo(() => Object.values(roundEntries).filter((e) => getEntryStatus(e) !== "complete").length, [roundEntries]);
   const winner = useMemo(() => players.find((p) => (scores[p.id] ?? 0) >= winThreshold), [players, scores, winThreshold]);
 
   const handleUpdateEntry = useCallback((playerId: string, field: "blitzRemaining" | "cardsPlayed", value: number | null) => {
@@ -406,7 +321,7 @@ export default function WorkbenchPage() {
   }, [players]);
 
   const handleAddPlayer = useCallback(() => {
-    const availableColor = DUTCH_BLITZ_COLORS.find((c) => !usedColors.includes(c.value));
+    const availableColor = ACCENT_COLORS.find((c) => !usedColors.includes(c.value));
     if (!availableColor) return;
     const id = String(Date.now());
     const newPlayer: Player = { id, name: `Player ${players.length + 1}`, color: availableColor.value, colorLabel: availableColor.label };
@@ -425,7 +340,7 @@ export default function WorkbenchPage() {
   }, []);
 
   const handleUpdatePlayerColor = useCallback((id: string, color: string) => {
-    const label = DUTCH_BLITZ_COLORS.find((c) => c.value === color)?.label ?? "";
+    const label = ACCENT_COLORS.find((c) => c.value === color)?.label ?? "";
     setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, color, colorLabel: label } : p)));
   }, []);
 
@@ -514,7 +429,7 @@ export default function WorkbenchPage() {
               {/* Player cards */}
               <div className="px-4 pt-2 pb-2 space-y-2.5">
                 {players.map((player) => (
-                  <ScoreEntryCard key={player.id} player={player} score={scores[player.id] ?? 0} entry={roundEntries[player.id]}
+                  <ScoreEntryCard key={player.id} name={player.name} color={player.color} score={scores[player.id] ?? 0} entry={roundEntries[player.id]}
                     onUpdate={(field, value) => handleUpdateEntry(player.id, field, value)} status={getEntryStatus(roundEntries[player.id])} />
                 ))}
               </div>
