@@ -141,7 +141,8 @@ function UndoToast({ roundNumber, onUndo, onDismiss }: { roundNumber: number; on
       setTimeLeft((prev) => {
         if (prev <= 0) {
           if (timerRef.current) clearInterval(timerRef.current);
-          onDismiss();
+          // Defer dismiss to avoid setState during render
+          setTimeout(onDismiss, 0);
           return 0;
         }
         return prev - 2;
@@ -279,6 +280,13 @@ export default function WorkbenchPage() {
 
   const handleSubmitRound = useCallback(() => {
     if (!allComplete) return;
+
+    // Validate: at least one player must have blitzed (0 remaining)
+    const hasBlitz = players.some((p) => roundEntries[p.id].blitzRemaining === 0);
+    if (!hasBlitz) {
+      alert("At least one player must blitz (have 0 cards remaining)");
+      return;
+    }
 
     // Save state for undo
     const previousRounds = [...rounds];
