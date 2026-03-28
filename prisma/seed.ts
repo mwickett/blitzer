@@ -126,6 +126,54 @@ async function syncClerkUsers(
   return synced;
 }
 
+// --- Org Membership Reconciliation ---
+
+async function ensureMembership(
+  clerk: ReturnType<typeof createClerkClient>,
+  orgId: string,
+  userId: string
+): Promise<void> {
+  const members = await clerk.organizations.getOrganizationMembershipList({
+    organizationId: orgId,
+    limit: 100,
+  });
+  const isMember = members.data.some(
+    (m) => m.publicUserData?.userId === userId
+  );
+
+  if (!isMember) {
+    await clerk.organizations.createOrganizationMembership({
+      organizationId: orgId,
+      userId,
+      role: "org:member",
+    });
+    console.log(`  + Added ${userId} to ${orgId}`);
+  } else {
+    console.log(`  ✓ ${userId} already in ${orgId}`);
+  }
+}
+
+async function reconcileOrgMemberships(
+  clerk: ReturnType<typeof createClerkClient>,
+  config: SeedConfig
+): Promise<void> {
+  console.log("Reconciling org memberships...");
+
+  // Anchor user in all 3 orgs
+  for (const orgId of [config.orgA, config.orgB, config.orgC]) {
+    await ensureMembership(clerk, orgId, config.anchorUserId);
+  }
+
+  // User 2 and User 3 in Org A
+  await ensureMembership(clerk, config.orgA, config.user2Id);
+  await ensureMembership(clerk, config.orgA, config.user3Id);
+
+  // User 2 in Org B
+  await ensureMembership(clerk, config.orgB, config.user2Id);
+
+  console.log("✓ Org memberships reconciled\n");
+}
+
 // --- Main ---
 
 async function main() {
@@ -169,6 +217,9 @@ async function main() {
 
     // Step 1: Sync Clerk users to database
     const users = await syncClerkUsers(clerk, prisma);
+
+    // Step 2: Reconcile Clerk org memberships
+    await reconcileOrgMemberships(clerk, config);
   } finally {
     await prisma.$disconnect();
   }
