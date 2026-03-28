@@ -3,7 +3,8 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { ScoreEntryCard } from "@/components/scoring/ScoreEntryCard";
 import { ColorPicker } from "@/components/scoring/ColorPicker";
-import { getEntryStatus, type PlayerEntry } from "@/components/scoring/types";
+import { RaceTrack } from "@/components/scoring/RaceTrack";
+import { getEntryStatus, type PlayerEntry, type PlayerWithScore } from "@/components/scoring/types";
 import { ACCENT_COLORS } from "@/lib/scoring/colors";
 
 // --- Types ---
@@ -33,101 +34,6 @@ function calcScores(players: Player[], rounds: RoundData[]): Record<string, numb
     }
   }
   return scores;
-}
-
-// --- Stacking Pills Race Track ---
-
-type TrackMarker = { id: string; name: string; score: number; color: string };
-type PillGroup = { markers: TrackMarker[]; position: number };
-
-function scoreToPosition(score: number, minScore: number, maxScore: number): number {
-  const range = maxScore - minScore;
-  if (range === 0) return 50;
-  return ((score - minScore) / range) * 100;
-}
-
-function groupMarkers(markers: TrackMarker[], threshold: number): PillGroup[] {
-  if (markers.length === 0) return [];
-  const sorted = [...markers].sort((a, b) => a.score - b.score);
-  const allScores = sorted.map((m) => m.score);
-  const minDisplay = Math.min(-20, Math.min(...allScores) - 5);
-  const maxDisplay = 75;
-
-  const groups: PillGroup[] = [];
-  let currentGroup: TrackMarker[] = [sorted[0]];
-  let currentPos = scoreToPosition(sorted[0].score, minDisplay, maxDisplay);
-
-  for (let i = 1; i < sorted.length; i++) {
-    const pos = scoreToPosition(sorted[i].score, minDisplay, maxDisplay);
-    if (pos - currentPos < threshold) {
-      currentGroup.push(sorted[i]);
-    } else {
-      const avg = currentGroup.reduce((s, m) => s + m.score, 0) / currentGroup.length;
-      groups.push({ markers: currentGroup, position: scoreToPosition(avg, minDisplay, maxDisplay) });
-      currentGroup = [sorted[i]];
-      currentPos = pos;
-    }
-  }
-  const avg = currentGroup.reduce((s, m) => s + m.score, 0) / currentGroup.length;
-  groups.push({ markers: currentGroup, position: scoreToPosition(avg, minDisplay, maxDisplay) });
-  return groups;
-}
-
-function RaceTrack({ players, scores, winThreshold = 75, pillThreshold = 8 }: {
-  players: Player[];
-  scores: Record<string, number>;
-  winThreshold?: number;
-  pillThreshold?: number;
-}) {
-  const markers: TrackMarker[] = players.map((p) => ({
-    id: p.id, name: p.name, score: scores[p.id] ?? 0, color: p.color,
-  }));
-  const groups = groupMarkers(markers, pillThreshold);
-  const allScores = players.map((p) => scores[p.id] ?? 0);
-  const minDisplay = Math.min(-20, Math.min(...allScores) - 5);
-  const zeroPos = scoreToPosition(0, minDisplay, winThreshold);
-
-  return (
-    <div className="w-full">
-      <div className="flex justify-between text-[9px] text-[#8b5e3c] mb-1.5 px-0.5">
-        <span>{minDisplay}</span>
-        <span>{winThreshold} to win</span>
-      </div>
-      <div className="relative h-10 bg-[#f0e6d2] rounded-full overflow-visible">
-        <div className="absolute top-0 bottom-0 w-px bg-[#d1bfa8]" style={{ left: `${zeroPos}%` }} />
-        <div className="absolute -top-4 text-[8px] text-[#8b5e3c] -translate-x-1/2" style={{ left: `${zeroPos}%` }}>0</div>
-        <div className="absolute top-0 bottom-0 w-[3px] bg-[#290806] right-0 rounded-r-full" />
-        <div className="absolute -top-4 right-[-2px] text-[10px]">🏁</div>
-        {groups.map((group, gi) => {
-          const pos = Math.max(3, Math.min(97, group.position));
-          if (group.markers.length === 1) {
-            const m = group.markers[0];
-            return (
-              <div key={gi} className="absolute top-1/2 z-10 transition-all duration-300" style={{ left: `${pos}%`, transform: `translateX(-50%) translateY(-50%)` }}>
-                <div className="w-7 h-7 rounded-full border-[2.5px] border-[#fff7ea] shadow-sm flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: m.color }}>{m.score}</div>
-                <div className="absolute top-8 left-1/2 -translate-x-1/2 text-[8px] font-semibold whitespace-nowrap" style={{ color: m.score < 0 ? "#b91c1c" : m.color }}>{m.name}</div>
-              </div>
-            );
-          }
-          return (
-            <div key={gi} className="absolute top-1/2 z-10 transition-all duration-300" style={{ left: `${pos}%`, transform: `translateX(-50%) translateY(-50%)` }}>
-              <div className="flex h-7 rounded-full border-[2.5px] border-[#fff7ea] shadow-sm overflow-hidden">
-                {group.markers.map((m) => (
-                  <div key={m.id} className="min-w-[22px] h-full flex items-center justify-center text-[7px] font-bold text-white px-1" style={{ backgroundColor: m.color }}>{m.score}</div>
-                ))}
-              </div>
-              <div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-1 whitespace-nowrap">
-                {group.markers.map((m) => (
-                  <span key={m.id} className="text-[7px] font-semibold" style={{ color: m.score < 0 ? "#b91c1c" : m.color }}>{m.name}</span>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="h-5" />
-    </div>
-  );
 }
 
 // --- Undo Toast ---
@@ -268,6 +174,10 @@ export default function WorkbenchPage() {
 
   const usedColors = players.map((p) => p.color);
   const scores = useMemo(() => calcScores(players, rounds), [players, rounds]);
+  const playersWithScores: PlayerWithScore[] = useMemo(
+    () => players.map((p) => ({ ...p, score: scores[p.id] ?? 0, isGuest: false })),
+    [players, scores]
+  );
   const roundNumber = rounds.length + 1;
 
   const allComplete = useMemo(() => Object.values(roundEntries).every((e) => getEntryStatus(e) === "complete"), [roundEntries]);
@@ -420,7 +330,7 @@ export default function WorkbenchPage() {
 
           {/* Race Track */}
           <div className="px-5 pt-4 pb-2">
-            <RaceTrack players={players} scores={scores} winThreshold={winThreshold} pillThreshold={pillThreshold} />
+            <RaceTrack players={playersWithScores} winThreshold={winThreshold} pillThreshold={pillThreshold} />
           </div>
 
           {/* Inline round editor (replaces score entry when editing) */}
