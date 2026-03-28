@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePostHog } from "posthog-js/react";
 import { RaceTrack } from "./RaceTrack";
 import { Standings } from "./Standings";
 import { RoundHistoryTable } from "./RoundHistoryTable";
@@ -31,9 +32,16 @@ export function BetweenRoundsView({
   onEnterScores,
   onEditRound,
 }: BetweenRoundsViewProps) {
+  const posthog = usePostHog();
   const [editingRound, setEditingRound] = useState<number | null>(null);
 
+  const handleEnterScores = () => {
+    posthog.capture("scoring_enter_next_round", { round_number: nextRoundNumber });
+    onEnterScores();
+  };
+
   const handleEditRound = (roundIndex: number) => {
+    posthog.capture("scoring_edit_round_tapped", { round_number: roundIndex + 1 });
     setEditingRound(roundIndex);
     onEditRound(roundIndex);
   };
@@ -68,7 +76,7 @@ export function BetweenRoundsView({
       {/* Floating CTA */}
       <FloatingCTA
         state={{ mode: "nextRound", roundNumber: nextRoundNumber }}
-        onAction={onEnterScores}
+        onAction={handleEnterScores}
       />
     </>
   );
