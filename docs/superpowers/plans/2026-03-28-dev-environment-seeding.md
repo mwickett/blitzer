@@ -1,3 +1,93 @@
+# Dev Environment Seeding Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Expand `prisma/seed.ts` to sync Clerk users, reconcile org memberships, and create sample game data so local dev and Vercel previews work against a fresh Neon dev branch.
+
+**Architecture:** Single seed script (`prisma/seed.ts`) with two-layer production guards, Prisma client for type-safe DB writes, and Clerk backend SDK for user/org management. All game data writes happen inside a `$transaction` for atomicity. Seed config comes from explicit env vars.
+
+**Tech Stack:** Prisma 7 (`PrismaClient` + `@prisma/adapter-pg`), `@clerk/backend`, TypeScript, `tsx` runner.
+
+---
+
+## File Structure
+
+- Modify: `prisma/seed.ts` — complete rewrite from raw SQL to Prisma client, add org reconciliation and game fixtures
+- Modify: `.env.example` — add seed configuration env vars
+
+---
+
+### Task 1: Environment Configuration
+
+**Files:**
+- Modify: `.env.example`
+
+- [ ] **Step 1: Add seed env vars to `.env.example`**
+
+Add the following block to the end of `.env.example`, before the closing blank line:
+
+```
+# Seed script configuration (dev/preview only)
+SEED_ORG_A="org_..."               # Primary circle — gets most game data
+SEED_ORG_B="org_..."               # Secondary circle — gets 1 completed game
+SEED_ORG_C="org_..."               # Empty circle — tests onboarding state
+SEED_ANCHOR_USER="user_..."        # Clerk user ID for mwickett-dev (anchor user)
+SEED_USER_2="user_..."             # Clerk user ID for second test player
+SEED_USER_3="user_..."             # Clerk user ID for third test player
+SEED_PROD_DB_HOST="ep-..."         # Production Neon endpoint prefix (seed guard)
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add .env.example
+git commit -m "chore: add seed configuration env vars to .env.example"
+```
+
+- [ ] **Step 3: Manual — Create Neon dev branch and update `.env`**
+
+This step is done by the developer, not automated:
+
+1. Open the Neon console and note the **production** branch's endpoint hostname prefix (e.g., `ep-bold-rice-a54s0mcj`). You'll need this for `SEED_PROD_DB_HOST`.
+2. Create a **new branch** (not forked from prod — use "Empty" or create from scratch).
+3. Copy the new branch's connection string.
+4. In `.env`, replace `DATABASE_URL` with the new branch's connection string.
+5. Fill in the `SEED_*` env vars in `.env`:
+   - `SEED_ORG_A`, `SEED_ORG_B`, `SEED_ORG_C`: Get org IDs from the Clerk dashboard (Development instance → Organizations)
+   - `SEED_ANCHOR_USER`: Get your Clerk user ID from the Clerk dashboard (Development instance → Users → your user → User ID)
+   - `SEED_USER_2`, `SEED_USER_3`: Clerk user IDs for two other test users (Development instance → Users)
+   - `SEED_PROD_DB_HOST`: The production endpoint prefix noted in step 1
+6. Run migrations against the new branch:
+
+```bash
+npx prisma migrate deploy
+```
+
+Expected: All migrations apply successfully to the empty database.
+
+- [ ] **Step 4: Manual — Configure Vercel preview environment**
+
+In the Vercel dashboard, set these env vars for the **Preview** environment only:
+
+- `DATABASE_URL`: The new dev branch's connection string (same as local `.env`)
+- `SEED_ORG_A`, `SEED_ORG_B`, `SEED_ORG_C`: Same values as local `.env`
+- `SEED_ANCHOR_USER`, `SEED_USER_2`, `SEED_USER_3`: Same values as local `.env`
+- `SEED_PROD_DB_HOST`: Same value as local `.env`
+
+Do NOT change the Production environment — it keeps its own `DATABASE_URL` and the seed script's `VERCEL_ENV` guard prevents execution.
+
+---
+
+### Task 2: Seed Script — Scaffolding with Guards
+
+**Files:**
+- Modify: `prisma/seed.ts`
+
+- [ ] **Step 1: Rewrite `prisma/seed.ts` with scaffolding**
+
+Replace the entire contents of `prisma/seed.ts` with:
+
+```typescript
 /**
  * Seed script for preview/dev environments.
  *
@@ -28,42 +118,6 @@ interface SyncedUser {
   prismaId: string;
   clerkId: string;
   username: string;
-}
-
-// --- Utilities ---
-
-/**
- * Generates a deterministic UUID for seed data.
- * Format: 5eed0000-CCCC-4000-a000-IIIIIIIIIIII
- * where C = category (hex), I = index (hex).
- * The "5eed" prefix makes seed records instantly identifiable.
- */
-function seedId(category: number, index: number): string {
-  const cat = category.toString(16).padStart(4, "0");
-  const idx = index.toString(16).padStart(12, "0");
-  return `5eed0000-${cat}-4000-a000-${idx}`;
-}
-
-// Seed ID categories
-const CAT_GUEST = 1;
-const CAT_GAME = 2;
-const CAT_PLAYER = 3;
-const CAT_ROUND = 4;
-const CAT_SCORE = 5;
-
-// Counts for deletion (must match creation below)
-const SEED_COUNTS = {
-  guests: 3,
-  games: 4,
-  players: 13,
-  rounds: 17,
-  scores: 55,
-};
-
-function daysAgo(n: number): Date {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d;
 }
 
 // --- Configuration ---
@@ -131,6 +185,93 @@ function createPrismaClient(): PrismaClient {
   return new PrismaClient({ adapter });
 }
 
+// --- Main ---
+
+async function main() {
+  const config = getConfig();
+  if (!guardProduction(config)) return;
+
+  const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+  if (!clerkSecretKey) throw new Error("CLERK_SECRET_KEY is required");
+
+  const clerk = createClerkClient({ secretKey: clerkSecretKey });
+  const prisma = createPrismaClient();
+
+  try {
+    // Validate that seed orgs exist in Clerk
+    for (const [label, orgId] of [
+      ["SEED_ORG_A", config.orgA],
+      ["SEED_ORG_B", config.orgB],
+      ["SEED_ORG_C", config.orgC],
+    ] as const) {
+      try {
+        await clerk.organizations.getOrganization({ organizationId: orgId });
+      } catch {
+        throw new Error(`${label}="${orgId}" not found in Clerk`);
+      }
+    }
+
+    // Validate all configured users exist in Clerk
+    for (const [label, userId] of [
+      ["SEED_ANCHOR_USER", config.anchorUserId],
+      ["SEED_USER_2", config.user2Id],
+      ["SEED_USER_3", config.user3Id],
+    ] as const) {
+      try {
+        await clerk.users.getUser(userId);
+      } catch {
+        throw new Error(`${label}="${userId}" not found in Clerk`);
+      }
+    }
+
+    console.log("✓ Config validated — all orgs and users exist in Clerk\n");
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+// Error handling: fail hard locally, swallow in Vercel previews
+if (process.env.VERCEL_ENV) {
+  main().catch((err) => {
+    console.error("Seed failed (non-fatal):", err.message || err);
+  });
+} else {
+  main();
+}
+```
+
+- [ ] **Step 2: Run seed to verify scaffolding works**
+
+```bash
+npm run db:seed
+```
+
+Expected output:
+```
+✓ Config validated — all orgs and anchor user exist in Clerk
+```
+
+If any `SEED_*` vars are missing or invalid, the script fails with a clear error message.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add prisma/seed.ts
+git commit -m "feat(seed): rewrite scaffolding with Prisma client, two-layer guards, and config validation"
+```
+
+---
+
+### Task 3: Seed Script — Clerk User Sync via Prisma
+
+**Files:**
+- Modify: `prisma/seed.ts`
+
+- [ ] **Step 1: Add `syncClerkUsers` function**
+
+Add this function after the `createPrismaClient` function and before `main`:
+
+```typescript
 // --- Clerk User Sync ---
 
 async function syncClerkUsers(
@@ -161,7 +302,50 @@ async function syncClerkUsers(
   console.log(`✓ Synced ${synced.length} users\n`);
   return synced;
 }
+```
 
+- [ ] **Step 2: Call `syncClerkUsers` from `main`**
+
+In the `main` function, after the "Config validated" log line, add:
+
+```typescript
+    // Step 1: Sync Clerk users to database
+    const users = await syncClerkUsers(clerk, prisma);
+```
+
+- [ ] **Step 3: Run seed to verify user sync**
+
+```bash
+npm run db:seed
+```
+
+Expected: Users from Clerk dev instance are listed and synced. Verify with:
+
+```bash
+npx prisma studio
+```
+
+Check the `User` table — should contain your Clerk dev users with matching `clerk_user_id` values.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add prisma/seed.ts
+git commit -m "feat(seed): add Clerk user sync via Prisma upsert"
+```
+
+---
+
+### Task 4: Seed Script — Org Membership Reconciliation
+
+**Files:**
+- Modify: `prisma/seed.ts`
+
+- [ ] **Step 1: Add `ensureMembership` helper function**
+
+Add after `syncClerkUsers`:
+
+```typescript
 // --- Org Membership Reconciliation ---
 
 async function ensureMembership(
@@ -188,7 +372,13 @@ async function ensureMembership(
     console.log(`  ✓ ${userId} already in ${orgId}`);
   }
 }
+```
 
+- [ ] **Step 2: Add `reconcileOrgMemberships` function**
+
+Add after `ensureMembership`:
+
+```typescript
 async function reconcileOrgMemberships(
   clerk: ReturnType<typeof createClerkClient>,
   config: SeedConfig
@@ -209,7 +399,86 @@ async function reconcileOrgMemberships(
 
   console.log("✓ Org memberships reconciled\n");
 }
+```
 
+- [ ] **Step 3: Call `reconcileOrgMemberships` from `main`**
+
+In `main`, after the `syncClerkUsers` call, add:
+
+```typescript
+    // Step 2: Reconcile Clerk org memberships
+    await reconcileOrgMemberships(clerk, config);
+```
+
+- [ ] **Step 4: Run seed to verify membership reconciliation**
+
+```bash
+npm run db:seed
+```
+
+Expected: Memberships are checked and created if missing. Verify in the Clerk dashboard (Development → Organizations → each org → Members).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add prisma/seed.ts
+git commit -m "feat(seed): add Clerk org membership reconciliation"
+```
+
+---
+
+### Task 5: Seed Script — Game Data Fixtures
+
+**Files:**
+- Modify: `prisma/seed.ts`
+
+- [ ] **Step 1: Add `seedId` and `daysAgo` utility functions**
+
+Add after the types section (before `getConfig`):
+
+```typescript
+// --- Utilities ---
+
+/**
+ * Generates a deterministic UUID for seed data.
+ * Format: 5eed0000-CCCC-4000-a000-IIIIIIIIIIII
+ * where C = category (hex), I = index (hex).
+ * The "5eed" prefix makes seed records instantly identifiable.
+ */
+function seedId(category: number, index: number): string {
+  const cat = category.toString(16).padStart(4, "0");
+  const idx = index.toString(16).padStart(12, "0");
+  return `5eed0000-${cat}-4000-a000-${idx}`;
+}
+
+// Seed ID categories
+const CAT_GUEST = 1;
+const CAT_GAME = 2;
+const CAT_PLAYER = 3;
+const CAT_ROUND = 4;
+const CAT_SCORE = 5;
+
+// Counts for deletion (must match creation below)
+const SEED_COUNTS = {
+  guests: 3,
+  games: 4,
+  players: 13,
+  rounds: 17,
+  scores: 55,
+};
+
+function daysAgo(n: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+}
+```
+
+- [ ] **Step 2: Add `seedGameData` function**
+
+Add after `reconcileOrgMemberships`:
+
+```typescript
 // --- Game Data Fixtures ---
 
 async function seedGameData(
@@ -465,68 +734,105 @@ async function seedGameData(
 
   console.log("✓ Game data seeded\n");
 }
+```
 
-// --- Main ---
+- [ ] **Step 3: Call `seedGameData` from `main`**
 
-async function main() {
-  const config = getConfig();
-  if (!guardProduction(config)) return;
+In `main`, after the `reconcileOrgMemberships` call, add:
 
-  const clerkSecretKey = process.env.CLERK_SECRET_KEY;
-  if (!clerkSecretKey) throw new Error("CLERK_SECRET_KEY is required");
-
-  const clerk = createClerkClient({ secretKey: clerkSecretKey });
-  const prisma = createPrismaClient();
-
-  try {
-    // Validate that seed orgs exist in Clerk
-    for (const [label, orgId] of [
-      ["SEED_ORG_A", config.orgA],
-      ["SEED_ORG_B", config.orgB],
-      ["SEED_ORG_C", config.orgC],
-    ] as const) {
-      try {
-        await clerk.organizations.getOrganization({ organizationId: orgId });
-      } catch {
-        throw new Error(`${label}="${orgId}" not found in Clerk`);
-      }
-    }
-
-    // Validate all configured users exist in Clerk
-    for (const [label, userId] of [
-      ["SEED_ANCHOR_USER", config.anchorUserId],
-      ["SEED_USER_2", config.user2Id],
-      ["SEED_USER_3", config.user3Id],
-    ] as const) {
-      try {
-        await clerk.users.getUser(userId);
-      } catch {
-        throw new Error(`${label}="${userId}" not found in Clerk`);
-      }
-    }
-
-    console.log("✓ Config validated — all orgs and users exist in Clerk\n");
-
-    // Step 1: Sync Clerk users to database
-    const users = await syncClerkUsers(clerk, prisma);
-
-    // Step 2: Reconcile Clerk org memberships
-    await reconcileOrgMemberships(clerk, config);
-
+```typescript
     // Step 3: Seed game data (delete-and-recreate in transaction)
     await seedGameData(prisma, config, users);
 
     console.log("Done! All seed data is in place.");
-  } finally {
-    await prisma.$disconnect();
-  }
-}
+```
 
-// Error handling: fail hard locally, swallow in Vercel previews
-if (process.env.VERCEL_ENV) {
-  main().catch((err) => {
-    console.error("Seed failed (non-fatal):", err.message || err);
-  });
-} else {
-  main();
-}
+- [ ] **Step 4: Run seed to verify game data creation**
+
+```bash
+npm run db:seed
+```
+
+Expected output:
+```
+✓ Config validated — all orgs and anchor user exist in Clerk
+
+Found N users in Clerk
+  ✓ username1 (email1)
+  ...
+✓ Synced N users
+
+Reconciling org memberships...
+  ✓ user_... already in org_...
+  ...
+✓ Org memberships reconciled
+
+Seeding game data (delete-and-recreate in transaction)...
+  ✓ Cleared old seed data
+  ✓ Created 3 guest users
+  ✓ Created 4 games
+  ✓ Created 13 game players
+  ✓ Created 17 rounds and 55 scores
+✓ Game data seeded
+
+Done! All seed data is in place.
+```
+
+Verify with Prisma Studio:
+
+```bash
+npx prisma studio
+```
+
+Check:
+- `GuestUser` table: 3 records with `5eed`-prefixed IDs
+- `Game` table: 4 records — 3 in Org A (2 finished, 1 not), 1 in Org B (finished)
+- `Round` table: 17 records across the 4 games
+- `Score` table: 55 records with realistic `totalCardsPlayed` and `blitzPileRemaining` values
+
+- [ ] **Step 5: Run seed again to verify idempotency**
+
+```bash
+npm run db:seed
+```
+
+Expected: Same output, same record counts. No duplicate records. The delete-and-recreate in a transaction ensures clean re-runs.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add prisma/seed.ts
+git commit -m "feat(seed): add game data fixtures with deterministic IDs and transactional delete-and-recreate"
+```
+
+---
+
+### Task 6: End-to-End Verification
+
+- [ ] **Step 1: Start the dev server**
+
+```bash
+npm run dev
+```
+
+- [ ] **Step 2: Sign in and verify game data**
+
+1. Open `http://localhost:3000` and sign in with your Clerk dev account.
+2. Switch to the organization corresponding to `SEED_ORG_A`.
+3. Navigate to the games page — should show 3 games (2 completed, 1 in-progress).
+4. Open a completed game — should show rounds with scores.
+5. Switch to the organization corresponding to `SEED_ORG_B` — should show 1 completed game.
+6. Switch to the organization corresponding to `SEED_ORG_C` — should show the empty/onboarding state (no games).
+
+- [ ] **Step 3: Verify guest players appear correctly**
+
+1. In Org A, open the completed game that includes Guest Alice — verify the guest player appears with their name and scores.
+2. In Org B, open the completed game — verify Guest Carol appears.
+
+- [ ] **Step 4: Run seed one more time to confirm clean re-run**
+
+```bash
+npm run db:seed
+```
+
+Refresh the app — all data should be identical. No duplicates, no missing records.
