@@ -95,6 +95,37 @@ function createPrismaClient(): PrismaClient {
   return new PrismaClient({ adapter });
 }
 
+// --- Clerk User Sync ---
+
+async function syncClerkUsers(
+  clerk: ReturnType<typeof createClerkClient>,
+  prisma: PrismaClient
+): Promise<SyncedUser[]> {
+  const clerkUsers = await clerk.users.getUserList({ limit: 100 });
+  console.log(`Found ${clerkUsers.data.length} users in Clerk`);
+
+  const synced: SyncedUser[] = [];
+
+  for (const user of clerkUsers.data) {
+    const email =
+      user.emailAddresses[0]?.emailAddress || `${user.id}@placeholder.dev`;
+    const username = user.username || user.id.slice(-8);
+    const avatarUrl = user.imageUrl || null;
+
+    const dbUser = await prisma.user.upsert({
+      where: { clerk_user_id: user.id },
+      update: { email, username, avatarUrl },
+      create: { clerk_user_id: user.id, email, username, avatarUrl },
+    });
+
+    synced.push({ prismaId: dbUser.id, clerkId: user.id, username });
+    console.log(`  ✓ ${username} (${email})`);
+  }
+
+  console.log(`✓ Synced ${synced.length} users\n`);
+  return synced;
+}
+
 // --- Main ---
 
 async function main() {
@@ -135,6 +166,9 @@ async function main() {
     }
 
     console.log("✓ Config validated — all orgs and users exist in Clerk\n");
+
+    // Step 1: Sync Clerk users to database
+    const users = await syncClerkUsers(clerk, prisma);
   } finally {
     await prisma.$disconnect();
   }
