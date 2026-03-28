@@ -21,13 +21,33 @@ Local dev and Vercel deploy previews use the Clerk dev instance, which has diffe
   - Vercel **Preview** environment gets the same dev branch URL
   - Vercel **Production** environment keeps the prod URL (no change)
 
+### Shared DB Compatibility Policy
+
+The shared dev/preview DB tracks the latest migrated branch. This is an accepted constraint:
+
+- Schema changes are applied locally via `prisma migrate dev` before being deployed to previews.
+- Older preview deployments are not guaranteed to remain functional after a schema-changing deploy.
+- Schema changes should be additive when possible; destructive changes may invalidate older previews and local branches.
+- If a preview looks broken after another branch landed migrations, redeploy it against the current schema.
+
 ## Clerk Dev Instance Prerequisites
 
 The seed script automates membership setup, but these must exist in Clerk beforehand:
-- **3 organizations** (assigned as Org A, B, C by creation date sort)
-- **3+ test users** (including `mwickett-dev` as the anchor user)
+- **3 organizations**
+- **3+ test users** (including the anchor user)
 
-The seed script handles everything else (membership assignment, database records, game data).
+### Configuration via Environment Variables
+
+Org and user references are configured explicitly via env vars rather than derived from API ordering. This prevents silent drift if Clerk-side orgs are deleted/recreated or accounts are cleaned up.
+
+```
+SEED_ORG_A=org_...       # Primary org — gets most game data
+SEED_ORG_B=org_...       # Secondary org — gets 1 completed game
+SEED_ORG_C=org_...       # Empty org — tests onboarding state
+SEED_ANCHOR_USER=user_...  # Clerk user ID for mwickett-dev
+```
+
+The seed script validates that all four IDs exist in Clerk before proceeding. If any are missing or invalid, the script fails with a clear error message.
 
 ## Seed Script Design
 
@@ -50,22 +70,27 @@ Both guards must pass for the script to proceed.
 ### Execution Flow
 
 1. **Guard**: Two-layer production safety check
-2. **Sync Clerk users**: Upsert User records from Clerk dev API (existing behavior)
-3. **Reconcile Clerk org memberships**:
-   - List all orgs via Clerk API, sort by creation date → assign as Org A, B, C
+2. **Validate config**: Confirm `SEED_ORG_A`, `SEED_ORG_B`, `SEED_ORG_C`, and `SEED_ANCHOR_USER` are set and exist in Clerk
+3. **Sync Clerk users**: Upsert User records from Clerk dev API (existing behavior)
+4. **Reconcile Clerk org memberships** (Clerk API calls — additive and idempotent):
    - List members of each org
-   - Ensure `mwickett-dev` is a member of all 3 orgs
+   - Ensure the anchor user is a member of all 3 orgs
    - Ensure at least 2 other test users are members of Org A
    - Ensure at least 1 other test user is a member of Org B
    - Create missing memberships via `organizations.createOrganizationMembership()` (direct add, no invitation flow)
    - Does NOT delete extra memberships — only ensures the minimum baseline. Ad-hoc testing in Clerk is preserved.
-4. **Delete-and-recreate game data**: Remove all seed game data (games, rounds, scores, guest users) by deterministic IDs, then recreate from scratch. This prevents relational data drift across seed fixture changes.
-5. **Create GuestUsers**: 2 guests in Org A, 1 guest in Org B, owned by `mwickett-dev`
-6. **Create Games** (org-scoped):
-   - **Org A** (3 games): 2 completed (one with 3 real players, one with 4 including a guest), 1 in-progress (a few rounds played, no winner yet)
-   - **Org B** (1 game): 1 completed game with 2 real players and 1 guest
-   - **Org C**: No seed data (tests empty/onboarding state)
-7. **Create Rounds & Scores**: Realistic score distributions per round. Completed games have a winner who crossed `winThreshold` (75). Scores use actual Dutch Blitz values (`totalCardsPlayed` and `blitzPileRemaining`).
+5. **Delete-and-recreate game data in a single transaction**:
+   - All DB-side seed writes (delete old seed rows + create new ones) happen inside a Prisma `$transaction`
+   - If any step fails, the transaction rolls back — the shared DB is never left in a partially-seeded state
+   - Clerk mutations (step 4) run before the transaction since they are additive/idempotent and independent of DB state
+   - Within the transaction:
+     - Delete all existing seed records by deterministic IDs (scores → rounds → game players → games → guest users, respecting FK order)
+     - Create GuestUsers: 2 guests in Org A, 1 guest in Org B, owned by the anchor user
+     - Create Games (org-scoped):
+       - **Org A** (3 games): 2 completed (one with 3 real players, one with 4 including a guest), 1 in-progress (a few rounds played, no winner yet)
+       - **Org B** (1 game): 1 completed game with 2 real players and 1 guest
+       - **Org C**: No seed data (tests empty/onboarding state)
+     - Create Rounds & Scores: Realistic score distributions per round. Completed games have a winner who crossed `winThreshold` (75). Scores use actual Dutch Blitz values (`totalCardsPlayed` and `blitzPileRemaining`).
 
 ### Prisma Client Usage
 
@@ -73,16 +98,18 @@ The script will be refactored from raw `pg` queries to use the **Prisma client**
 - Type safety against the schema (compile-time errors on drift)
 - No risk of raw SQL silently breaking after schema changes
 - Cleaner code for the more complex game data creation
+- `$transaction` support for atomic delete-and-recreate
 
 ### Idempotency Strategy
 
 - **Clerk users**: Upsert on `clerk_user_id` (existing behavior, now via Prisma `upsert`)
 - **Clerk memberships**: Additive only — create if missing, never delete
-- **Game data**: Delete-and-recreate using deterministic UUIDs. All seed records (games, rounds, scores, guest users) use known IDs. On each run, delete all records with those IDs, then recreate. Clean slate prevents orphaned child rows from accumulating.
+- **Game data**: Delete-and-recreate in a single transaction using deterministic UUIDs. All seed records use known IDs. On each run, delete all records with those IDs within a transaction, then recreate. Rollback on failure prevents partial state.
 
 ## Vercel Configuration
 
 - Set the dev branch `DATABASE_URL` in Vercel's **Preview** environment settings
+- Set `SEED_ORG_A`, `SEED_ORG_B`, `SEED_ORG_C`, and `SEED_ANCHOR_USER` in Vercel's **Preview** environment
 - The existing `vercel-build` script (`prisma generate && prisma migrate deploy && tsx prisma/seed.ts && next build`) requires no changes
 - Prod environment keeps its own `DATABASE_URL`; seed script guards prevent execution
 
