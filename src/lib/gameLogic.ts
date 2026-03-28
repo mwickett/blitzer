@@ -8,6 +8,7 @@ export interface GameWithPlayersAndScores extends Game {
     gameId: string;
     userId?: string;
     guestId?: string;
+    accentColor?: string | null;
     user?: User;
     guestUser?: GuestUser;
   }[];
@@ -31,6 +32,7 @@ export interface DisplayScores {
   total: number;
   isInLead?: boolean;
   isWinner?: boolean;
+  accentColor?: string | null;
 }
 
 export interface ProcessedPlayerScore {
@@ -39,6 +41,7 @@ export interface ProcessedPlayerScore {
   isGuest: boolean;
   scoresByRound: number[];
   total: number;
+  accentColor?: string | null;
 }
 
 // Function to get player name - handles both regular users and guest users
@@ -77,6 +80,7 @@ function initializePlayerScoresMap(
       isGuest: isGuestPlayer(player),
       scoresByRound: [],
       total: 0,
+      accentColor: player.accentColor ?? null,
     };
   });
 
@@ -191,7 +195,7 @@ export default async function transformGameData(
 
   // Convert to final display scores
   return Object.entries(playerScoresMap).map(
-    ([id, { username, isGuest, scoresByRound, total }]) => ({
+    ([id, { username, isGuest, scoresByRound, total, accentColor }]) => ({
       id,
       userId: id, // Add userId for backward compatibility with tests
       username,
@@ -200,6 +204,7 @@ export default async function transformGameData(
       total,
       isInLead: leaders.includes(id),
       isWinner: id === winnerId,
+      accentColor,
     })
   );
 }
