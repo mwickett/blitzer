@@ -15,6 +15,7 @@ model User {
   updatedAt              DateTime                 @default(now()) @map("updated_at")
   username               String                   @unique
   avatarUrl              String?
+  accentColor            String?                  @map("accent_color")
   games                  GamePlayers[]
   scores                 Score[]
   createdGuests          GuestUser[]              @relation("CreatedGuests")
@@ -85,10 +86,11 @@ model GamePlayers {
   id        String     @id @default(uuid())
   gameId    String
   userId    String?
-  guestId   String?
-  game      Game       @relation(fields: [gameId], references: [id])
-  user      User?      @relation(fields: [userId], references: [id])
-  guestUser GuestUser? @relation(fields: [guestId], references: [id])
+  guestId     String?
+  accentColor String?    @map("accent_color")
+  game        Game       @relation(fields: [gameId], references: [id])
+  user        User?      @relation(fields: [userId], references: [id])
+  guestUser   GuestUser? @relation(fields: [guestId], references: [id])
 
   @@unique([gameId, userId], name: "gamePlayer_userId", map: "game_players_game_id_user_id")
   @@unique([gameId, guestId], name: "gamePlayer_guestId", map: "game_players_game_id_guest_id")
