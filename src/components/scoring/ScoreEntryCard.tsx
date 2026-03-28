@@ -10,7 +10,6 @@ interface ScoreEntryCardProps {
   entry: PlayerEntry;
   status: EntryStatus;
   onUpdate: (field: "blitzRemaining" | "cardsPlayed", value: number | null) => void;
-  deltaFlash?: number | null;
 }
 
 function handleNumericInput(
@@ -34,26 +33,12 @@ export function ScoreEntryCard({
   entry,
   status,
   onUpdate,
-  deltaFlash,
 }: ScoreEntryCardProps) {
   return (
     <div
-      className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-3 flex items-center gap-2.5 relative"
+      className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-3 flex items-center gap-2.5"
       style={{ borderLeftWidth: "5px", borderLeftColor: color }}
     >
-      {deltaFlash !== null && deltaFlash !== undefined && (
-        <div
-          className="absolute inset-0 flex items-center justify-center rounded-xl animate-[deltaFlash_1.2s_ease-out_forwards] pointer-events-none z-10"
-          style={{ backgroundColor: deltaFlash >= 0 ? "#dcfce7" : "#fef2f2" }}
-        >
-          <span
-            className={`text-2xl font-black ${deltaFlash >= 0 ? "text-[#2a6517]" : "text-[#b91c1c]"}`}
-          >
-            {deltaFlash > 0 ? `+${deltaFlash}` : deltaFlash}
-          </span>
-        </div>
-      )}
-
       <div className="w-16 flex-shrink-0">
         <div className="text-sm font-semibold text-[#290806]">{name}</div>
         <div

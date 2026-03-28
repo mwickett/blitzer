@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { ScoreEntryView } from "./ScoreEntryView";
 import { type PlayerWithScore } from "./types";
+
+export type ScoringMode = "entry" | "betweenRounds" | "editing" | "gameOver";
 
 interface ScoringShellProps {
   gameId: string;
@@ -9,6 +12,7 @@ interface ScoringShellProps {
   players: PlayerWithScore[];
   winThreshold: number;
   isFinished: boolean;
+  winnerName?: string;
   rounds: {
     scores: {
       userId?: string | null;
@@ -24,9 +28,16 @@ export function ScoringShell({
   currentRoundNumber,
   players,
   winThreshold,
+  isFinished,
 }: ScoringShellProps) {
-  // For Plan 1, only score entry mode.
-  // Plans 2-4 will add between-rounds, editing, and game-over modes.
+  const [mode] = useState<ScoringMode>(isFinished ? "gameOver" : "entry");
+
+  // For Plan 1, only score entry mode is implemented.
+  // Plans 2-4 will add betweenRounds, editing, and gameOver rendering.
+  if (mode !== "entry") {
+    return null;
+  }
+
   return (
     <ScoreEntryView
       gameId={gameId}
