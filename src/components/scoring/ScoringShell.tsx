@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ScoreEntryView } from "./ScoreEntryView";
 import { type PlayerWithScore } from "./types";
 
@@ -30,10 +29,11 @@ export function ScoringShell({
   winThreshold,
   isFinished,
 }: ScoringShellProps) {
-  const [mode] = useState<ScoringMode>(isFinished ? "gameOver" : "entry");
-
-  // For Plan 1, only score entry mode is implemented.
+  // Derive mode from props — not useState — so it reacts to server state changes
+  // after router.refresh() (App Router preserves client state but updates props).
   // Plans 2-4 will add betweenRounds, editing, and gameOver rendering.
+  const mode: ScoringMode = isFinished ? "gameOver" : "entry";
+
   if (mode !== "entry") {
     return null;
   }

@@ -74,6 +74,13 @@ export function ScoreEntryView({
     try {
       validateGameRules(scores);
       await createRoundForGame(gameId, currentRoundNumber, scores);
+      // Clear local state before refresh — App Router preserves client state across refresh
+      setEntries(
+        Object.fromEntries(
+          players.map((p) => [p.id, { blitzRemaining: null, cardsPlayed: null }])
+        )
+      );
+      setIsSubmitting(false);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to submit round");

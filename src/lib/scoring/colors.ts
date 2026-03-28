@@ -37,12 +37,18 @@ export function assignColorsToPlayers(
   const availableColors = ACCENT_COLORS.map((c) => c.value).filter(
     (c) => !usedColors.has(c)
   );
+  const allColors = ACCENT_COLORS.map((c) => c.value);
   let colorIndex = 0;
 
   for (const player of players) {
     if (!assigned[player.id]) {
-      assigned[player.id] = availableColors[colorIndex];
-      usedColors.add(availableColors[colorIndex]);
+      if (colorIndex < availableColors.length) {
+        assigned[player.id] = availableColors[colorIndex];
+        usedColors.add(availableColors[colorIndex]);
+      } else {
+        // Palette exhausted (7+ players) — wrap around to reuse colors
+        assigned[player.id] = allColors[colorIndex % allColors.length];
+      }
       colorIndex++;
     }
   }
