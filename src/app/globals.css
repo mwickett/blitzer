@@ -36,6 +36,18 @@
     --ring: 240 10% 3.9%;
 
     --radius: 0.5rem;
+
+    /* Scoring design tokens */
+    --scoring-bg: #fff7ea;
+    --scoring-bg-muted: #f0e6d2;
+    --scoring-bg-subtle: #faf5ed;
+    --scoring-border: #e6d7c3;
+    --scoring-border-muted: #d1bfa8;
+    --scoring-text: #290806;
+    --scoring-text-muted: #8b5e3c;
+    --scoring-text-negative: #b91c1c;
+    --scoring-success: #2a6517;
+    --scoring-success-hover: #1d4a10;
   }
 
   .dark {
