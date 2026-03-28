@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { ScoreEntryView } from "./ScoreEntryView";
 import { BetweenRoundsView } from "./BetweenRoundsView";
 import { type PlayerWithScore } from "./types";
@@ -34,15 +34,14 @@ export function ScoringShell({
 }: ScoringShellProps) {
   // showEntry is a client override — when user taps "Enter Next Round" we flip to entry.
   // Reset when currentRoundNumber changes (i.e. after a round is submitted + refresh).
+  // Uses React's "adjust state during render" pattern to avoid useEffect lint issues.
   const [showEntry, setShowEntry] = useState(false);
-  const prevRoundRef = useRef(currentRoundNumber);
+  const [prevRound, setPrevRound] = useState(currentRoundNumber);
 
-  useEffect(() => {
-    if (currentRoundNumber !== prevRoundRef.current) {
-      setShowEntry(false);
-      prevRoundRef.current = currentRoundNumber;
-    }
-  }, [currentRoundNumber]);
+  if (currentRoundNumber !== prevRound) {
+    setPrevRound(currentRoundNumber);
+    setShowEntry(false);
+  }
 
   // Derive mode from props + client override
   const mode: ScoringMode = isFinished
@@ -63,9 +62,6 @@ export function ScoringShell({
         winThreshold={winThreshold}
         nextRoundNumber={currentRoundNumber}
         onEnterScores={() => setShowEntry(true)}
-        onEditRound={() => {
-          // Editing UI deferred to Plan 3
-        }}
       />
     );
   }

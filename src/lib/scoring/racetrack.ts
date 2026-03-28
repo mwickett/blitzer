@@ -48,6 +48,7 @@ export function groupMarkers(
     const pos = scoreToPosition(sorted[i].score, trackMin, trackMax);
     if (pos - currentPos < threshold) {
       current.push(sorted[i]);
+      currentPos = pos; // Track tail so chained-close scores group transitively
     } else {
       const avg =
         current.reduce((s, m) => s + m.score, 0) / current.length;

@@ -99,4 +99,16 @@ describe("groupMarkers", () => {
     expect(groups[0].markers[0].score).toBe(3);
     expect(groups[0].markers[1].score).toBe(5);
   });
+
+  it("groups chained-close scores transitively (0/6/12)", () => {
+    const markers: TrackMarker[] = [
+      { id: "1", name: "A", score: 0, color: "#3b82f6" },
+      { id: "2", name: "B", score: 6, color: "#ef4444" },
+      { id: "3", name: "C", score: 12, color: "#eab308" },
+    ];
+    // Each adjacent pair is within threshold, so all three should merge
+    const groups = groupMarkers(markers, 8, -10, 75);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].markers).toHaveLength(3);
+  });
 });

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { usePostHog } from "posthog-js/react";
 import { RaceTrack } from "./RaceTrack";
 import { Standings } from "./Standings";
@@ -21,7 +20,6 @@ interface BetweenRoundsViewProps {
   winThreshold: number;
   nextRoundNumber: number;
   onEnterScores: () => void;
-  onEditRound: (roundIndex: number) => void;
 }
 
 export function BetweenRoundsView({
@@ -30,20 +28,12 @@ export function BetweenRoundsView({
   winThreshold,
   nextRoundNumber,
   onEnterScores,
-  onEditRound,
 }: BetweenRoundsViewProps) {
   const posthog = usePostHog();
-  const [editingRound, setEditingRound] = useState<number | null>(null);
 
   const handleEnterScores = () => {
     posthog.capture("scoring_enter_next_round", { round_number: nextRoundNumber });
     onEnterScores();
-  };
-
-  const handleEditRound = (roundIndex: number) => {
-    posthog.capture("scoring_edit_round_tapped", { round_number: roundIndex + 1 });
-    setEditingRound(roundIndex);
-    onEditRound(roundIndex);
   };
 
   return (
@@ -65,8 +55,6 @@ export function BetweenRoundsView({
         <RoundHistoryTable
           players={players}
           rounds={rounds}
-          editingRound={editingRound}
-          onEditRound={handleEditRound}
         />
       </div>
 
