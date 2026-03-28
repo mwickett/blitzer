@@ -32,6 +32,8 @@ SEED_ORG_A="org_..."               # Primary circle — gets most game data
 SEED_ORG_B="org_..."               # Secondary circle — gets 1 completed game
 SEED_ORG_C="org_..."               # Empty circle — tests onboarding state
 SEED_ANCHOR_USER="user_..."        # Clerk user ID for mwickett-dev (anchor user)
+SEED_USER_2="user_..."             # Clerk user ID for second test player
+SEED_USER_3="user_..."             # Clerk user ID for third test player
 SEED_PROD_DB_HOST="ep-..."         # Production Neon endpoint prefix (seed guard)
 ```
 
@@ -53,11 +55,12 @@ This step is done by the developer, not automated:
 5. Fill in the `SEED_*` env vars in `.env`:
    - `SEED_ORG_A`, `SEED_ORG_B`, `SEED_ORG_C`: Get org IDs from the Clerk dashboard (Development instance → Organizations)
    - `SEED_ANCHOR_USER`: Get your Clerk user ID from the Clerk dashboard (Development instance → Users → your user → User ID)
+   - `SEED_USER_2`, `SEED_USER_3`: Clerk user IDs for two other test users (Development instance → Users)
    - `SEED_PROD_DB_HOST`: The production endpoint prefix noted in step 1
 6. Run migrations against the new branch:
 
 ```bash
-npx prisma migrate dev
+npx prisma migrate deploy
 ```
 
 Expected: All migrations apply successfully to the empty database.
@@ -68,7 +71,7 @@ In the Vercel dashboard, set these env vars for the **Preview** environment only
 
 - `DATABASE_URL`: The new dev branch's connection string (same as local `.env`)
 - `SEED_ORG_A`, `SEED_ORG_B`, `SEED_ORG_C`: Same values as local `.env`
-- `SEED_ANCHOR_USER`: Same value as local `.env`
+- `SEED_ANCHOR_USER`, `SEED_USER_2`, `SEED_USER_3`: Same values as local `.env`
 - `SEED_PROD_DB_HOST`: Same value as local `.env`
 
 Do NOT change the Production environment — it keeps its own `DATABASE_URL` and the seed script's `VERCEL_ENV` guard prevents execution.
@@ -106,6 +109,8 @@ interface SeedConfig {
   orgB: string;
   orgC: string;
   anchorUserId: string;
+  user2Id: string;
+  user3Id: string;
   prodDbHost: string;
 }
 
@@ -122,6 +127,8 @@ function getConfig(): SeedConfig {
   const orgB = process.env.SEED_ORG_B;
   const orgC = process.env.SEED_ORG_C;
   const anchorUserId = process.env.SEED_ANCHOR_USER;
+  const user2Id = process.env.SEED_USER_2;
+  const user3Id = process.env.SEED_USER_3;
   const prodDbHost = process.env.SEED_PROD_DB_HOST;
 
   const missing = [
@@ -129,6 +136,8 @@ function getConfig(): SeedConfig {
     !orgB && "SEED_ORG_B",
     !orgC && "SEED_ORG_C",
     !anchorUserId && "SEED_ANCHOR_USER",
+    !user2Id && "SEED_USER_2",
+    !user3Id && "SEED_USER_3",
     !prodDbHost && "SEED_PROD_DB_HOST",
   ].filter(Boolean);
 
@@ -141,6 +150,8 @@ function getConfig(): SeedConfig {
     orgB: orgB!,
     orgC: orgC!,
     anchorUserId: anchorUserId!,
+    user2Id: user2Id!,
+    user3Id: user3Id!,
     prodDbHost: prodDbHost!,
   };
 }
@@ -200,16 +211,20 @@ async function main() {
       }
     }
 
-    // Validate anchor user exists in Clerk
-    try {
-      await clerk.users.getUser(config.anchorUserId);
-    } catch {
-      throw new Error(
-        `SEED_ANCHOR_USER="${config.anchorUserId}" not found in Clerk`
-      );
+    // Validate all configured users exist in Clerk
+    for (const [label, userId] of [
+      ["SEED_ANCHOR_USER", config.anchorUserId],
+      ["SEED_USER_2", config.user2Id],
+      ["SEED_USER_3", config.user3Id],
+    ] as const) {
+      try {
+        await clerk.users.getUser(userId);
+      } catch {
+        throw new Error(`${label}="${userId}" not found in Clerk`);
+      }
     }
 
-    console.log("✓ Config validated — all orgs and anchor user exist in Clerk\n");
+    console.log("✓ Config validated — all orgs and users exist in Clerk\n");
   } finally {
     await prisma.$disconnect();
   }
@@ -366,17 +381,8 @@ Add after `ensureMembership`:
 ```typescript
 async function reconcileOrgMemberships(
   clerk: ReturnType<typeof createClerkClient>,
-  config: SeedConfig,
-  users: SyncedUser[]
+  config: SeedConfig
 ): Promise<void> {
-  const otherUsers = users.filter((u) => u.clerkId !== config.anchorUserId);
-
-  if (otherUsers.length < 2) {
-    throw new Error(
-      `Need at least 2 non-anchor test users in Clerk, found ${otherUsers.length}`
-    );
-  }
-
   console.log("Reconciling org memberships...");
 
   // Anchor user in all 3 orgs
@@ -384,13 +390,12 @@ async function reconcileOrgMemberships(
     await ensureMembership(clerk, orgId, config.anchorUserId);
   }
 
-  // At least 2 other users in Org A
-  for (const user of otherUsers.slice(0, 2)) {
-    await ensureMembership(clerk, config.orgA, user.clerkId);
-  }
+  // User 2 and User 3 in Org A
+  await ensureMembership(clerk, config.orgA, config.user2Id);
+  await ensureMembership(clerk, config.orgA, config.user3Id);
 
-  // At least 1 other user in Org B
-  await ensureMembership(clerk, config.orgB, otherUsers[0].clerkId);
+  // User 2 in Org B
+  await ensureMembership(clerk, config.orgB, config.user2Id);
 
   console.log("✓ Org memberships reconciled\n");
 }
@@ -402,7 +407,7 @@ In `main`, after the `syncClerkUsers` call, add:
 
 ```typescript
     // Step 2: Reconcile Clerk org memberships
-    await reconcileOrgMemberships(clerk, config, users);
+    await reconcileOrgMemberships(clerk, config);
 ```
 
 - [ ] **Step 4: Run seed to verify membership reconciliation**
@@ -481,15 +486,21 @@ async function seedGameData(
   config: SeedConfig,
   users: SyncedUser[]
 ): Promise<void> {
+  // Resolve configured users to their Prisma IDs
   const anchor = users.find((u) => u.clerkId === config.anchorUserId);
-  if (!anchor) throw new Error("Anchor user not found in synced users");
+  const user2 = users.find((u) => u.clerkId === config.user2Id);
+  const user3 = users.find((u) => u.clerkId === config.user3Id);
 
-  const others = users.filter((u) => u.clerkId !== config.anchorUserId);
-  const user2 = others[0];
-  const user3 = others[1];
-
-  if (!user2 || !user3) {
-    throw new Error("Need at least 2 non-anchor users for game fixtures");
+  if (!anchor || !user2 || !user3) {
+    const missing = [
+      !anchor && "SEED_ANCHOR_USER",
+      !user2 && "SEED_USER_2",
+      !user3 && "SEED_USER_3",
+    ].filter(Boolean);
+    throw new Error(
+      `Configured users not found in synced users: ${missing.join(", ")}. ` +
+      `Ensure these Clerk users exist and were synced.`
+    );
   }
 
   console.log("Seeding game data (delete-and-recreate in transaction)...");

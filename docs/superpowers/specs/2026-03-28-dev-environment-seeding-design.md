@@ -41,13 +41,15 @@ The seed script automates membership setup, but these must exist in Clerk before
 Org and user references are configured explicitly via env vars rather than derived from API ordering. This prevents silent drift if Clerk-side orgs are deleted/recreated or accounts are cleaned up.
 
 ```
-SEED_ORG_A=org_...       # Primary org — gets most game data
-SEED_ORG_B=org_...       # Secondary org — gets 1 completed game
-SEED_ORG_C=org_...       # Empty org — tests onboarding state
+SEED_ORG_A=org_...         # Primary org — gets most game data
+SEED_ORG_B=org_...         # Secondary org — gets 1 completed game
+SEED_ORG_C=org_...         # Empty org — tests onboarding state
 SEED_ANCHOR_USER=user_...  # Clerk user ID for mwickett-dev
+SEED_USER_2=user_...       # Clerk user ID for second test player
+SEED_USER_3=user_...       # Clerk user ID for third test player
 ```
 
-The seed script validates that all four IDs exist in Clerk before proceeding. If any are missing or invalid, the script fails with a clear error message.
+The seed script validates that all six IDs exist in Clerk before proceeding. If any are missing or invalid, the script fails with a clear error message.
 
 ## Seed Script Design
 
@@ -109,7 +111,7 @@ The script will be refactored from raw `pg` queries to use the **Prisma client**
 ## Vercel Configuration
 
 - Set the dev branch `DATABASE_URL` in Vercel's **Preview** environment settings
-- Set `SEED_ORG_A`, `SEED_ORG_B`, `SEED_ORG_C`, and `SEED_ANCHOR_USER` in Vercel's **Preview** environment
+- Set `SEED_ORG_A`, `SEED_ORG_B`, `SEED_ORG_C`, `SEED_ANCHOR_USER`, `SEED_USER_2`, `SEED_USER_3`, and `SEED_PROD_DB_HOST` in Vercel's **Preview** environment
 - The existing `vercel-build` script (`prisma generate && prisma migrate deploy && tsx prisma/seed.ts && next build`) requires no changes
 - Prod environment keeps its own `DATABASE_URL`; seed script guards prevent execution
 
