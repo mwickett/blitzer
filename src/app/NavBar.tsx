@@ -130,12 +130,14 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
           </nav>
           <div className="flex w-full justify-end items-center gap-4 md:gap-2 lg:gap-4">
             <Show when="signed-in">
-              <OrganizationSwitcher
-                hidePersonal
-                afterSelectOrganizationUrl="/dashboard"
-                afterCreateOrganizationUrl="/dashboard"
-              />
-              <Button asChild>
+              <div className="max-w-[200px] overflow-hidden md:max-w-none">
+                <OrganizationSwitcher
+                  hidePersonal
+                  afterSelectOrganizationUrl="/dashboard"
+                  afterCreateOrganizationUrl="/dashboard"
+                />
+              </div>
+              <Button asChild className="hidden md:inline-flex">
                 <Link href="/games/new">New game</Link>
               </Button>
               <UserButton />
