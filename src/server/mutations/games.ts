@@ -346,9 +346,15 @@ export async function cloneGame(originalGameId: string) {
     // Create a new game with the same players
     const playerCreateInputs = originalGame.players.map((player) => {
       if (player.userId) {
-        return { userId: player.userId };
+        return {
+          userId: player.userId,
+          ...(player.accentColor ? { accentColor: player.accentColor } : {}),
+        };
       } else if (player.guestId) {
-        return { guestId: player.guestId };
+        return {
+          guestId: player.guestId,
+          ...(player.accentColor ? { accentColor: player.accentColor } : {}),
+        };
       }
       throw new Error("Player has neither userId nor guestId");
     });

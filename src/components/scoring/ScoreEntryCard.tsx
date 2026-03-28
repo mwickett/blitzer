@@ -48,7 +48,7 @@ export function ScoreEntryCard({
         </div>
       </div>
 
-      <div className="flex gap-2 flex-1">
+      <div className="flex gap-2 flex-1 max-w-[280px]">
         <div className="flex-1">
           <label className="block text-[9px] text-[#8b5e3c] uppercase tracking-wider font-medium mb-1">
             Blitz left

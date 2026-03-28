@@ -1,5 +1,6 @@
 import ScoreEntry from "./scoreEntry";
 import ScoreDisplay from "./scoreDisplay";
+import GameOver from "./GameOver";
 import { ScoringShell } from "@/components/scoring/ScoringShell";
 import { getGameById } from "@/server/queries";
 import { notFound } from "next/navigation";
@@ -118,30 +119,41 @@ export default async function GameView(props: {
         gameId={game.id}
         isFinished={game.isFinished}
       />
-      {canEnterScores &&
-        (useScoringRevamp ? (
-          <ScoringShell
-            gameId={game.id}
-            currentRoundNumber={currentRoundNumber}
-            players={scoringPlayers}
-            winThreshold={game.winThreshold}
-            isFinished={game.isFinished}
-            rounds={game.rounds.map((r) => ({
-              scores: r.scores.map((s) => ({
-                userId: s.userId,
-                guestId: s.guestId,
-                blitzPileRemaining: s.blitzPileRemaining,
-                totalCardsPlayed: s.totalCardsPlayed,
-              })),
-            }))}
-          />
-        ) : (
+      {useScoringRevamp ? (
+        <>
+          {canEnterScores && (
+            <ScoringShell
+              gameId={game.id}
+              currentRoundNumber={currentRoundNumber}
+              players={scoringPlayers}
+              winThreshold={game.winThreshold}
+              isFinished={game.isFinished}
+              rounds={game.rounds.map((r) => ({
+                scores: r.scores.map((s) => ({
+                  userId: s.userId,
+                  guestId: s.guestId,
+                  blitzPileRemaining: s.blitzPileRemaining,
+                  totalCardsPlayed: s.totalCardsPlayed,
+                })),
+              }))}
+            />
+          )}
+          {game.isFinished && displayScores.find((s) => s.isWinner) && (
+            <GameOver
+              gameId={game.id}
+              winner={displayScores.find((s) => s.isWinner)!.username}
+            />
+          )}
+        </>
+      ) : (
+        canEnterScores && (
           <ScoreEntry
             game={game}
             currentRoundNumber={currentRoundNumber}
             displayScores={displayScores}
           />
-        ))}
+        )
+      )}
     </section>
   );
 }

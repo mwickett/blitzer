@@ -19,7 +19,7 @@ export function FloatingCTA({
 
   if (state.mode === "editing") {
     return (
-      <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-[#fff7ea] via-[#fff7ea] to-transparent pt-8">
+      <div className="sticky bottom-0 z-40 p-4 bg-gradient-to-t from-[#fff7ea] via-[#fff7ea] to-transparent pt-8">
         <div className="max-w-[440px] mx-auto flex gap-2">
           <button
             onClick={onCancel}
@@ -47,7 +47,7 @@ export function FloatingCTA({
     : `Enter Round ${state.roundNumber} Scores`;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-[#fff7ea] via-[#fff7ea] to-transparent pt-8">
+    <div className="sticky bottom-0 z-40 p-4 bg-gradient-to-t from-[#fff7ea] via-[#fff7ea] to-transparent pt-8">
       <div className="max-w-[440px] mx-auto">
         <button
           onClick={onAction}

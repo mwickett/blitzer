@@ -89,7 +89,7 @@ export function ScoreEntryView({
   }, [allComplete, isSubmitting, players, entries, gameId, currentRoundNumber, router]);
 
   return (
-    <>
+    <div className="pb-4">
       <RoundHeader
         title={`Round ${currentRoundNumber}`}
         subtitle={`First to ${winThreshold} wins`}
@@ -103,7 +103,7 @@ export function ScoreEntryView({
       )}
 
       {/* Player cards */}
-      <div className="px-4 pt-2 pb-2 space-y-2.5">
+      <div className="px-4 pt-2 pb-2 space-y-2.5 max-w-[540px]">
         {players.map((player) => (
           <ScoreEntryCard
             key={player.id}
@@ -117,10 +117,7 @@ export function ScoreEntryView({
         ))}
       </div>
 
-      {/* Bottom spacer for floating CTA */}
-      <div className="h-24" />
-
-      {/* Floating CTA */}
+      {/* Sticky CTA — stays at bottom of viewport but won't overlap footer */}
       <FloatingCTA
         state={{
           mode: "submit",
@@ -129,6 +126,6 @@ export function ScoreEntryView({
         }}
         onAction={handleSubmit}
       />
-    </>
+    </div>
   );
 }
