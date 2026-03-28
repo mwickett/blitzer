@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blitzer — Graph Library Prototypes</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f7f2e9;
+    color: #290806;
+  }
+
+  .page-header {
+    text-align: center;
+    padding: 40px 20px 10px;
+  }
+  .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .page-header p { color: #8b5e3c; font-size: 13px; max-width: 650px; margin: 0 auto; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 375px);
+    gap: 28px;
+    padding: 24px 32px 60px;
+    justify-content: center;
+  }
+
+  .card-wrapper {
+    width: 375px;
+  }
+  .card-label {
+    margin-bottom: 10px;
+  }
+  .card-label h2 { font-size: 14px; font-weight: 700; color: #290806; }
+  .card-label p { font-size: 11px; color: #8b5e3c; margin-top: 2px; line-height: 1.4; }
+  .card-label .tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 6px;
+    margin-top: 4px;
+  }
+  .tag-essential { background: #2a651722; color: #2a6517; }
+  .tag-momentum { background: #b4530922; color: #b45309; }
+  .tag-fun { background: #8b5cf622; color: #8b5cf6; }
+  .tag-deep { background: #3b82f622; color: #3b82f6; }
+
+  .phone {
+    width: 375px;
+    background: #fff7ea;
+    border-radius: 20px;
+    border: 2px solid #e6d7c3;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(42, 14, 2, 0.08);
+    padding: 20px;
+  }
+
+  .graph-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #290806;
+    margin-bottom: 4px;
+  }
+  .graph-subtitle {
+    font-size: 10px;
+    color: #8b5e3c;
+    margin-bottom: 16px;
+  }
+
+  /* Colors */
+  .c-blue { background: #3b82f6; }
+  .c-red { background: #ef4444; }
+  .c-yellow { background: #eab308; }
+  .c-green { background: #22c55e; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #290806;
+  }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  /* =========================================
+     1. SCORE PROGRESSION (Line chart)
+     ========================================= */
+  .line-chart {
+    position: relative;
+    height: 200px;
+    margin-top: 8px;
+  }
+  .line-chart-area {
+    position: absolute;
+    left: 30px;
+    right: 10px;
+    top: 0;
+    bottom: 24px;
+    border-left: 1px solid #e6d7c3;
+    border-bottom: 1px solid #e6d7c3;
+  }
+  .line-chart-ylabel {
+    position: absolute;
+    left: 0;
+    font-size: 8px;
+    color: #8b5e3c;
+    transform: translateY(-50%);
+  }
+  .line-chart-xlabel {
+    position: absolute;
+    bottom: 0;
+    font-size: 8px;
+    color: #8b5e3c;
+    transform: translateX(-50%);
+  }
+  .line-chart svg {
+    position: absolute;
+    left: 30px;
+    right: 10px;
+    top: 0;
+    bottom: 24px;
+    width: calc(100% - 40px);
+    height: calc(100% - 24px);
+    overflow: visible;
+  }
+
+  /* =========================================
+     2. ROUND DELTA BARS
+     ========================================= */
+  .delta-chart {
+    position: relative;
+  }
+  .delta-round {
+    margin-bottom: 10px;
+  }
+  .delta-round-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: #8b5e3c;
+    margin-bottom: 4px;
+  }
+  .delta-bars {
+    display: flex;
+    gap: 3px;
+    height: 28px;
+    align-items: center;
+  }
+  .delta-bar-container {
+    flex: 1;
+    height: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .delta-bar-track {
+    width: 100%;
+    height: 20px;
+    background: #f0e6d2;
+    border-radius: 4px;
+    position: relative;
+    overflow: visible;
+  }
+  .delta-bar-zero {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #d1bfa8;
+  }
+  .delta-bar-fill {
+    position: absolute;
+    top: 2px;
+    height: 16px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 700;
+    color: #fff;
+    min-width: 16px;
+  }
+  .delta-bar-fill.positive {
+    left: 50%;
+  }
+  .delta-bar-fill.negative {
+    right: 50%;
+  }
+
+  /* =========================================
+     3. MOMENTUM STREAKS
+     ========================================= */
+  .streak-chart {
+    position: relative;
+  }
+  .streak-player {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+  .streak-name {
+    width: 40px;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .streak-rounds {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+  }
+  .streak-cell {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    position: relative;
+  }
+  .streak-cell.hot {
+    color: #fff;
+  }
+  .streak-cell.cold {
+    color: #fff;
+  }
+  .streak-cell.neutral {
+    background: #f0e6d2;
+    color: #8b5e3c;
+  }
+  .streak-fire {
+    font-size: 7px;
+    position: absolute;
+    top: -1px;
+    right: 1px;
+  }
+  .streak-header {
+    display: flex;
+    gap: 4px;
+    margin-left: 48px;
+    margin-bottom: 6px;
+  }
+  .streak-header span {
+    width: 36px;
+    text-align: center;
+    font-size: 8px;
+    color: #8b5e3c;
+    font-weight: 500;
+  }
+
+  /* =========================================
+     4. BLITZ PILE TRACKER
+     ========================================= */
+  .blitz-tracker {
+    position: relative;
+  }
+  .blitz-player {
+    margin-bottom: 12px;
+  }
+  .blitz-player-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .blitz-player-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .blitz-player-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #290806;
+  }
+  .blitz-player-stat {
+    font-size: 9px;
+    color: #8b5e3c;
+    margin-left: auto;
+  }
+  .blitz-rounds {
+    display: flex;
+    gap: 3px;
+  }
+  .blitz-cell {
+    flex: 1;
+    height: 32px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    position: relative;
+  }
+  .blitz-cell.blitzed {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+    border: 1.5px solid #fbbf24;
+  }
+  .blitz-cell.ok {
+    background: #f0e6d2;
+    color: #8b5e3c;
+  }
+  .blitz-cell.bad {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+  }
+  .blitz-cell-star {
+    position: absolute;
+    top: -4px;
+    right: -2px;
+    font-size: 8px;
+  }
+
+  /* =========================================
+     5. SCORING BREAKDOWN (stacked)
+     ========================================= */
+  .breakdown-chart {
+    position: relative;
+  }
+  .breakdown-header {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .breakdown-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: #8b5e3c;
+  }
+  .breakdown-legend-box {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+  .breakdown-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+  .breakdown-name {
+    width: 40px;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .breakdown-bar-area {
+    flex: 1;
+    height: 28px;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .breakdown-bar-bg {
+    position: absolute;
+    height: 22px;
+    background: #f0e6d2;
+    border-radius: 4px;
+    width: 100%;
+  }
+  .breakdown-bar-cards {
+    position: relative;
+    height: 22px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    font-size: 8px;
+    font-weight: 600;
+    color: #fff;
+    padding: 0 6px;
+    z-index: 1;
+  }
+  .breakdown-bar-penalty {
+    position: relative;
+    height: 22px;
+    border-radius: 0 4px 4px 0;
+    display: flex;
+    align-items: center;
+    font-size: 8px;
+    font-weight: 600;
+    color: #fff;
+    padding: 0 4px;
+    margin-left: -2px;
+    z-index: 1;
+  }
+  .breakdown-net {
+    width: 32px;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* =========================================
+     6. WIN PROBABILITY
+     ========================================= */
+  .win-prob {
+    position: relative;
+  }
+  .win-prob-player {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 10px;
+  }
+  .win-prob-name {
+    width: 40px;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .win-prob-bar-bg {
+    flex: 1;
+    height: 24px;
+    background: #f0e6d2;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  .win-prob-bar-fill {
+    height: 100%;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    min-width: 36px;
+  }
+  .win-prob-pct {
+    width: 36px;
+    font-size: 12px;
+    font-weight: 800;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .win-prob-note {
+    font-size: 9px;
+    color: #8b5e3c;
+    text-align: center;
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  /* =========================================
+     7. HEAD TO HEAD
+     ========================================= */
+  .h2h {
+    position: relative;
+  }
+  .h2h-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding: 0 8px;
+  }
+  .h2h-player {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .h2h-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .h2h-name {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .h2h-vs {
+    font-size: 10px;
+    color: #8b5e3c;
+    font-weight: 600;
+  }
+  .h2h-stat-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 0;
+  }
+  .h2h-stat-label {
+    width: 100%;
+    text-align: center;
+    font-size: 9px;
+    color: #8b5e3c;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .h2h-bar {
+    display: flex;
+    height: 24px;
+    border-radius: 12px;
+    overflow: hidden;
+    width: 100%;
+  }
+  .h2h-bar-left {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .h2h-bar-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  /* =========================================
+     8. ROUND MVP
+     ========================================= */
+  .mvp {
+    position: relative;
+  }
+  .mvp-round {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 10px;
+  }
+  .mvp-round.highlight {
+    border-color: #fbbf24;
+    background: #fffbeb;
+  }
+  .mvp-rnd {
+    font-size: 10px;
+    font-weight: 600;
+    color: #8b5e3c;
+    width: 28px;
+    flex-shrink: 0;
+  }
+  .mvp-winner-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .mvp-winner-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #290806;
+    flex: 1;
+  }
+  .mvp-winner-score {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .mvp-trophy {
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .mvp-summary {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 10px;
+  }
+  .mvp-summary-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: #8b5e3c;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .mvp-summary-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .mvp-summary-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .mvp-summary-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: #290806;
+    flex: 1;
+  }
+  .mvp-summary-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: #290806;
+  }
+  .mvp-summary-bar {
+    width: 60px;
+    height: 6px;
+    background: #f0e6d2;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .mvp-summary-fill {
+    height: 100%;
+    border-radius: 3px;
+  }
+
+  /* =========================================
+     9. SCORE DISTRIBUTION
+     ========================================= */
+  .dist {
+    position: relative;
+  }
+  .dist-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    color: #8b5e3c;
+    margin-bottom: 4px;
+    padding: 0 4px;
+  }
+  .dist-player {
+    margin-bottom: 10px;
+  }
+  .dist-player-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .dist-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dist-name {
+    font-size: 10px;
+    font-weight: 600;
+    color: #290806;
+  }
+  .dist-stats {
+    font-size: 9px;
+    color: #8b5e3c;
+    margin-left: auto;
+  }
+  .dist-bar-bg {
+    height: 18px;
+    background: #f0e6d2;
+    border-radius: 4px;
+    position: relative;
+  }
+  .dist-range {
+    position: absolute;
+    top: 3px;
+    height: 12px;
+    border-radius: 3px;
+    opacity: 0.4;
+  }
+  .dist-median {
+    position: absolute;
+    top: 1px;
+    height: 16px;
+    width: 3px;
+    border-radius: 1.5px;
+    opacity: 0.9;
+  }
+  .dist-point {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    border: 1.5px solid #fff7ea;
+    opacity: 0.7;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Graph Library Prototypes</h1>
+  <p>Nine visualization options for the between-rounds display. Same data set: Mike (58), Sarah (41), Dan (22), Jo (−8) after 5 rounds. Round deltas: see individual charts.</p>
+</div>
+
+<div class="grid">
+
+  <!-- ====== 1. SCORE PROGRESSION ====== -->
+  <div class="card-wrapper">
+    <div class="card-label">
+      <h2>1. Score Progression</h2>
+      <p>Classic cumulative line chart — shows the full arc of the game. Enhanced with accent colors and a win threshold line.</p>
+      <span class="tag tag-essential">Essential</span>
+    </div>
+    <div class="phone">
+      <div class="graph-title">Score Progression</div>
+      <div class="graph-subtitle">Cumulative scores across all rounds</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot c-blue"></div>Mike</div>
+        <div class="legend-item"><div class="legend-dot c-red"></div>Sarah</div>
+        <div class="legend-item"><div class="legend-dot c-yellow"></div>Dan</div>
+        <div class="legend-item"><div class="legend-dot c-green"></div>Jo</div>
+      </div>
+      <div class="line-chart">
+        <!-- Y axis labels -->
+        <div class="line-chart-ylabel" style="top: 0;">75</div>
+        <div class="line-chart-ylabel" style="top: 28%;">50</div>
+        <div class="line-chart-ylabel" style="top: 56%;">25</div>
+        <div class="line-chart-ylabel" style="top: 84%;">0</div>
+        <!-- X axis labels -->
+        <div class="line-chart-xlabel" style="left: 30px;">0</div>
+        <div class="line-chart-xlabel" style="left: calc(30px + 20%);">1</div>
+        <div class="line-chart-xlabel" style="left: calc(30px + 40%);">2</div>
+        <div class="line-chart-xlabel" style="left: calc(30px + 60%);">3</div>
+        <div class="line-chart-xlabel" style="left: calc(30px + 80%);">4</div>
+        <div class="line-chart-xlabel" style="left: calc(30px + 100%);">5</div>
+        <div class="line-chart-area">
+          <svg viewBox="0 0 300 176" preserveAspectRatio="none">
+            <!-- Win threshold -->
+            <line x1="0" y1="0" x2="300" y2="0" stroke="#290806" stroke-width="1" stroke-dasharray="4,3" opacity="0.3"/>
+            <text x="304" y="4" fill="#8b5e3c" font-size="8" font-weight="600">75</text>
+            <!-- Zero line -->
+            <line x1="0" y1="140.8" x2="300" y2="140.8" stroke="#d1bfa8" stroke-width="0.5"/>
+            <!-- Grid lines -->
+            <line x1="60" y1="0" x2="60" y2="176" stroke="#f0e6d2" stroke-width="0.5"/>
+            <line x1="120" y1="0" x2="120" y2="176" stroke="#f0e6d2" stroke-width="0.5"/>
+            <line x1="180" y1="0" x2="180" y2="176" stroke="#f0e6d2" stroke-width="0.5"/>
+            <line x1="240" y1="0" x2="240" y2="176" stroke="#f0e6d2" stroke-width="0.5"/>
+            <!-- Mike: 0, 18, 24, 38, 46, 58 → y: 140.8, 107.1, 95.8, 69.6, 54.6, 32.1 -->
+            <polyline points="0,140.8 60,107.1 120,95.8 180,69.6 240,54.6 300,32.1" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Sarah: 0, 12, 26, 34, 32, 41 → y: 140.8, 118.3, 92.0, 77.1, 80.8, 63.9 -->
+            <polyline points="0,140.8 60,118.3 120,92.0 180,77.1 240,80.8 300,63.9" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Dan: 0, 8, 10, 20, 24, 22 → y: 140.8, 125.8, 122.1, 103.4, 95.8, 99.6 -->
+            <polyline points="0,140.8 60,125.8 120,122.1 180,103.4 240,95.8 300,99.6" fill="none" stroke="#eab308" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Jo: 0, -4, -10, -4, -12, -8 → y: 140.8, 148.3, 159.6, 148.3, 163.4, 155.9 -->
+            <polyline points="0,140.8 60,148.3 120,159.6 180,148.3 240,163.4 300,155.9" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- End dots -->
+            <circle cx="300" cy="32.1" r="4" fill="#3b82f6"/>
+            <circle cx="300" cy="63.9" r="4" fill="#ef4444"/>
+            <circle cx="300" cy="99.6" r="4" fill="#eab308"/>
+            <circle cx="300" cy="155.9" r="4" fill="#22c55e"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 2. ROUND DELTAS ====== -->
+  <div class="card-wrapper">
+    <div class="card-label">
+      <h2>2. Round Deltas</h2>
+      <p>Per-round gain/loss for each player. Bars go right for positive, left for negative. Reveals who's surging or slumping.</p>
+      <span class="tag tag-momentum">Momentum</span>
+    </div>
+    <div class="phone">
+      <div class="graph-title">Round-by-Round Gains</div>
+      <div class="graph-subtitle">How each player scored per round</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot c-blue"></div>Mike</div>
+        <div class="legend-item"><div class="legend-dot c-red"></div>Sarah</div>
+        <div class="legend-item"><div class="legend-dot c-yellow"></div>Dan</div>
+        <div class="legend-item"><div class="legend-dot c-green"></div>Jo</div>
+      </div>
+      <!-- Round 1: Mike +18, Sarah +12, Dan +8, Jo -4 -->
+      <div class="delta-round">
+        <div class="delta-round-label">Round 1</div>
+        <div class="delta-bars">
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-blue" style="width: 45%;">+18</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-red" style="width: 30%;">+12</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-yellow" style="width: 20%;">+8</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill negative c-green" style="width: 10%;">−4</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Round 2 -->
+      <div class="delta-round">
+        <div class="delta-round-label">Round 2</div>
+        <div class="delta-bars">
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-blue" style="width: 15%;">+6</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-red" style="width: 35%;">+14</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-yellow" style="width: 5%;">+2</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill negative c-green" style="width: 15%;">−6</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Round 3 -->
+      <div class="delta-round">
+        <div class="delta-round-label">Round 3</div>
+        <div class="delta-bars">
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-blue" style="width: 35%;">+14</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-red" style="width: 20%;">+8</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-yellow" style="width: 25%;">+10</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-green" style="width: 15%;">+6</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Round 4 -->
+      <div class="delta-round">
+        <div class="delta-round-label">Round 4</div>
+        <div class="delta-bars">
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-blue" style="width: 20%;">+8</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill negative c-red" style="width: 5%;">−2</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-yellow" style="width: 10%;">+4</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill negative c-green" style="width: 20%;">−8</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Round 5 -->
+      <div class="delta-round">
+        <div class="delta-round-label">Round 5</div>
+        <div class="delta-bars">
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-blue" style="width: 30%;">+12</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-red" style="width: 22%;">+9</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill negative c-yellow" style="width: 5%;">−2</div>
+            </div>
+          </div>
+          <div class="delta-bar-container">
+            <div class="delta-bar-track">
+              <div class="delta-bar-zero"></div>
+              <div class="delta-bar-fill positive c-green" style="width: 10%;">+4</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 3. MOMENTUM / HOT STREAK ====== -->
+  <div class="card-wrapper">
+    <div class="card-label">
+      <h2>3. Hot & Cold Streaks</h2>
+      <p>Heatmap grid — each cell is a round, colored by performance intensity. Fire emoji for best round of the game. Instantly shows who's on a roll.</p>
+      <span class="tag tag-momentum">Momentum</span> <span class="tag tag-fun">Fun</span>
+    </div>
+    <div class="phone">
+      <div class="graph-title">Hot & Cold</div>
+      <div class="graph-subtitle">Performance intensity per round</div>
+      <div class="streak-header">
+        <span>R1</span><span>R2</span><span>R3</span><span>R4</span><span>R5</span>
+      </div>
+      <div class="streak-chart">
+        <!-- Mike: +18, +6, +14, +8, +12 -->
+        <div class="streak-player">
+          <div class="streak-name" style="color: #3b82f6;">Mike</div>
+          <div class="streak-rounds">
+            <div class="streak-cell hot" style="background: #3b82f6;">+18<span class="streak-fire">🔥</span></div>
+            <div class="streak-cell neutral">+6</div>
+            <div class="streak-cell hot" style="background: #3b82f6; opacity: 0.8;">+14</div>
+            <div class="streak-cell neutral">+8</div>
+            <div class="streak-cell hot" style="background: #3b82f6; opacity: 0.7;">+12</div>
+          </div>
+        </div>
+        <!-- Sarah: +12, +14, +8, -2, +9 -->
+        <div class="streak-player">
+          <div class="streak-name" style="color: #ef4444;">Sarah</div>
+          <div class="streak-rounds">
+            <div class="streak-cell hot" style="background: #ef4444; opacity: 0.7;">+12</div>
+            <div class="streak-cell hot" style="background: #ef4444;">+14<span class="streak-fire">🔥</span></div>
+            <div class="streak-cell neutral">+8</div>
+            <div class="streak-cell cold" style="background: #b91c1c; opacity: 0.6;">−2</div>
+            <div class="streak-cell neutral">+9</div>
+          </div>
+        </div>
+        <!-- Dan: +8, +2, +10, +4, -2 -->
+        <div class="streak-player">
+          <div class="streak-name" style="color: #b45309;">Dan</div>
+          <div class="streak-rounds">
+            <div class="streak-cell neutral">+8</div>
+            <div class="streak-cell neutral" style="opacity: 0.6;">+2</div>
+            <div class="streak-cell hot" style="background: #eab308;">+10<span class="streak-fire">🔥</span></div>
+            <div class="streak-cell neutral" style="opacity: 0.7;">+4</div>
+            <div class="streak-cell cold" style="background: #b91c1c; opacity: 0.6;">−2</div>
+          </div>
+        </div>
+        <!-- Jo: -4, -6, +6, -8, +4 -->
+        <div class="streak-player">
+          <div class="streak-name" style="color: #22c55e;">Jo</div>
+          <div class="streak-rounds">
+            <div class="streak-cell cold" style="background: #b91c1c; opacity: 0.5;">−4</div>
+            <div class="streak-cell cold" style="background: #b91c1c; opacity: 0.7;">−6</div>
+            <div class="streak-cell hot" style="background: #22c55e;">+6<span class="streak-fire">🔥</span></div>
+            <div class="streak-cell cold" style="background: #b91c1c;">−8</div>
+            <div class="streak-cell neutral" style="opacity: 0.7;">+4</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 4. BLITZ PILE TRACKER ====== -->
+  <div class="card-wrapper">
+    <div class="card-label">
+      <h2>4. Blitz Pile Tracker</h2>
+      <p>How many cards each player left in their blitz pile per round. Gold highlight = got blitzed (0 remaining). Red = high pile (7+). Shows who's actually finishing their blitz pile.</p>
+      <span class="tag tag-deep">Deep Stats</span>
+    </div>
+    <div class="phone">
+      <div class="graph-title">Blitz Pile History</div>
+      <div class="graph-subtitle">Cards remaining in blitz pile each round (lower is better)</div>
+      <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+        <div class="breakdown-legend-item"><div class="breakdown-legend-box" style="background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #fbbf24;"></div>Blitzed! (0)</div>
+        <div class="breakdown-legend-item"><div class="breakdown-legend-box" style="background: #f0e6d2;"></div>1-6 left</div>
+        <div class="breakdown-legend-item"><div class="breakdown-legend-box" style="background: #fef2f2; border: 1px solid #fecaca;"></div>7+ left</div>
+      </div>
+      <div class="streak-header" style="margin-left: 48px;">
+        <span>R1</span><span>R2</span><span>R3</span><span>R4</span><span>R5</span>
+      </div>
+      <div class="blitz-tracker">
+        <!-- Mike: 2, 4, 0, 3, 0 -->
+        <div class="blitz-player">
+          <div class="blitz-player-header">
+            <div class="blitz-player-dot c-blue"></div>
+            <div class="blitz-player-name">Mike</div>
+            <div class="blitz-player-stat">2 blitzes</div>
+          </div>
+          <div class="blitz-rounds">
+            <div class="blitz-cell ok">2</div>
+            <div class="blitz-cell ok">4</div>
+            <div class="blitz-cell blitzed">0<span class="blitz-cell-star">⭐</span></div>
+            <div class="blitz-cell ok">3</div>
+            <div class="blitz-cell blitzed">0<span class="blitz-cell-star">⭐</span></div>
+          </div>
+        </div>
+        <!-- Sarah: 3, 1, 4, 6, 2 -->
+        <div class="blitz-player">
+          <div class="blitz-player-header">
+            <div class="blitz-player-dot c-red"></div>
+            <div class="blitz-player-name">Sarah</div>
+            <div class="blitz-player-stat">0 blitzes</div>
+          </div>
+          <div class="blitz-rounds">
+            <div class="blitz-cell ok">3</div>
+            <div class="blitz-cell ok">1</div>
+            <div class="blitz-cell ok">4</div>
+            <div class="blitz-cell ok">6</div>
+            <div class="blitz-cell ok">2</div>
+          </div>
+        </div>
+        <!-- Dan: 5, 6, 2, 4, 7 -->
+        <div class="blitz-player">
+          <div class="blitz-player-header">
+            <div class="blitz-player-dot c-yellow"></div>
+            <div class="blitz-player-name">Dan</div>
+            <div class="blitz-player-stat">0 blitzes</div>
+          </div>
+          <div class="blitz-rounds">
+            <div class="blitz-cell ok">5</div>
+            <div class="blitz-cell ok">6</div>
+            <div class="blitz-cell ok">2</div>
+            <div class="blitz-cell ok">4</div>
+            <div class="blitz-cell bad">7</div>
+          </div>
+        </div>
+        <!-- Jo: 8, 9, 5, 10, 6 -->
+        <div class="blitz-player">
+          <div class="blitz-player-header">
+            <div class="blitz-player-dot c-green"></div>
+            <div class="blitz-player-name">Jo</div>
+            <div class="blitz-player-stat">0 blitzes</div>
+          </div>
+          <div class="blitz-rounds">
+            <div class="blitz-cell bad">8</div>
+            <div class="blitz-cell bad">9</div>
+            <div class="blitz-cell ok">5</div>
+            <div class="blitz-cell bad">10</div>
+            <div class="blitz-cell ok">6</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 5. SCORING BREAKDOWN ====== -->
+  <div class="card-wrapper">
+    <div class="card-label">
+      <h2>5. Score Anatomy (Latest Round)</h2>
+      <p>Stacked bar showing cards played (earned) vs blitz penalty (lost) for the most recent round. Makes clear why someone scored high or low.</p>
+      <span class="tag tag-deep">Deep Stats</span>
+    </div>
+    <div class="phone">
+      <div class="graph-title">Round 5 Breakdown</div>
+      <div class="graph-subtitle">How each player's score was composed</div>
+      <div class="breakdown-header">
+        <div class="breakdown-legend-item"><div class="breakdown-legend-box" style="background: #8b5e3c;"></div>Cards played (earned)</div>
+        <div class="breakdown-legend-item"><div class="breakdown-legend-box" style="background: #ef4444;"></div>Blitz penalty (−2x remaining)</div>
+      </div>
+      <div class="breakdown-chart">
+        <!-- Mike: 28 cards played, 0 remaining → 28 earned, 0 penalty = net +28... but let's use R5 data -->
+        <!-- R5: Mike played 22 cards, 2 remaining → +22 earned, -4 penalty = +18... wait need correct R5 data -->
+        <!-- Let me use: Mike 24 played, 0 blitz = +24; Sarah 15 played, 3 blitz = +9; Dan 8 played, 5 blitz = -2; Jo 14 played, 5 blitz = +4 -->
+        <div class="breakdown-row">
+          <div class="breakdown-name" style="color: #3b82f6;">Mike</div>
+          <div class="breakdown-bar-area">
+            <div class="breakdown-bar-bg"></div>
+            <div class="breakdown-bar-cards" style="background: #3b82f6; width: 60%;">24 cards</div>
+            <div class="breakdown-bar-penalty" style="background: #22c55e; width: 0%;"></div>
+          </div>
+          <div class="breakdown-net" style="color: #2a6517;">+24</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="breakdown-name" style="color: #ef4444;">Sarah</div>
+          <div class="breakdown-bar-area">
+            <div class="breakdown-bar-bg"></div>
+            <div class="breakdown-bar-cards" style="background: #ef4444; width: 37.5%;">15 cards</div>
+            <div class="breakdown-bar-penalty" style="background: #b91c1c; width: 15%; opacity: 0.6;">−6</div>
+          </div>
+          <div class="breakdown-net" style="color: #290806;">+9</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="breakdown-name" style="color: #b45309;">Dan</div>
+          <div class="breakdown-bar-area">
+            <div class="breakdown-bar-bg"></div>
+            <div class="breakdown-bar-cards" style="background: #eab308; width: 20%;">8 cards</div>
+            <div class="breakdown-bar-penalty" style="background: #b91c1c; width: 25%; opacity: 0.6;">−10</div>
+          </div>
+          <div class="breakdown-net" style="color: #b91c1c;">−2</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="breakdown-name" style="color: #22c55e;">Jo</div>
+          <div class="breakdown-bar-area">
+            <div class="breakdown-bar-bg"></div>
+            <div class="breakdown-bar-cards" style="background: #22c55e; width: 35%;">14 cards</div>
+            <div class="breakdown-bar-penalty" style="background: #b91c1c; width: 12.5%; opacity: 0.6;">−10</div>
+          </div>
+          <div class="breakdown-net" style="color: #290806;">+4</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding: 10px 12px; background: #fff; border: 1.5px solid #e6d7c3; border-radius: 10px;">
+        <div style="font-size: 10px; color: #8b5e3c; margin-bottom: 4px;">💡 Insight</div>
+        <div style="font-size: 11px; color: #290806; line-height: 1.4;">Mike cleared his blitz pile — all 24 points were pure card earnings. Dan played fewer cards AND had a high blitz penalty.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 6. WIN PROBABILITY ====== -->
+  <div class="card-wrapper">
+    <div class="card-label">
+      <h2>6. Win Probability</h2>
+      <p>Based on current scoring rate, who's most likely to hit 75 first? Simple projection that adds drama and stakes to the game.</p>
+      <span class="tag tag-fun">Fun</span>
+    </div>
+    <div class="phone">
+      <div class="graph-title">Win Probability</div>
+      <div class="graph-subtitle">Based on scoring pace through 5 rounds</div>
+      <div class="win-prob">
+        <div class="win-prob-player">
+          <div class="win-prob-name" style="color: #3b82f6;">Mike</div>
+          <div class="win-prob-bar-bg">
+            <div class="win-prob-bar-fill c-blue" style="width: 62%;">62%</div>
+          </div>
+        </div>
+        <div class="win-prob-player">
+          <div class="win-prob-name" style="color: #ef4444;">Sarah</div>
+          <div class="win-prob-bar-bg">
+            <div class="win-prob-bar-fill c-red" style="width: 28%;">28%</div>
+          </div>
+        </div>
+        <div class="win-prob-player">
+          <div class="win-prob-name" style="color: #b45309;">Dan</div>
+          <div class="win-prob-bar-bg">
+            <div class="win-prob-bar-fill c-yellow" style="width: 9%;">9%</div>
+          </div>
+        </div>
+        <div class="win-prob-player">
+          <div class="win-prob-name" style="color: #22c55e;">Jo</div>
+          <div class="win-prob-bar-bg">
+            <div class="win-prob-bar-fill c-green" style="width: 1%;"></div>
+          </div>
+          <div class="win-prob-pct" style="color: #22c55e;">&lt;1%</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding: 10px 12px; background: #fff; border: 1.5px solid #e6d7c3; border-radius: 10px;">
+        <div style="font-size: 10px; font-weight: 600; color: #8b5e3c; margin-bottom: 4px;">Projected finish</div>
+        <div style="display: flex; gap: 16px;">
+          <div style="text-align: center;">
+            <div style="font-size: 18px; font-weight: 800; color: #3b82f6;">~R7</div>
+            <div style="font-size: 9px; color: #8b5e3c;">Mike wins</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 18px; font-weight: 800; color: #ef4444;">~R9</div>
+            <div style="font-size: 9px; color: #8b5e3c;">Sarah wins</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 18px; font-weight: 800; color: #eab308;">~R15</div>
+            <div style="font-size: 9px; color: #8b5e3c;">Dan wins</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 18px; font-weight: 800; color: #8b5e3c;">∞</div>
+            <div style="font-size: 9px; color: #8b5e3c;">Jo wins</div>
+          </div>
+        </div>
+      </div>
+      <div class="win-prob-note">Based on average scoring pace · updates each round</div>
+    </div>
+  </div>
+
+  <!-- ====== 7. HEAD TO HEAD ====== -->
+  <div class="card-wrapper">
+    <div class="card-label">
+      <h2>7. Head-to-Head</h2>
+      <p>Pick two players and compare across multiple dimensions. Tug-of-war bars show who leads each category. Great for rivalries.</p>
+      <span class="tag tag-fun">Fun</span> <span class="tag tag-deep">Deep Stats</span>
+    </div>
+    <div class="phone">
+      <div class="graph-title">Head-to-Head</div>
+      <div class="graph-subtitle">Mike vs Sarah — this game</div>
+      <div class="h2h">
+        <div class="h2h-header">
+          <div class="h2h-player">
+            <div class="h2h-dot c-blue"></div>
+            <div class="h2h-name" style="color: #3b82f6;">Mike</div>
+          </div>
+          <div class="h2h-vs">VS</div>
+          <div class="h2h-player">
+            <div class="h2h-name" style="color: #ef4444;">Sarah</div>
+            <div class="h2h-dot c-red"></div>
+          </div>
+        </div>
+
+        <div class="h2h-stat-label">Total Score</div>
+        <div class="h2h-stat-row">
+          <div class="h2h-bar">
+            <div class="h2h-bar-left c-blue" style="width: 59%;">58</div>
+            <div class="h2h-bar-right c-red" style="width: 41%;">41</div>
+          </div>
+        </div>
+
+        <div class="h2h-stat-label" style="margin-top: 10px;">Rounds Won</div>
+        <div class="h2h-stat-row">
+          <div class="h2h-bar">
+            <div class="h2h-bar-left c-blue" style="width: 60%;">3</div>
+            <div class="h2h-bar-right c-red" style="width: 40%;">2</div>
+          </div>
+        </div>
+
+        <div class="h2h-stat-label" style="margin-top: 10px;">Best Single Round</div>
+        <div class="h2h-stat-row">
+          <div class="h2h-bar">
+            <div class="h2h-bar-left c-blue" style="width: 56%;">+18</div>
+            <div class="h2h-bar-right c-red" style="width: 44%;">+14</div>
+          </div>
+        </div>
+
+        <div class="h2h-stat-label" style="margin-top: 10px;">Worst Single Round</div>
+        <div class="h2h-stat-row">
+          <div class="h2h-bar">
+            <div class="h2h-bar-left c-blue" style="width: 75%;">+6</div>
+            <div class="h2h-bar-right c-red" style="width: 25%;">−2</div>
+          </div>
+        </div>
+
+        <div class="h2h-stat-label" style="margin-top: 10px;">Avg Cards Played</div>
+        <div class="h2h-stat-row">
+          <div class="h2h-bar">
+            <div class="h2h-bar-left c-blue" style="width: 55%;">18.4</div>
+            <div class="h2h-bar-right c-red" style="width: 45%;">15.2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 8. ROUND MVP ====== -->
+  <div class="card-wrapper">
+    <div class="card-label">
+      <h2>8. Round MVPs</h2>
+      <p>Who won each round? Simple timeline with trophy for the highest-scoring player. Summary shows overall round-win count. Fuels bragging rights.</p>
+      <span class="tag tag-fun">Fun</span>
+    </div>
+    <div class="phone">
+      <div class="graph-title">Round Winners</div>
+      <div class="graph-subtitle">Highest scorer each round</div>
+      <div class="mvp">
+        <div class="mvp-round highlight">
+          <div class="mvp-rnd">R1</div>
+          <div class="mvp-winner-dot c-blue"></div>
+          <div class="mvp-winner-name">Mike</div>
+          <div class="mvp-winner-score" style="color: #3b82f6;">+18</div>
+          <div class="mvp-trophy">🏆</div>
+        </div>
+        <div class="mvp-round">
+          <div class="mvp-rnd">R2</div>
+          <div class="mvp-winner-dot c-red"></div>
+          <div class="mvp-winner-name">Sarah</div>
+          <div class="mvp-winner-score" style="color: #ef4444;">+14</div>
+          <div class="mvp-trophy">🏆</div>
+        </div>
+        <div class="mvp-round">
+          <div class="mvp-rnd">R3</div>
+          <div class="mvp-winner-dot c-blue"></div>
+          <div class="mvp-winner-name">Mike</div>
+          <div class="mvp-winner-score" style="color: #3b82f6;">+14</div>
+          <div class="mvp-trophy">🏆</div>
+        </div>
+        <div class="mvp-round">
+          <div class="mvp-rnd">R4</div>
+          <div class="mvp-winner-dot c-blue"></div>
+          <div class="mvp-winner-name">Mike</div>
+          <div class="mvp-winner-score" style="color: #3b82f6;">+8</div>
+          <div class="mvp-trophy">🏆</div>
+        </div>
+        <div class="mvp-round highlight">
+          <div class="mvp-rnd">R5</div>
+          <div class="mvp-winner-dot c-blue"></div>
+          <div class="mvp-winner-name">Mike</div>
+          <div class="mvp-winner-score" style="color: #3b82f6;">+12</div>
+          <div class="mvp-trophy">🏆</div>
+        </div>
+        <div class="mvp-summary">
+          <div class="mvp-summary-title">Round win count</div>
+          <div class="mvp-summary-row">
+            <div class="mvp-summary-dot c-blue"></div>
+            <div class="mvp-summary-name">Mike</div>
+            <div class="mvp-summary-bar"><div class="mvp-summary-fill c-blue" style="width: 100%;"></div></div>
+            <div class="mvp-summary-count">4</div>
+          </div>
+          <div class="mvp-summary-row">
+            <div class="mvp-summary-dot c-red"></div>
+            <div class="mvp-summary-name">Sarah</div>
+            <div class="mvp-summary-bar"><div class="mvp-summary-fill c-red" style="width: 25%;"></div></div>
+            <div class="mvp-summary-count">1</div>
+          </div>
+          <div class="mvp-summary-row">
+            <div class="mvp-summary-dot c-yellow"></div>
+            <div class="mvp-summary-name">Dan</div>
+            <div class="mvp-summary-bar"><div class="mvp-summary-fill c-yellow" style="width: 0%;"></div></div>
+            <div class="mvp-summary-count">0</div>
+          </div>
+          <div class="mvp-summary-row">
+            <div class="mvp-summary-dot c-green"></div>
+            <div class="mvp-summary-name">Jo</div>
+            <div class="mvp-summary-bar"><div class="mvp-summary-fill c-green" style="width: 0%;"></div></div>
+            <div class="mvp-summary-count">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 9. SCORE DISTRIBUTION ====== -->
+  <div class="card-wrapper">
+    <div class="card-label">
+      <h2>9. Consistency Meter</h2>
+      <p>Range plot showing each player's min, max, and median round score. Narrow range = consistent player. Wide range = volatile. Great for longer games.</p>
+      <span class="tag tag-deep">Deep Stats</span>
+    </div>
+    <div class="phone">
+      <div class="graph-title">Score Consistency</div>
+      <div class="graph-subtitle">Min / median / max round scores per player</div>
+      <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+        <div class="breakdown-legend-item"><div class="breakdown-legend-box" style="background: #d1bfa8; opacity: 0.4;"></div>Range (min→max)</div>
+        <div class="breakdown-legend-item"><div class="breakdown-legend-box" style="background: #290806; width: 3px;"></div>Median</div>
+      </div>
+      <div class="dist">
+        <div class="dist-axis">
+          <span>−10</span>
+          <span>0</span>
+          <span>+10</span>
+          <span>+20</span>
+        </div>
+        <!-- Scale: -10 to 20, width 100%. -10=0%, 0=33%, 20=100% -->
+        <!-- Mike: min +6, max +18, median +12 -->
+        <div class="dist-player">
+          <div class="dist-player-info">
+            <div class="dist-dot c-blue"></div>
+            <div class="dist-name">Mike</div>
+            <div class="dist-stats">Range: 12 · Very consistent</div>
+          </div>
+          <div class="dist-bar-bg">
+            <!-- 6→53%, 18→93%, median 12→73% -->
+            <div class="dist-range c-blue" style="left: 53%; width: 40%;"></div>
+            <div class="dist-median c-blue" style="left: 73%;"></div>
+            <div class="dist-point c-blue" style="left: 53%;"></div>
+            <div class="dist-point c-blue" style="left: 60%;"></div>
+            <div class="dist-point c-blue" style="left: 73%;"></div>
+            <div class="dist-point c-blue" style="left: 80%;"></div>
+            <div class="dist-point c-blue" style="left: 93%;"></div>
+          </div>
+        </div>
+        <!-- Sarah: min -2, max +14, median +9 -->
+        <div class="dist-player">
+          <div class="dist-player-info">
+            <div class="dist-dot c-red"></div>
+            <div class="dist-name">Sarah</div>
+            <div class="dist-stats">Range: 16 · Moderate</div>
+          </div>
+          <div class="dist-bar-bg">
+            <!-- -2→27%, 14→80%, median 9→63% -->
+            <div class="dist-range c-red" style="left: 27%; width: 53%;"></div>
+            <div class="dist-median c-red" style="left: 63%;"></div>
+            <div class="dist-point c-red" style="left: 27%;"></div>
+            <div class="dist-point c-red" style="left: 60%;"></div>
+            <div class="dist-point c-red" style="left: 63%;"></div>
+            <div class="dist-point c-red" style="left: 73%;"></div>
+            <div class="dist-point c-red" style="left: 80%;"></div>
+          </div>
+        </div>
+        <!-- Dan: min -2, max +10, median +4 -->
+        <div class="dist-player">
+          <div class="dist-player-info">
+            <div class="dist-dot c-yellow"></div>
+            <div class="dist-name">Dan</div>
+            <div class="dist-stats">Range: 12 · Steady but low</div>
+          </div>
+          <div class="dist-bar-bg">
+            <!-- -2→27%, 10→67%, median 4→47% -->
+            <div class="dist-range c-yellow" style="left: 27%; width: 40%;"></div>
+            <div class="dist-median c-yellow" style="left: 47%;"></div>
+            <div class="dist-point c-yellow" style="left: 27%;"></div>
+            <div class="dist-point c-yellow" style="left: 40%;"></div>
+            <div class="dist-point c-yellow" style="left: 47%;"></div>
+            <div class="dist-point c-yellow" style="left: 53%;"></div>
+            <div class="dist-point c-yellow" style="left: 67%;"></div>
+          </div>
+        </div>
+        <!-- Jo: min -8, max +6, median -4 -->
+        <div class="dist-player">
+          <div class="dist-player-info">
+            <div class="dist-dot c-green"></div>
+            <div class="dist-name">Jo</div>
+            <div class="dist-stats">Range: 14 · Volatile</div>
+          </div>
+          <div class="dist-bar-bg">
+            <!-- -8→7%, 6→53%, median -4→20% -->
+            <div class="dist-range c-green" style="left: 7%; width: 46%;"></div>
+            <div class="dist-median c-green" style="left: 20%;"></div>
+            <div class="dist-point c-green" style="left: 7%;"></div>
+            <div class="dist-point c-green" style="left: 13%;"></div>
+            <div class="dist-point c-green" style="left: 20%;"></div>
+            <div class="dist-point c-green" style="left: 47%;"></div>
+            <div class="dist-point c-green" style="left: 53%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blitzer — Between Rounds Layout Options</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f7f2e9;
+    color: #290806;
+  }
+
+  .page-header {
+    text-align: center;
+    padding: 40px 20px 10px;
+  }
+  .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .page-header p { color: #8b5e3c; font-size: 13px; max-width: 600px; margin: 0 auto; }
+
+  .options {
+    display: flex;
+    gap: 28px;
+    padding: 24px 32px 60px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .option { width: 375px; flex-shrink: 0; }
+  .option-label { margin-bottom: 12px; }
+  .option-label h2 { font-size: 14px; font-weight: 700; color: #290806; margin-bottom: 2px; }
+  .option-label .rec {
+    display: inline-block;
+    background: #2a651722;
+    color: #2a6517;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 8px;
+    margin-left: 4px;
+  }
+  .option-label p { font-size: 11px; color: #8b5e3c; margin-top: 2px; line-height: 1.4; }
+
+  .phone {
+    width: 375px;
+    height: 840px;
+    background: #fff7ea;
+    border-radius: 40px;
+    border: 3px solid #e6d7c3;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 8px 32px rgba(42, 14, 2, 0.1);
+  }
+  .status-bar {
+    height: 50px;
+    background: #fff7ea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .notch {
+    width: 120px;
+    height: 28px;
+    background: #290806;
+    border-radius: 0 0 16px 16px;
+  }
+  .phone-content {
+    height: calc(100% - 50px);
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  /* Section annotation badges */
+  .section-badge {
+    display: inline-block;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-position { background: #3b82f622; color: #3b82f6; }
+  .badge-standings { background: #8b5cf622; color: #8b5cf6; }
+  .badge-graphs { background: #f9731622; color: #f97316; }
+  .badge-table { background: #8b5e3c22; color: #8b5e3c; }
+  .badge-action { background: #2a651722; color: #2a6517; }
+
+  /* Shared components */
+  .round-header {
+    padding: 12px 20px 8px;
+    background: #fff7ea;
+    border-bottom: 1px solid #f0e6d2;
+  }
+  .round-header h3 { font-size: 17px; font-weight: 700; color: #290806; }
+  .round-header .subtitle { font-size: 11px; color: #8b5e3c; margin-top: 2px; }
+
+  /* Race track (simplified) */
+  .track {
+    margin: 10px 20px;
+    position: relative;
+  }
+  .track-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    color: #8b5e3c;
+    margin-bottom: 3px;
+  }
+  .track-bar {
+    height: 32px;
+    background: #f0e6d2;
+    border-radius: 16px;
+    position: relative;
+  }
+  .track-zero {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #d1bfa8;
+    left: 21%;
+  }
+  .track-finish {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #290806;
+    right: 0;
+    border-radius: 0 16px 16px 0;
+  }
+  .track-dot {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #fff7ea;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .track-spacer { height: 14px; }
+
+  /* Standings list */
+  .standings {
+    margin: 0 16px;
+  }
+  .standing-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px;
+    background: #fff;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 9px;
+    margin-bottom: 5px;
+    border-left: 4px solid;
+  }
+  .standing-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .standing-rank {
+    font-size: 12px;
+    font-weight: 700;
+    color: #8b5e3c;
+    width: 16px;
+  }
+  .standing-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #290806;
+  }
+  .standing-right { text-align: right; }
+  .standing-score {
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .standing-away {
+    font-size: 9px;
+    color: #8b5e3c;
+  }
+
+  /* Graph carousel */
+  .graph-carousel {
+    margin: 0 16px;
+    position: relative;
+  }
+  .graph-cards {
+    display: flex;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .graph-card {
+    min-width: 88%;
+    background: #fff;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .graph-card-peek {
+    min-width: 88%;
+    background: #fff;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 12px;
+    padding: 12px 14px;
+    opacity: 0.5;
+  }
+  .graph-card-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #290806;
+    margin-bottom: 2px;
+  }
+  .graph-card-subtitle {
+    font-size: 9px;
+    color: #8b5e3c;
+    margin-bottom: 8px;
+  }
+  .graph-card-body {
+    height: 80px;
+    position: relative;
+  }
+  .graph-card-body svg {
+    width: 100%;
+    height: 100%;
+  }
+  .graph-dots {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 8px;
+  }
+  .graph-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #d1bfa8;
+  }
+  .graph-dot.active {
+    background: #290806;
+  }
+
+  /* Score table */
+  .score-table {
+    margin: 0 16px;
+    background: #fff;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .score-table-header {
+    display: flex;
+    padding: 5px 10px;
+    background: #faf5ed;
+    border-bottom: 1px solid #f0e6d2;
+  }
+  .score-table-header .col {
+    flex: 1;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 600;
+  }
+  .score-table-header .col-rnd {
+    width: 32px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #8b5e3c;
+  }
+  .score-table-header .col-edit { width: 22px; }
+  .score-table-row {
+    display: flex;
+    padding: 5px 10px;
+    border-bottom: 1px solid #f0e6d2;
+  }
+  .score-table-row:last-child { border-bottom: none; }
+  .score-table-row .col {
+    flex: 1;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .score-table-row .col-rnd {
+    width: 32px;
+    font-size: 10px;
+    color: #8b5e3c;
+  }
+  .score-table-row .col-edit {
+    width: 22px;
+    font-size: 9px;
+    opacity: 0.3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .score-table-total {
+    display: flex;
+    padding: 6px 10px;
+    background: #faf5ed;
+    border-top: 2px solid #e6d7c3;
+  }
+  .score-table-total .col {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .score-table-total .col-rnd {
+    width: 32px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #290806;
+  }
+  .score-table-total .col-edit { width: 22px; }
+  .neg { color: #b91c1c; }
+  .pos { color: #290806; }
+
+  /* Section label */
+  .section-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: #8b5e3c;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px 16px 4px;
+  }
+
+  /* CTA button */
+  .cta-btn {
+    margin: 12px 16px 20px;
+    width: calc(100% - 32px);
+    padding: 13px;
+    border-radius: 10px;
+    border: none;
+    font-size: 14px;
+    font-weight: 700;
+    background: #290806;
+    color: #fff;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Divider */
+  .section-gap { height: 6px; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Between Rounds — Layout Options</h1>
+  <p>Same data, three different orderings. After round 5: Mike 58, Sarah 41, Dan 22, Jo −8. Colored badges show what each section is.</p>
+</div>
+
+<div class="options">
+
+  <!-- ====== OPTION A ====== -->
+  <div class="option">
+    <div class="option-label">
+      <h2>A: Track → Standings → Graphs → Table <span class="rec">Recommended</span></h2>
+      <p>Position first, then quick standings with "X away", graphs for insight, raw numbers last.</p>
+    </div>
+    <div class="phone">
+      <div class="status-bar"><div class="notch"></div></div>
+      <div class="phone-content">
+        <div class="round-header">
+          <h3>Game in Progress</h3>
+          <div class="subtitle">5 rounds played · First to 75</div>
+        </div>
+
+        <!-- Race Track -->
+        <div style="padding: 2px 16px 0;"><span class="section-badge badge-position">Position</span></div>
+        <div class="track">
+          <div class="track-labels"><span>−20</span><span>75 🏁</span></div>
+          <div class="track-bar">
+            <div class="track-zero"></div>
+            <div class="track-finish"></div>
+            <div class="track-dot" style="left: 82%; background: #3b82f6;">58</div>
+            <div class="track-dot" style="left: 64%; background: #ef4444;">41</div>
+            <div class="track-dot" style="left: 44%; background: #eab308;">22</div>
+            <div class="track-dot" style="left: 13%; background: #22c55e;">-8</div>
+          </div>
+          <div class="track-spacer"></div>
+        </div>
+
+        <!-- Standings -->
+        <div style="padding: 0 16px;"><span class="section-badge badge-standings">Standings</span></div>
+        <div class="standings">
+          <div class="standing-row" style="border-left-color: #3b82f6;">
+            <div class="standing-left"><span class="standing-rank">1</span><span class="standing-name">Mike</span></div>
+            <div class="standing-right"><div class="standing-score" style="color: #3b82f6;">58</div><div class="standing-away">17 away</div></div>
+          </div>
+          <div class="standing-row" style="border-left-color: #ef4444;">
+            <div class="standing-left"><span class="standing-rank">2</span><span class="standing-name">Sarah</span></div>
+            <div class="standing-right"><div class="standing-score" style="color: #ef4444;">41</div><div class="standing-away">34 away</div></div>
+          </div>
+          <div class="standing-row" style="border-left-color: #eab308;">
+            <div class="standing-left"><span class="standing-rank">3</span><span class="standing-name">Dan</span></div>
+            <div class="standing-right"><div class="standing-score" style="color: #b45309;">22</div><div class="standing-away">53 away</div></div>
+          </div>
+          <div class="standing-row" style="border-left-color: #22c55e;">
+            <div class="standing-left"><span class="standing-rank">4</span><span class="standing-name">Jo</span></div>
+            <div class="standing-right"><div class="standing-score neg">−8</div><div class="standing-away">83 away</div></div>
+          </div>
+        </div>
+
+        <!-- Graph carousel -->
+        <div style="padding: 6px 16px 0;"><span class="section-badge badge-graphs">Graphs</span></div>
+        <div class="graph-carousel">
+          <div class="graph-cards">
+            <div class="graph-card">
+              <div class="graph-card-title">Score Progression</div>
+              <div class="graph-card-subtitle">Cumulative scores across all rounds</div>
+              <div class="graph-card-body">
+                <svg viewBox="0 0 280 80" preserveAspectRatio="none">
+                  <line x1="0" y1="0" x2="280" y2="0" stroke="#f0e6d2" stroke-width="0.5" stroke-dasharray="3,3"/>
+                  <polyline points="0,80 56,62 112,56 168,42 224,36 280,22" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+                  <polyline points="0,80 56,68 112,54 168,46 224,48 280,38" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+                  <polyline points="0,80 56,72 112,70 168,60 224,58 280,56" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round"/>
+                  <polyline points="0,80 56,84 112,90 168,84 224,92 280,88" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="280" cy="22" r="3" fill="#3b82f6"/><circle cx="280" cy="38" r="3" fill="#ef4444"/>
+                  <circle cx="280" cy="56" r="3" fill="#eab308"/><circle cx="280" cy="88" r="3" fill="#22c55e"/>
+                </svg>
+              </div>
+            </div>
+            <div class="graph-card-peek">
+              <div class="graph-card-title">Hot & Cold</div>
+              <div class="graph-card-subtitle">Performance intensity per round</div>
+              <div class="graph-card-body" style="display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 24px; opacity: 0.3;">🔥❄️</span>
+              </div>
+            </div>
+          </div>
+          <div class="graph-dots"><div class="graph-dot active"></div><div class="graph-dot"></div><div class="graph-dot"></div></div>
+        </div>
+
+        <!-- Score table -->
+        <div style="padding: 6px 16px 0;"><span class="section-badge badge-table">Score Table</span></div>
+        <div class="section-label">Round Scores · tap to edit</div>
+        <div class="score-table">
+          <div class="score-table-header">
+            <div class="col-rnd">Rnd</div>
+            <div class="col" style="color: #3b82f6;">Mike</div>
+            <div class="col" style="color: #ef4444;">Sarah</div>
+            <div class="col" style="color: #b45309;">Dan</div>
+            <div class="col" style="color: #22c55e;">Jo</div>
+            <div class="col-edit"></div>
+          </div>
+          <div class="score-table-row"><div class="col-rnd">1</div><div class="col pos">+18</div><div class="col pos">+12</div><div class="col pos">+8</div><div class="col neg">−4</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">2</div><div class="col pos">+6</div><div class="col pos">+14</div><div class="col pos">+2</div><div class="col neg">−6</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">3</div><div class="col pos">+14</div><div class="col pos">+8</div><div class="col pos">+10</div><div class="col pos">+6</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">4</div><div class="col pos">+8</div><div class="col neg">−2</div><div class="col pos">+4</div><div class="col neg">−8</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">5</div><div class="col pos">+12</div><div class="col pos">+9</div><div class="col neg">−2</div><div class="col pos">+4</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-total"><div class="col-rnd">Total</div><div class="col">58</div><div class="col">41</div><div class="col">22</div><div class="col neg">−8</div><div class="col-edit"></div></div>
+        </div>
+
+        <div style="padding: 4px 16px 0;"><span class="section-badge badge-action">Action</span></div>
+        <div class="cta-btn">Enter Round 6 Scores</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== OPTION B ====== -->
+  <div class="option">
+    <div class="option-label">
+      <h2>B: Track → Graphs → Standings + Table</h2>
+      <p>Leads with visuals and fun stuff. Numbers come after.</p>
+    </div>
+    <div class="phone">
+      <div class="status-bar"><div class="notch"></div></div>
+      <div class="phone-content">
+        <div class="round-header">
+          <h3>Game in Progress</h3>
+          <div class="subtitle">5 rounds played · First to 75</div>
+        </div>
+
+        <!-- Race Track -->
+        <div style="padding: 2px 16px 0;"><span class="section-badge badge-position">Position</span></div>
+        <div class="track">
+          <div class="track-labels"><span>−20</span><span>75 🏁</span></div>
+          <div class="track-bar">
+            <div class="track-zero"></div>
+            <div class="track-finish"></div>
+            <div class="track-dot" style="left: 82%; background: #3b82f6;">58</div>
+            <div class="track-dot" style="left: 64%; background: #ef4444;">41</div>
+            <div class="track-dot" style="left: 44%; background: #eab308;">22</div>
+            <div class="track-dot" style="left: 13%; background: #22c55e;">-8</div>
+          </div>
+          <div class="track-spacer"></div>
+        </div>
+
+        <!-- Graph carousel FIRST -->
+        <div style="padding: 0 16px;"><span class="section-badge badge-graphs">Graphs</span></div>
+        <div class="graph-carousel">
+          <div class="graph-cards">
+            <div class="graph-card">
+              <div class="graph-card-title">Score Progression</div>
+              <div class="graph-card-subtitle">Cumulative scores across all rounds</div>
+              <div class="graph-card-body">
+                <svg viewBox="0 0 280 80" preserveAspectRatio="none">
+                  <line x1="0" y1="0" x2="280" y2="0" stroke="#f0e6d2" stroke-width="0.5" stroke-dasharray="3,3"/>
+                  <polyline points="0,80 56,62 112,56 168,42 224,36 280,22" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+                  <polyline points="0,80 56,68 112,54 168,46 224,48 280,38" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+                  <polyline points="0,80 56,72 112,70 168,60 224,58 280,56" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round"/>
+                  <polyline points="0,80 56,84 112,90 168,84 224,92 280,88" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="280" cy="22" r="3" fill="#3b82f6"/><circle cx="280" cy="38" r="3" fill="#ef4444"/>
+                  <circle cx="280" cy="56" r="3" fill="#eab308"/><circle cx="280" cy="88" r="3" fill="#22c55e"/>
+                </svg>
+              </div>
+            </div>
+            <div class="graph-card-peek">
+              <div class="graph-card-title">Hot & Cold</div>
+              <div class="graph-card-subtitle">Performance intensity per round</div>
+              <div class="graph-card-body" style="display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 24px; opacity: 0.3;">🔥❄️</span>
+              </div>
+            </div>
+          </div>
+          <div class="graph-dots"><div class="graph-dot active"></div><div class="graph-dot"></div><div class="graph-dot"></div></div>
+        </div>
+
+        <!-- Standings AFTER graphs -->
+        <div style="padding: 6px 16px 0;"><span class="section-badge badge-standings">Standings</span></div>
+        <div class="standings">
+          <div class="standing-row" style="border-left-color: #3b82f6;">
+            <div class="standing-left"><span class="standing-rank">1</span><span class="standing-name">Mike</span></div>
+            <div class="standing-right"><div class="standing-score" style="color: #3b82f6;">58</div><div class="standing-away">17 away</div></div>
+          </div>
+          <div class="standing-row" style="border-left-color: #ef4444;">
+            <div class="standing-left"><span class="standing-rank">2</span><span class="standing-name">Sarah</span></div>
+            <div class="standing-right"><div class="standing-score" style="color: #ef4444;">41</div><div class="standing-away">34 away</div></div>
+          </div>
+          <div class="standing-row" style="border-left-color: #eab308;">
+            <div class="standing-left"><span class="standing-rank">3</span><span class="standing-name">Dan</span></div>
+            <div class="standing-right"><div class="standing-score" style="color: #b45309;">22</div><div class="standing-away">53 away</div></div>
+          </div>
+          <div class="standing-row" style="border-left-color: #22c55e;">
+            <div class="standing-left"><span class="standing-rank">4</span><span class="standing-name">Jo</span></div>
+            <div class="standing-right"><div class="standing-score neg">−8</div><div class="standing-away">83 away</div></div>
+          </div>
+        </div>
+
+        <!-- Score table -->
+        <div style="padding: 6px 16px 0;"><span class="section-badge badge-table">Score Table</span></div>
+        <div class="section-label">Round Scores · tap to edit</div>
+        <div class="score-table">
+          <div class="score-table-header">
+            <div class="col-rnd">Rnd</div>
+            <div class="col" style="color: #3b82f6;">Mike</div>
+            <div class="col" style="color: #ef4444;">Sarah</div>
+            <div class="col" style="color: #b45309;">Dan</div>
+            <div class="col" style="color: #22c55e;">Jo</div>
+            <div class="col-edit"></div>
+          </div>
+          <div class="score-table-row"><div class="col-rnd">1</div><div class="col pos">+18</div><div class="col pos">+12</div><div class="col pos">+8</div><div class="col neg">−4</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">2</div><div class="col pos">+6</div><div class="col pos">+14</div><div class="col pos">+2</div><div class="col neg">−6</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">3</div><div class="col pos">+14</div><div class="col pos">+8</div><div class="col pos">+10</div><div class="col pos">+6</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">4</div><div class="col pos">+8</div><div class="col neg">−2</div><div class="col pos">+4</div><div class="col neg">−8</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">5</div><div class="col pos">+12</div><div class="col pos">+9</div><div class="col neg">−2</div><div class="col pos">+4</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-total"><div class="col-rnd">Total</div><div class="col">58</div><div class="col">41</div><div class="col">22</div><div class="col neg">−8</div><div class="col-edit"></div></div>
+        </div>
+
+        <div style="padding: 4px 16px 0;"><span class="section-badge badge-action">Action</span></div>
+        <div class="cta-btn">Enter Round 6 Scores</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== OPTION C ====== -->
+  <div class="option">
+    <div class="option-label">
+      <h2>C: Track → Standings → Table → Graphs</h2>
+      <p>Numbers first, data-focused. Graphs at the end as a bonus for those who scroll.</p>
+    </div>
+    <div class="phone">
+      <div class="status-bar"><div class="notch"></div></div>
+      <div class="phone-content">
+        <div class="round-header">
+          <h3>Game in Progress</h3>
+          <div class="subtitle">5 rounds played · First to 75</div>
+        </div>
+
+        <!-- Race Track -->
+        <div style="padding: 2px 16px 0;"><span class="section-badge badge-position">Position</span></div>
+        <div class="track">
+          <div class="track-labels"><span>−20</span><span>75 🏁</span></div>
+          <div class="track-bar">
+            <div class="track-zero"></div>
+            <div class="track-finish"></div>
+            <div class="track-dot" style="left: 82%; background: #3b82f6;">58</div>
+            <div class="track-dot" style="left: 64%; background: #ef4444;">41</div>
+            <div class="track-dot" style="left: 44%; background: #eab308;">22</div>
+            <div class="track-dot" style="left: 13%; background: #22c55e;">-8</div>
+          </div>
+          <div class="track-spacer"></div>
+        </div>
+
+        <!-- Standings -->
+        <div style="padding: 0 16px;"><span class="section-badge badge-standings">Standings</span></div>
+        <div class="standings">
+          <div class="standing-row" style="border-left-color: #3b82f6;">
+            <div class="standing-left"><span class="standing-rank">1</span><span class="standing-name">Mike</span></div>
+            <div class="standing-right"><div class="standing-score" style="color: #3b82f6;">58</div><div class="standing-away">17 away</div></div>
+          </div>
+          <div class="standing-row" style="border-left-color: #ef4444;">
+            <div class="standing-left"><span class="standing-rank">2</span><span class="standing-name">Sarah</span></div>
+            <div class="standing-right"><div class="standing-score" style="color: #ef4444;">41</div><div class="standing-away">34 away</div></div>
+          </div>
+          <div class="standing-row" style="border-left-color: #eab308;">
+            <div class="standing-left"><span class="standing-rank">3</span><span class="standing-name">Dan</span></div>
+            <div class="standing-right"><div class="standing-score" style="color: #b45309;">22</div><div class="standing-away">53 away</div></div>
+          </div>
+          <div class="standing-row" style="border-left-color: #22c55e;">
+            <div class="standing-left"><span class="standing-rank">4</span><span class="standing-name">Jo</span></div>
+            <div class="standing-right"><div class="standing-score neg">−8</div><div class="standing-away">83 away</div></div>
+          </div>
+        </div>
+
+        <!-- Score table BEFORE graphs -->
+        <div style="padding: 6px 16px 0;"><span class="section-badge badge-table">Score Table</span></div>
+        <div class="section-label">Round Scores · tap to edit</div>
+        <div class="score-table">
+          <div class="score-table-header">
+            <div class="col-rnd">Rnd</div>
+            <div class="col" style="color: #3b82f6;">Mike</div>
+            <div class="col" style="color: #ef4444;">Sarah</div>
+            <div class="col" style="color: #b45309;">Dan</div>
+            <div class="col" style="color: #22c55e;">Jo</div>
+            <div class="col-edit"></div>
+          </div>
+          <div class="score-table-row"><div class="col-rnd">1</div><div class="col pos">+18</div><div class="col pos">+12</div><div class="col pos">+8</div><div class="col neg">−4</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">2</div><div class="col pos">+6</div><div class="col pos">+14</div><div class="col pos">+2</div><div class="col neg">−6</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">3</div><div class="col pos">+14</div><div class="col pos">+8</div><div class="col pos">+10</div><div class="col pos">+6</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">4</div><div class="col pos">+8</div><div class="col neg">−2</div><div class="col pos">+4</div><div class="col neg">−8</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-row"><div class="col-rnd">5</div><div class="col pos">+12</div><div class="col pos">+9</div><div class="col neg">−2</div><div class="col pos">+4</div><div class="col-edit">✏️</div></div>
+          <div class="score-table-total"><div class="col-rnd">Total</div><div class="col">58</div><div class="col">41</div><div class="col">22</div><div class="col neg">−8</div><div class="col-edit"></div></div>
+        </div>
+
+        <!-- Graphs LAST -->
+        <div style="padding: 6px 16px 0;"><span class="section-badge badge-graphs">Graphs</span></div>
+        <div class="graph-carousel">
+          <div class="graph-cards">
+            <div class="graph-card">
+              <div class="graph-card-title">Score Progression</div>
+              <div class="graph-card-subtitle">Cumulative scores across all rounds</div>
+              <div class="graph-card-body">
+                <svg viewBox="0 0 280 80" preserveAspectRatio="none">
+                  <line x1="0" y1="0" x2="280" y2="0" stroke="#f0e6d2" stroke-width="0.5" stroke-dasharray="3,3"/>
+                  <polyline points="0,80 56,62 112,56 168,42 224,36 280,22" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+                  <polyline points="0,80 56,68 112,54 168,46 224,48 280,38" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+                  <polyline points="0,80 56,72 112,70 168,60 224,58 280,56" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round"/>
+                  <polyline points="0,80 56,84 112,90 168,84 224,92 280,88" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="280" cy="22" r="3" fill="#3b82f6"/><circle cx="280" cy="38" r="3" fill="#ef4444"/>
+                  <circle cx="280" cy="56" r="3" fill="#eab308"/><circle cx="280" cy="88" r="3" fill="#22c55e"/>
+                </svg>
+              </div>
+            </div>
+            <div class="graph-card-peek">
+              <div class="graph-card-title">Hot & Cold</div>
+              <div class="graph-card-subtitle">Performance intensity per round</div>
+              <div class="graph-card-body" style="display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 24px; opacity: 0.3;">🔥❄️</span>
+              </div>
+            </div>
+          </div>
+          <div class="graph-dots"><div class="graph-dot active"></div><div class="graph-dot"></div><div class="graph-dot"></div></div>
+        </div>
+
+        <div style="padding: 4px 16px 0;"><span class="section-badge badge-action">Action</span></div>
+        <div class="cta-btn">Enter Round 6 Scores</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

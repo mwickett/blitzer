@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blitzer — Race Track Iterations</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f7f2e9;
+    color: #290806;
+  }
+
+  .page-header {
+    text-align: center;
+    padding: 40px 20px 10px;
+  }
+  .page-header h1 { font-size: 22px; font-weight: 700; color: #290806; margin-bottom: 6px; }
+  .page-header p { color: #8b5e3c; font-size: 13px; max-width: 600px; margin: 0 auto; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 375px);
+    gap: 32px;
+    padding: 24px 40px 60px;
+    justify-content: center;
+  }
+
+  .variation {
+    width: 375px;
+  }
+  .variation-label {
+    margin-bottom: 12px;
+  }
+  .variation-label h2 { font-size: 14px; font-weight: 700; color: #290806; margin-bottom: 2px; }
+  .variation-label .rec {
+    display: inline-block;
+    background: #2a651722;
+    color: #2a6517;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 8px;
+    margin-left: 4px;
+  }
+  .variation-label p { font-size: 11px; color: #8b5e3c; margin-top: 2px; }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #8b5e3c;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 16px 0 8px;
+    padding-left: 2px;
+  }
+
+  /* Phone frame */
+  .frame {
+    width: 375px;
+    background: #fff7ea;
+    border-radius: 20px;
+    border: 2px solid #e6d7c3;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(42, 14, 2, 0.08);
+    padding: 16px 20px 20px;
+  }
+
+  .scenario-title {
+    font-size: 10px;
+    color: #8b5e3c;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+
+  /* Colors */
+  .c-blue { background: #3b82f6; }
+  .c-red { background: #ef4444; }
+  .c-yellow { background: #eab308; }
+  .c-green { background: #22c55e; }
+  .c-purple { background: #8b5cf6; }
+  .c-orange { background: #f97316; }
+
+  .t-blue { color: #3b82f6; }
+  .t-red { color: #ef4444; }
+  .t-yellow { color: #b45309; }
+  .t-green { color: #22c55e; }
+  .t-purple { color: #8b5cf6; }
+  .t-orange { color: #f97316; }
+  .t-neg { color: #b91c1c; }
+
+  /* =========================================
+     V1: SWIM LANES
+     Each player gets their own row
+     ========================================= */
+  .swim-lanes {
+    position: relative;
+  }
+  .swim-lane-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    color: #8b5e3c;
+    margin-bottom: 4px;
+    padding: 0 2px;
+  }
+  .swim-lane {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    height: 24px;
+    margin-bottom: 3px;
+    position: relative;
+  }
+  .swim-lane-name {
+    width: 36px;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+    text-align: right;
+    padding-right: 6px;
+  }
+  .swim-lane-track {
+    flex: 1;
+    height: 16px;
+    background: #f0e6d2;
+    border-radius: 8px;
+    position: relative;
+    overflow: visible;
+  }
+  .swim-lane-fill {
+    height: 100%;
+    border-radius: 8px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0.3;
+  }
+  .swim-lane-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    height: 16px;
+    min-width: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 700;
+    color: #fff;
+    padding: 0 5px;
+    z-index: 2;
+  }
+  .swim-lane-score {
+    width: 32px;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: right;
+    padding-left: 6px;
+    flex-shrink: 0;
+  }
+  .swim-zero-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #d1bfa8;
+    z-index: 1;
+  }
+  .swim-finish-line {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    background: #290806;
+    right: 0;
+    z-index: 1;
+  }
+  .swim-lanes-container {
+    position: relative;
+  }
+  .swim-zero-global {
+    position: absolute;
+    width: 1px;
+    background: #d1bfa8;
+    top: 0;
+    bottom: 0;
+    z-index: 0;
+  }
+
+  /* =========================================
+     V2: STACKING PILLS
+     Circles become pills, stack when crowded
+     ========================================= */
+  .pill-track {
+    position: relative;
+  }
+  .pill-track-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    color: #8b5e3c;
+    margin-bottom: 4px;
+  }
+  .pill-track-bg {
+    height: 36px;
+    background: #f0e6d2;
+    border-radius: 18px;
+    position: relative;
+    overflow: visible;
+  }
+  .pill-finish {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #290806;
+    border-radius: 0 18px 18px 0;
+  }
+  .pill-zero {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #d1bfa8;
+  }
+  /* Single marker (when not crowded) */
+  .pill-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    height: 22px;
+    min-width: 22px;
+    border-radius: 11px;
+    border: 2px solid #fff7ea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 700;
+    color: #fff;
+    z-index: 2;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+  /* Stacked pill group */
+  .pill-stack {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    z-index: 3;
+  }
+  .pill-group {
+    display: flex;
+    height: 22px;
+    border-radius: 11px;
+    border: 2px solid #fff7ea;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+  .pill-group-segment {
+    min-width: 18px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: 700;
+    color: #fff;
+    padding: 0 3px;
+  }
+  .pill-score-labels {
+    position: absolute;
+    bottom: -16px;
+    left: 0;
+    right: 0;
+    height: 14px;
+  }
+  .pill-score-label {
+    position: absolute;
+    transform: translateX(-50%);
+    font-size: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* =========================================
+     V3: VERTICAL BAR CHART (mini)
+     Horizontal bars for each player
+     ========================================= */
+  .bar-chart {
+    position: relative;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    height: 22px;
+  }
+  .bar-name {
+    width: 36px;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: right;
+    padding-right: 8px;
+    flex-shrink: 0;
+  }
+  .bar-container {
+    flex: 1;
+    height: 18px;
+    background: #f0e6d2;
+    border-radius: 4px;
+    position: relative;
+    overflow: visible;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    position: absolute;
+    top: 0;
+    transition: width 0.3s;
+  }
+  .bar-fill.positive { left: 21%; }
+  .bar-fill.negative {
+    right: 79%;
+    border-radius: 4px;
+  }
+  .bar-value {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    font-weight: 700;
+    color: #fff;
+    padding: 0 4px;
+    white-space: nowrap;
+  }
+  .bar-value-outside {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    font-weight: 700;
+    padding: 0 4px;
+    white-space: nowrap;
+  }
+  .bar-zero-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #d1bfa8;
+    left: 21%;
+  }
+  .bar-finish-marker {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: #290806;
+    right: 0;
+    border-radius: 1px;
+  }
+  .bar-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    color: #8b5e3c;
+    padding-left: 36px;
+    margin-bottom: 4px;
+  }
+
+  /* =========================================
+     V4: RADIAL / ARC GAUGE
+     ========================================= */
+  .arc-gauge {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+    padding: 4px 0;
+  }
+  .arc-player {
+    width: 78px;
+    text-align: center;
+    padding: 4px 0;
+  }
+  .arc-ring {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 4px;
+    position: relative;
+  }
+  .arc-ring svg {
+    width: 56px;
+    height: 56px;
+    transform: rotate(-90deg);
+  }
+  .arc-ring .arc-bg {
+    fill: none;
+    stroke: #f0e6d2;
+    stroke-width: 5;
+  }
+  .arc-ring .arc-fill {
+    fill: none;
+    stroke-width: 5;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s;
+  }
+  .arc-score {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .arc-name {
+    font-size: 10px;
+    font-weight: 600;
+    color: #290806;
+  }
+  .arc-away {
+    font-size: 8px;
+    color: #8b5e3c;
+    margin-top: 1px;
+  }
+
+  .divider {
+    height: 1px;
+    background: #e6d7c3;
+    margin: 12px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Race Track Iterations</h1>
+  <p>Four approaches to showing score position, each tested with both a spread-out scenario (mid-game) and a crowded scenario (early game, 6 players)</p>
+</div>
+
+<div class="grid">
+
+  <!-- ====== V1: SWIM LANES ====== -->
+  <div class="variation">
+    <div class="variation-label">
+      <h2>V1: Swim Lanes</h2>
+      <p>Each player gets their own row — impossible to overlap. Trades vertical space for zero ambiguity.</p>
+    </div>
+    <div class="frame">
+      <div class="scenario-title">Spread scenario — 4 players, round 5</div>
+      <div class="swim-lanes">
+        <div class="swim-lane-axis" style="margin-left: 36px;">
+          <span>−20</span>
+          <span style="margin-left: auto;">0</span>
+          <span style="margin-left: auto;">75 🏁</span>
+        </div>
+        <div class="swim-lanes-container">
+          <div class="swim-lane">
+            <div class="swim-lane-name t-blue">Mike</div>
+            <div class="swim-lane-track">
+              <div class="swim-lane-fill c-blue" style="width: 82%;"></div>
+              <div class="swim-lane-marker c-blue" style="left: 82%;">58</div>
+              <div class="swim-zero-line" style="left: 21%;"></div>
+            </div>
+          </div>
+          <div class="swim-lane">
+            <div class="swim-lane-name t-red">Sarah</div>
+            <div class="swim-lane-track">
+              <div class="swim-lane-fill c-red" style="width: 64%;"></div>
+              <div class="swim-lane-marker c-red" style="left: 64%;">41</div>
+              <div class="swim-zero-line" style="left: 21%;"></div>
+            </div>
+          </div>
+          <div class="swim-lane">
+            <div class="swim-lane-name t-yellow">Dan</div>
+            <div class="swim-lane-track">
+              <div class="swim-lane-fill c-yellow" style="width: 44%;"></div>
+              <div class="swim-lane-marker c-yellow" style="left: 44%;">22</div>
+              <div class="swim-zero-line" style="left: 21%;"></div>
+            </div>
+          </div>
+          <div class="swim-lane">
+            <div class="swim-lane-name t-green">Jo</div>
+            <div class="swim-lane-track">
+              <div class="swim-lane-marker c-green" style="left: 13%;">−8</div>
+              <div class="swim-zero-line" style="left: 21%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="scenario-title">Crowded scenario — 6 players, round 2</div>
+      <div class="swim-lanes">
+        <div class="swim-lane-axis" style="margin-left: 36px;">
+          <span>−20</span>
+          <span style="margin-left: auto;">0</span>
+          <span style="margin-left: auto;">75 🏁</span>
+        </div>
+        <div class="swim-lanes-container">
+          <div class="swim-lane">
+            <div class="swim-lane-name t-purple">Ava</div>
+            <div class="swim-lane-track">
+              <div class="swim-lane-fill c-purple" style="width: 46%;"></div>
+              <div class="swim-lane-marker c-purple" style="left: 46%;">24</div>
+              <div class="swim-zero-line" style="left: 21%;"></div>
+            </div>
+          </div>
+          <div class="swim-lane">
+            <div class="swim-lane-name t-blue">Mike</div>
+            <div class="swim-lane-track">
+              <div class="swim-lane-fill c-blue" style="width: 40%;"></div>
+              <div class="swim-lane-marker c-blue" style="left: 40%;">18</div>
+              <div class="swim-zero-line" style="left: 21%;"></div>
+            </div>
+          </div>
+          <div class="swim-lane">
+            <div class="swim-lane-name t-red">Sarah</div>
+            <div class="swim-lane-track">
+              <div class="swim-lane-fill c-red" style="width: 34%;"></div>
+              <div class="swim-lane-marker c-red" style="left: 34%;">12</div>
+              <div class="swim-zero-line" style="left: 21%;"></div>
+            </div>
+          </div>
+          <div class="swim-lane">
+            <div class="swim-lane-name t-yellow">Dan</div>
+            <div class="swim-lane-track">
+              <div class="swim-lane-fill c-yellow" style="width: 27%;"></div>
+              <div class="swim-lane-marker c-yellow" style="left: 27%;">6</div>
+              <div class="swim-zero-line" style="left: 21%;"></div>
+            </div>
+          </div>
+          <div class="swim-lane">
+            <div class="swim-lane-name t-green">Jo</div>
+            <div class="swim-lane-track">
+              <div class="swim-lane-fill c-green" style="width: 23%;"></div>
+              <div class="swim-lane-marker c-green" style="left: 23%;">2</div>
+              <div class="swim-zero-line" style="left: 21%;"></div>
+            </div>
+          </div>
+          <div class="swim-lane">
+            <div class="swim-lane-name t-orange">Liam</div>
+            <div class="swim-lane-track">
+              <div class="swim-lane-marker c-orange" style="left: 15%;">−6</div>
+              <div class="swim-zero-line" style="left: 21%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== V2: STACKING PILLS ====== -->
+  <div class="variation">
+    <div class="variation-label">
+      <h2>V2: Stacking Pills <span class="rec">Recommended</span></h2>
+      <p>Markers merge into multi-color pills when crowded. Keeps single-track compactness, solves overlap.</p>
+    </div>
+    <div class="frame">
+      <div class="scenario-title">Spread scenario — 4 players, round 5</div>
+      <div class="pill-track">
+        <div class="pill-track-labels">
+          <span>−20</span>
+          <span>75 🏁</span>
+        </div>
+        <div class="pill-track-bg">
+          <div class="pill-zero" style="left: 21%;"></div>
+          <div class="pill-finish"></div>
+
+          <!-- Spread: each marker separate -->
+          <div class="pill-marker c-blue" style="left: 82%;">58</div>
+          <div class="pill-marker c-red" style="left: 64%;">41</div>
+          <div class="pill-marker c-yellow" style="left: 44%;">22</div>
+          <div class="pill-marker c-green" style="left: 13%;"><span style="font-size: 7px;">−8</span></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="scenario-title">Crowded scenario — 6 players, round 2 (scores: 24, 18, 12, 6, 2, −6)</div>
+      <div class="pill-track">
+        <div class="pill-track-labels">
+          <span>−20</span>
+          <span>75 🏁</span>
+        </div>
+        <div class="pill-track-bg">
+          <div class="pill-zero" style="left: 21%;"></div>
+          <div class="pill-finish"></div>
+
+          <!-- Ava 24 — alone enough to stay solo -->
+          <div class="pill-marker c-purple" style="left: 46%;">24</div>
+
+          <!-- Mike 18 + Sarah 12 — close, merge into pill -->
+          <div class="pill-stack" style="left: 37%;">
+            <div class="pill-group">
+              <div class="pill-group-segment c-blue">18</div>
+              <div class="pill-group-segment c-red">12</div>
+            </div>
+          </div>
+
+          <!-- Dan 6 + Jo 2 — close, merge -->
+          <div class="pill-stack" style="left: 25%;">
+            <div class="pill-group">
+              <div class="pill-group-segment c-yellow">6</div>
+              <div class="pill-group-segment c-green">2</div>
+            </div>
+          </div>
+
+          <!-- Liam −6 — alone in negative territory -->
+          <div class="pill-marker c-orange" style="left: 15%;"><span style="font-size: 7px;">−6</span></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="scenario-title">Extreme crowd — 4 players, all between 0-5 (round 1)</div>
+      <div class="pill-track">
+        <div class="pill-track-labels">
+          <span>−20</span>
+          <span>75 🏁</span>
+        </div>
+        <div class="pill-track-bg">
+          <div class="pill-zero" style="left: 21%;"></div>
+          <div class="pill-finish"></div>
+
+          <!-- All clustered: merge into one mega-pill -->
+          <div class="pill-stack" style="left: 24%;">
+            <div class="pill-group">
+              <div class="pill-group-segment c-blue">5</div>
+              <div class="pill-group-segment c-red">3</div>
+              <div class="pill-group-segment c-yellow">1</div>
+              <div class="pill-group-segment c-green" style="font-size: 6px;">−2</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== V3: HORIZONTAL BARS ====== -->
+  <div class="variation">
+    <div class="variation-label">
+      <h2>V3: Horizontal Bars</h2>
+      <p>Mini bar chart — length = progress toward 75. Clear rank order, handles negatives as left-of-zero bars.</p>
+    </div>
+    <div class="frame">
+      <div class="scenario-title">Spread scenario — 4 players, round 5</div>
+      <div class="bar-chart">
+        <div class="bar-axis">
+          <span>−20</span>
+          <span>0</span>
+          <span>75 🏁</span>
+        </div>
+        <div style="position: relative;">
+          <div class="bar-row">
+            <div class="bar-name t-blue">Mike</div>
+            <div class="bar-container">
+              <div class="bar-zero-line"></div>
+              <div class="bar-finish-marker"></div>
+              <div class="bar-fill positive c-blue" style="width: 61%; opacity: 0.8;"></div>
+              <div class="bar-value" style="left: calc(21% + 61% - 28px); color: #fff;">58</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name t-red">Sarah</div>
+            <div class="bar-container">
+              <div class="bar-zero-line"></div>
+              <div class="bar-finish-marker"></div>
+              <div class="bar-fill positive c-red" style="width: 43%; opacity: 0.8;"></div>
+              <div class="bar-value" style="left: calc(21% + 43% - 28px); color: #fff;">41</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name t-yellow">Dan</div>
+            <div class="bar-container">
+              <div class="bar-zero-line"></div>
+              <div class="bar-finish-marker"></div>
+              <div class="bar-fill positive c-yellow" style="width: 23%; opacity: 0.8;"></div>
+              <div class="bar-value" style="left: calc(21% + 23% - 28px); color: #fff;">22</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name t-green">Jo</div>
+            <div class="bar-container">
+              <div class="bar-zero-line"></div>
+              <div class="bar-finish-marker"></div>
+              <div class="bar-fill c-green" style="width: 8%; opacity: 0.8; position: absolute; right: 79%; top: 0; height: 100%; border-radius: 4px;"></div>
+              <div class="bar-value-outside t-neg" style="left: calc(21% - 8% - 24px);">−8</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="scenario-title">Crowded scenario — 6 players, round 2</div>
+      <div class="bar-chart">
+        <div class="bar-axis">
+          <span>−20</span>
+          <span>0</span>
+          <span>75 🏁</span>
+        </div>
+        <div style="position: relative;">
+          <div class="bar-row">
+            <div class="bar-name t-purple">Ava</div>
+            <div class="bar-container">
+              <div class="bar-zero-line"></div>
+              <div class="bar-finish-marker"></div>
+              <div class="bar-fill positive c-purple" style="width: 25%; opacity: 0.8;"></div>
+              <div class="bar-value-outside t-purple" style="left: calc(21% + 25% + 4px);">24</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name t-blue">Mike</div>
+            <div class="bar-container">
+              <div class="bar-zero-line"></div>
+              <div class="bar-finish-marker"></div>
+              <div class="bar-fill positive c-blue" style="width: 19%; opacity: 0.8;"></div>
+              <div class="bar-value-outside t-blue" style="left: calc(21% + 19% + 4px);">18</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name t-red">Sarah</div>
+            <div class="bar-container">
+              <div class="bar-zero-line"></div>
+              <div class="bar-finish-marker"></div>
+              <div class="bar-fill positive c-red" style="width: 13%; opacity: 0.8;"></div>
+              <div class="bar-value-outside t-red" style="left: calc(21% + 13% + 4px);">12</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name t-yellow">Dan</div>
+            <div class="bar-container">
+              <div class="bar-zero-line"></div>
+              <div class="bar-finish-marker"></div>
+              <div class="bar-fill positive c-yellow" style="width: 6%; opacity: 0.8;"></div>
+              <div class="bar-value-outside t-yellow" style="left: calc(21% + 6% + 4px);">6</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name t-green">Jo</div>
+            <div class="bar-container">
+              <div class="bar-zero-line"></div>
+              <div class="bar-finish-marker"></div>
+              <div class="bar-fill positive c-green" style="width: 2%; opacity: 0.8;"></div>
+              <div class="bar-value-outside t-green" style="left: calc(21% + 2% + 4px);">2</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name t-orange">Liam</div>
+            <div class="bar-container">
+              <div class="bar-zero-line"></div>
+              <div class="bar-finish-marker"></div>
+              <div class="bar-fill c-orange" style="width: 6%; opacity: 0.8; position: absolute; right: 79%; top: 0; height: 100%; border-radius: 4px;"></div>
+              <div class="bar-value-outside t-neg" style="left: calc(21% - 6% - 20px);">−6</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== V4: RING GAUGES ====== -->
+  <div class="variation">
+    <div class="variation-label">
+      <h2>V4: Ring Gauges</h2>
+      <p>Each player is a progress ring toward 75. Compact, glanceable, works at any player count. Negative = empty ring with red score.</p>
+    </div>
+    <div class="frame">
+      <div class="scenario-title">Spread scenario — 4 players, round 5</div>
+      <div class="arc-gauge">
+        <div class="arc-player">
+          <div class="arc-ring">
+            <svg viewBox="0 0 56 56">
+              <circle class="arc-bg" cx="28" cy="28" r="22" />
+              <!-- 58/75 = 77% → dashoffset = 138.2 * (1 - 0.77) = 31.8 -->
+              <circle class="arc-fill" cx="28" cy="28" r="22" stroke="#3b82f6"
+                stroke-dasharray="138.2" stroke-dashoffset="31.8" />
+            </svg>
+            <div class="arc-score t-blue">58</div>
+          </div>
+          <div class="arc-name">Mike</div>
+          <div class="arc-away">17 away</div>
+        </div>
+        <div class="arc-player">
+          <div class="arc-ring">
+            <svg viewBox="0 0 56 56">
+              <circle class="arc-bg" cx="28" cy="28" r="22" />
+              <!-- 41/75 = 55% → 138.2 * 0.45 = 62.2 -->
+              <circle class="arc-fill" cx="28" cy="28" r="22" stroke="#ef4444"
+                stroke-dasharray="138.2" stroke-dashoffset="62.2" />
+            </svg>
+            <div class="arc-score t-red">41</div>
+          </div>
+          <div class="arc-name">Sarah</div>
+          <div class="arc-away">34 away</div>
+        </div>
+        <div class="arc-player">
+          <div class="arc-ring">
+            <svg viewBox="0 0 56 56">
+              <circle class="arc-bg" cx="28" cy="28" r="22" />
+              <!-- 22/75 = 29% → 138.2 * 0.71 = 98.1 -->
+              <circle class="arc-fill" cx="28" cy="28" r="22" stroke="#eab308"
+                stroke-dasharray="138.2" stroke-dashoffset="98.1" />
+            </svg>
+            <div class="arc-score t-yellow">22</div>
+          </div>
+          <div class="arc-name">Dan</div>
+          <div class="arc-away">53 away</div>
+        </div>
+        <div class="arc-player">
+          <div class="arc-ring">
+            <svg viewBox="0 0 56 56">
+              <circle class="arc-bg" cx="28" cy="28" r="22" />
+              <!-- negative: no fill -->
+            </svg>
+            <div class="arc-score t-neg">−8</div>
+          </div>
+          <div class="arc-name">Jo</div>
+          <div class="arc-away">83 away</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="scenario-title">Crowded scenario — 6 players, round 2</div>
+      <div class="arc-gauge">
+        <div class="arc-player">
+          <div class="arc-ring">
+            <svg viewBox="0 0 56 56">
+              <circle class="arc-bg" cx="28" cy="28" r="22" />
+              <circle class="arc-fill" cx="28" cy="28" r="22" stroke="#8b5cf6"
+                stroke-dasharray="138.2" stroke-dashoffset="94" />
+            </svg>
+            <div class="arc-score t-purple">24</div>
+          </div>
+          <div class="arc-name">Ava</div>
+          <div class="arc-away">51 away</div>
+        </div>
+        <div class="arc-player">
+          <div class="arc-ring">
+            <svg viewBox="0 0 56 56">
+              <circle class="arc-bg" cx="28" cy="28" r="22" />
+              <circle class="arc-fill" cx="28" cy="28" r="22" stroke="#3b82f6"
+                stroke-dasharray="138.2" stroke-dashoffset="105" />
+            </svg>
+            <div class="arc-score t-blue">18</div>
+          </div>
+          <div class="arc-name">Mike</div>
+          <div class="arc-away">57 away</div>
+        </div>
+        <div class="arc-player">
+          <div class="arc-ring">
+            <svg viewBox="0 0 56 56">
+              <circle class="arc-bg" cx="28" cy="28" r="22" />
+              <circle class="arc-fill" cx="28" cy="28" r="22" stroke="#ef4444"
+                stroke-dasharray="138.2" stroke-dashoffset="116" />
+            </svg>
+            <div class="arc-score t-red">12</div>
+          </div>
+          <div class="arc-name">Sarah</div>
+          <div class="arc-away">63 away</div>
+        </div>
+        <div class="arc-player">
+          <div class="arc-ring">
+            <svg viewBox="0 0 56 56">
+              <circle class="arc-bg" cx="28" cy="28" r="22" />
+              <circle class="arc-fill" cx="28" cy="28" r="22" stroke="#eab308"
+                stroke-dasharray="138.2" stroke-dashoffset="127" />
+            </svg>
+            <div class="arc-score t-yellow">6</div>
+          </div>
+          <div class="arc-name">Dan</div>
+          <div class="arc-away">69 away</div>
+        </div>
+        <div class="arc-player">
+          <div class="arc-ring">
+            <svg viewBox="0 0 56 56">
+              <circle class="arc-bg" cx="28" cy="28" r="22" />
+              <circle class="arc-fill" cx="28" cy="28" r="22" stroke="#22c55e"
+                stroke-dasharray="138.2" stroke-dashoffset="134.5" />
+            </svg>
+            <div class="arc-score t-green">2</div>
+          </div>
+          <div class="arc-name">Jo</div>
+          <div class="arc-away">73 away</div>
+        </div>
+        <div class="arc-player">
+          <div class="arc-ring">
+            <svg viewBox="0 0 56 56">
+              <circle class="arc-bg" cx="28" cy="28" r="22" />
+            </svg>
+            <div class="arc-score t-neg">−6</div>
+          </div>
+          <div class="arc-name">Liam</div>
+          <div class="arc-away">81 away</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
