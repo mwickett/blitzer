@@ -5,6 +5,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ScoreEntryCard } from "./ScoreEntryCard";
 import { FloatingCTA } from "./FloatingCTA";
+import { RoundHeader } from "./RoundHeader";
 import { type PlayerEntry, type PlayerWithScore, getEntryStatus } from "./types";
 import { validateGameRules } from "@/lib/validation/gameRules";
 import { createRoundForGame } from "@/server/mutations";
@@ -82,6 +83,11 @@ export function ScoreEntryView({
 
   return (
     <>
+      <RoundHeader
+        title={`Round ${currentRoundNumber}`}
+        subtitle={`First to ${winThreshold} wins`}
+      />
+
       {/* Error banner */}
       {error && (
         <div className="mx-4 mb-2 p-3 bg-[#fef2f2] border border-[#fecaca] rounded-lg text-sm text-[#b91c1c]">
