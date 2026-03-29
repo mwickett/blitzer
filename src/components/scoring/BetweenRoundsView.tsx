@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { usePostHog } from "posthog-js/react";
 import { RaceTrack } from "./RaceTrack";
 import { Standings } from "./Standings";
@@ -13,35 +12,17 @@ import { ScoreProgressionCard } from "./graphs/ScoreProgressionCard";
 import { HotColdCard } from "./graphs/HotColdCard";
 import { WinProbabilityCard } from "./graphs/WinProbabilityCard";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
-import { updateRoundScores } from "@/server/mutations";
-import { type PlayerWithScore } from "./types";
+import { useRoundEditing } from "./useRoundEditing";
+import { findPlayerScore } from "./utils";
+import { type PlayerWithScore, type RoundData } from "./types";
 
 interface BetweenRoundsViewProps {
   gameId: string;
   players: PlayerWithScore[];
-  rounds: {
-    id: string;
-    scores: {
-      userId?: string | null;
-      guestId?: string | null;
-      blitzPileRemaining: number;
-      totalCardsPlayed: number;
-    }[];
-  }[];
+  rounds: RoundData[];
   winThreshold: number;
   nextRoundNumber: number;
   onEnterScores: () => void;
-}
-
-function findPlayerScore(
-  player: PlayerWithScore,
-  roundScores: BetweenRoundsViewProps["rounds"][0]["scores"]
-) {
-  return roundScores.find(
-    (s) =>
-      (player.userId && s.userId === player.userId) ||
-      (player.guestId && s.guestId === player.guestId)
-  );
 }
 
 export function BetweenRoundsView({
@@ -52,52 +33,14 @@ export function BetweenRoundsView({
   nextRoundNumber,
   onEnterScores,
 }: BetweenRoundsViewProps) {
-  const router = useRouter();
   const posthog = usePostHog();
-  const [editingRoundIndex, setEditingRoundIndex] = useState<number | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
+  const { editingRoundIndex, editError, handleEditRound, handleSaveEdit, cancelEdit } =
+    useRoundEditing({ gameId, rounds, players });
 
   const handleEnterScores = () => {
     posthog.capture("scoring_enter_next_round", { round_number: nextRoundNumber });
     onEnterScores();
   };
-
-  const handleEditRound = useCallback((roundIndex: number) => {
-    posthog.capture("scoring_edit_round_tapped", { round_number: roundIndex + 1 });
-    setEditError(null);
-    setEditingRoundIndex(roundIndex);
-  }, [posthog]);
-
-  const handleSaveEdit = useCallback(async (
-    updated: Record<string, { blitzPileRemaining: number; totalCardsPlayed: number }>
-  ) => {
-    if (editingRoundIndex === null || editingRoundIndex >= rounds.length) return;
-    const round = rounds[editingRoundIndex];
-    setEditError(null);
-
-    const scores = players.map((player) => {
-      const data = updated[player.id];
-      return {
-        ...(player.isGuest
-          ? { guestId: player.guestId }
-          : { userId: player.userId }),
-        blitzPileRemaining: data.blitzPileRemaining,
-        totalCardsPlayed: data.totalCardsPlayed,
-      };
-    });
-
-    try {
-      await updateRoundScores(gameId, round.id, scores);
-      posthog.capture("scoring_round_edited", {
-        game_id: gameId,
-        round_number: editingRoundIndex + 1,
-      });
-      setEditingRoundIndex(null);
-      router.refresh();
-    } catch (e) {
-      setEditError(e instanceof Error ? e.message : "Failed to save changes");
-    }
-  }, [editingRoundIndex, rounds, players, gameId, posthog, router]);
 
   // Compute derived graph data from rounds
   const { scoresByRound, deltasByRound } = useMemo(() => {
@@ -173,7 +116,7 @@ export function BetweenRoundsView({
             })
           )}
           onSave={handleSaveEdit}
-          onCancel={() => { setEditingRoundIndex(null); setEditError(null); }}
+          onCancel={cancelEdit}
         />
       )}
 
