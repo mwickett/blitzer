@@ -9,6 +9,9 @@ interface TieBreakCandidate {
  * If still tied, first in the array wins (stable).
  */
 export function breakTie(candidates: TieBreakCandidate[]): string {
+  if (candidates.length === 0) {
+    throw new Error("breakTie requires at least one candidate");
+  }
   let bestId = candidates[0].playerId;
   let bestRemaining = candidates[0].blitzPileRemaining ?? 10;
 

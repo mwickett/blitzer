@@ -125,7 +125,7 @@ export function ScoringShell({
         )}
 
         {/* Inline round editor for finished games */}
-        {editingRoundIndex !== null && (
+        {editingRoundIndex !== null && editingRoundIndex < rounds.length && (
           <RoundEditor
             roundIndex={editingRoundIndex}
             players={players}
