@@ -3,7 +3,7 @@
 
 // Import and re-export async functions directly
 import { createGame, updateGameAsFinished, cloneGame, saveUserAccentColor } from "./games";
-import { createRoundForGame, updateRoundScores } from "./rounds";
+import { createRoundForGame, updateRoundScores, deleteLatestRound } from "./rounds";
 import { createGuestUser, getCircleGuestUsers, inviteGuestUser } from "./guests";
 import { inviteFriendToCircle } from "./circles";
 
@@ -15,6 +15,7 @@ export {
   saveUserAccentColor,
   createRoundForGame,
   updateRoundScores,
+  deleteLatestRound,
   createGuestUser,
   getCircleGuestUsers,
   inviteGuestUser,

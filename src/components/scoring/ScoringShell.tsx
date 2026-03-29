@@ -15,6 +15,7 @@ interface ScoringShellProps {
   isFinished: boolean;
   winnerName?: string;
   rounds: {
+    id: string;
     scores: {
       userId?: string | null;
       guestId?: string | null;
@@ -57,6 +58,7 @@ export function ScoringShell({
   if (mode === "betweenRounds") {
     return (
       <BetweenRoundsView
+        gameId={gameId}
         players={players}
         rounds={rounds}
         winThreshold={winThreshold}

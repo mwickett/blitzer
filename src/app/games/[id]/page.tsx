@@ -129,6 +129,7 @@ export default async function GameView(props: {
               winThreshold={game.winThreshold}
               isFinished={game.isFinished}
               rounds={game.rounds.map((r) => ({
+                id: r.id,
                 scores: r.scores.map((s) => ({
                   userId: s.userId,
                   guestId: s.guestId,

@@ -11,11 +11,13 @@ interface RoundHistoryTableProps {
       totalCardsPlayed: number;
     }[];
   }[];
+  onEditRound?: (roundIndex: number) => void;
 }
 
 export function RoundHistoryTable({
   players,
   rounds,
+  onEditRound,
 }: RoundHistoryTableProps) {
   if (rounds.length === 0) return null;
 
@@ -60,7 +62,8 @@ export function RoundHistoryTable({
       {rounds.map((round, ri) => (
         <div
           key={ri}
-          className="flex px-3 py-1.5 border-b border-[#f0e6d2] last:border-b-0"
+          className={`flex px-3 py-1.5 border-b border-[#f0e6d2] last:border-b-0${onEditRound ? " cursor-pointer hover:bg-[#faf5ed] active:bg-[#f0e6d2] transition-colors" : ""}`}
+          onClick={onEditRound ? () => onEditRound(ri) : undefined}
         >
           <div className="w-10 text-[11px] text-[#8b5e3c]">
             {ri + 1}
