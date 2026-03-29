@@ -18,7 +18,7 @@
 - `src/lib/scoring/tiebreak.ts` — `breakTie` pure function
 - `src/lib/__tests__/tiebreak.test.ts` — tests for above
 - `src/components/scoring/useRoundEditing.ts` — extracted editing hook
-- `src/components/scoring/GameColorStep.tsx` — color selection step for game creation
+- `src/components/scoring/GameColorStep.tsx` — color selection step for game creation (new component; the existing `ColorPrompt.tsx` is a single-player prompt with its own confirm button — `GameColorStep` composes `ColorPicker` directly to show all players at once with a shared confirm, so `ColorPrompt` is intentionally not reused here)
 - `src/lib/scoring/colorCascade.ts` — `resolveColorCascade` pure function
 - `src/lib/__tests__/colorCascade.test.ts` — tests for above
 - `src/components/scoring/useGameColors.ts` — hook wrapping color cascade logic
@@ -644,16 +644,50 @@ to:
         const newWinnerId = breakTie(candidates);
 ```
 
-- [ ] **Step 3: Run tests**
+- [ ] **Step 3: Run existing tests**
 
 Run: `npm test --verbose`
 Expected: All tests PASS (gameLogic.test.ts should still pass since behavior is identical)
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Add regression test for breakTie via updateRoundScores**
+
+The existing `gameLogic.test.ts` covers tie-breaking through `transformGameData`, but `updateRoundScores` in `rounds.ts` has its own tie-break path (winner recomputation after editing a finished game) that has no direct test coverage. Add a targeted unit test for the `breakTie` function that matches the mutation's usage pattern — playerIds as strings mapped to blitz counts:
+
+```typescript
+// Add to src/lib/__tests__/tiebreak.test.ts
+
+describe("breakTie — rounds mutation usage pattern", () => {
+  it("selects winner from string playerIds mapped via scores", () => {
+    // Simulates the updateRoundScores path: topPlayers are string IDs,
+    // mapped to candidates via final-round score lookup
+    const topPlayers = ["user-1", "user-2"];
+    const finalRoundScores = [
+      { id: "s1", userId: "user-1", guestId: null, blitzPileRemaining: 4, totalCardsPlayed: 22 },
+      { id: "s2", userId: "user-2", guestId: null, blitzPileRemaining: 1, totalCardsPlayed: 25 },
+    ];
+
+    const candidates = topPlayers.map((pid) => {
+      const s = finalRoundScores.find(
+        (sc) => (sc.userId ?? sc.guestId ?? "") === pid
+      );
+      return { playerId: pid, blitzPileRemaining: s?.blitzPileRemaining ?? 10 };
+    });
+
+    expect(breakTie(candidates)).toBe("user-2"); // fewer blitz cards
+  });
+});
+```
+
+- [ ] **Step 5: Run tests**
+
+Run: `npm test -- --testPathPattern="__tests__/tiebreak" --verbose`
+Expected: PASS — 5 tests (4 original + 1 new)
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/lib/gameLogic.ts src/server/mutations/rounds.ts
-git commit -m "refactor: wire breakTie into gameLogic and rounds mutation"
+git add src/lib/gameLogic.ts src/server/mutations/rounds.ts src/lib/__tests__/tiebreak.test.ts
+git commit -m "refactor: wire breakTie into gameLogic and rounds mutation, add regression test"
 ```
 
 ---
@@ -730,14 +764,13 @@ describe("resolveColorCascade", () => {
     expect(result.b).toBe("#ef4444");
   });
 
-  it("bumps displaced player to next available color", () => {
+  it("bumps displaced player to first unused ACCENT_COLOR", () => {
     const colors = { a: "#3b82f6", b: "#ef4444" };
+    // a takes red from b. After assignment: a=#ef4444, b=?
+    // Used colors: #ef4444. Free from palette: #3b82f6 (blue, index 0).
     const result = resolveColorCascade(colors, "a", "#ef4444");
     expect(result.a).toBe("#ef4444");
-    expect(result.b).not.toBe("#ef4444");
-    expect(result.b).not.toBe("#3b82f6"); // old color of a is not "available" — it's freed
-    // Actually, #3b82f6 IS freed since a no longer holds it
-    // b should get the first available from ACCENT_COLORS not used by anyone
+    expect(result.b).toBe("#3b82f6"); // blue — first unused in ACCENT_COLORS order
   });
 
   it("never produces duplicate colors", () => {
@@ -766,6 +799,23 @@ describe("resolveColorCascade", () => {
     expect(result.b).toBe("#22c55e"); // green — first unused
     expect(result.c).toBe("#eab308"); // unchanged
   });
+
+  it("falls back to freed color when palette is exhausted (7+ players)", () => {
+    // All 6 palette colors are in use, plus a 7th player wrapping
+    const colors = {
+      a: "#3b82f6", // blue
+      b: "#ef4444", // red
+      c: "#eab308", // yellow
+      d: "#22c55e", // green
+      e: "#8b5cf6", // purple
+      f: "#f97316", // orange
+      g: "#3b82f6", // blue (wrapped — already a duplicate)
+    };
+    // a takes red from b — no free palette slot, b gets a's old color (blue)
+    const result = resolveColorCascade(colors, "a", "#ef4444");
+    expect(result.a).toBe("#ef4444");
+    expect(result.b).toBe("#3b82f6"); // gets a's freed blue
+  });
 });
 ```
 
@@ -784,7 +834,10 @@ import { ACCENT_COLORS } from "./colors";
  * Update a player's color and cascade-bump any displaced player.
  * Returns a new color map (does not mutate the input).
  *
- * Invariant: the returned map never contains duplicate values.
+ * When fewer players than palette colors (≤6), duplicates are impossible.
+ * When palette is exhausted (7+ players), the displaced player keeps
+ * their current color — duplicates are tolerated, matching the base
+ * allocator behavior in assignColorsToPlayers (colors.ts:49).
  */
 export function resolveColorCascade(
   currentColors: Record<string, string>,
@@ -798,16 +851,19 @@ export function resolveColorCascade(
     ([id, c]) => id !== playerId && c === newColor
   );
 
+  // Remember the outgoing color before overwriting
+  const oldColor = next[playerId];
+
   // Assign the new color
   next[playerId] = newColor;
 
-  // Bump the displaced player to the first available accent color
+  // Bump the displaced player to the first available accent color.
+  // If the palette is exhausted (7+ players), fall back to the
+  // color that was just freed by the current player.
   if (displacedEntry) {
     const usedColors = new Set(Object.values(next));
     const available = ACCENT_COLORS.find((c) => !usedColors.has(c.value));
-    if (available) {
-      next[displacedEntry[0]] = available.value;
-    }
+    next[displacedEntry[0]] = available ? available.value : oldColor;
   }
 
   return next;
@@ -1214,10 +1270,14 @@ to:
       }));
       const result = await createGame(playersWithColors, winThreshold);
 
+      // Fire-and-forget: saving the creator's default must not block
+      // navigation or cause a retry that duplicates the game.
       if (saveCreatorDefault) {
         const currentPlayer = inGamePlayers.find((p) => isCurrentUser(p));
         if (currentPlayer && playerColors[currentPlayer.id]) {
-          await saveUserAccentColor(playerColors[currentPlayer.id]);
+          saveUserAccentColor(playerColors[currentPlayer.id]).catch((e) =>
+            console.error("Failed to save default color:", e)
+          );
         }
       }
 
