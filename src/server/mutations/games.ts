@@ -4,6 +4,7 @@ import prisma from "@/server/db/db";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getAuthenticatedUserWithOrg } from "./common";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
+import { resolvePlayerColor, assignColorsToPlayers } from "@/lib/scoring/colors";
 
 // Create a new game with support for guest players
 export async function createGame(
@@ -77,7 +78,27 @@ export async function createGame(
       }
     }
 
-    // Step 3: Add players to the game one by one
+    // Step 3: Resolve accent colors for all players
+    // Look up accent color defaults for regular players
+    const playerDefaults = await prisma.user.findMany({
+      where: { id: { in: regularPlayerIds } },
+      select: { id: true, accentColor: true },
+    });
+
+    // Resolve colors: game override (none at creation) > user default > auto-assign
+    const colorInputs = users.map((u) => {
+      const userDefault = playerDefaults.find((p) => p.id === u.id);
+      return {
+        id: u.id,
+        resolvedColor: resolvePlayerColor({
+          gameColor: null,
+          userDefault: userDefault?.accentColor ?? null,
+        }),
+      };
+    });
+    const playerColors = assignColorsToPlayers(colorInputs);
+
+    // Step 4: Add players to the game one by one
     for (const player of users) {
       if (player.isGuest) {
         const dbGuestId = guestUserIds.get(player.id);
@@ -87,6 +108,7 @@ export async function createGame(
             data: {
               gameId: newGame.id,
               guestId: dbGuestId,
+              accentColor: playerColors[player.id] ?? null,
             },
           });
         }
@@ -96,6 +118,7 @@ export async function createGame(
           data: {
             gameId: newGame.id,
             userId: player.id,
+            accentColor: playerColors[player.id] ?? null,
           },
         });
       }
@@ -275,6 +298,26 @@ export async function updateGameAsFinished(
   });
 }
 
+// Save user's default accent color preference
+export async function saveUserAccentColor(color: string) {
+  const { user, posthog } = await getAuthenticatedUserWithOrg();
+  const currentUser = await prisma.user.findUnique({
+    where: { clerk_user_id: user.userId },
+  });
+  if (!currentUser) throw new Error("User not found");
+
+  await prisma.user.update({
+    where: { id: currentUser.id },
+    data: { accentColor: color },
+  });
+
+  posthog.capture({
+    distinctId: user.userId,
+    event: "set_accent_color",
+    properties: { color },
+  });
+}
+
 // Clone an existing game
 export async function cloneGame(originalGameId: string) {
   const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
@@ -303,9 +346,15 @@ export async function cloneGame(originalGameId: string) {
     // Create a new game with the same players
     const playerCreateInputs = originalGame.players.map((player) => {
       if (player.userId) {
-        return { userId: player.userId };
+        return {
+          userId: player.userId,
+          ...(player.accentColor ? { accentColor: player.accentColor } : {}),
+        };
       } else if (player.guestId) {
-        return { guestId: player.guestId };
+        return {
+          guestId: player.guestId,
+          ...(player.accentColor ? { accentColor: player.accentColor } : {}),
+        };
       }
       throw new Error("Player has neither userId nor guestId");
     });

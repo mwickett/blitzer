@@ -8,6 +8,7 @@ export interface GameWithPlayersAndScores extends Game {
     gameId: string;
     userId?: string;
     guestId?: string;
+    accentColor?: string | null;
     user?: User;
     guestUser?: GuestUser;
   }[];
@@ -31,6 +32,7 @@ export interface DisplayScores {
   total: number;
   isInLead?: boolean;
   isWinner?: boolean;
+  accentColor?: string | null;
 }
 
 export interface ProcessedPlayerScore {
@@ -39,6 +41,7 @@ export interface ProcessedPlayerScore {
   isGuest: boolean;
   scoresByRound: number[];
   total: number;
+  accentColor?: string | null;
 }
 
 // Function to get player name - handles both regular users and guest users
@@ -77,6 +80,7 @@ function initializePlayerScoresMap(
       isGuest: isGuestPlayer(player),
       scoresByRound: [],
       total: 0,
+      accentColor: player.accentColor ?? null,
     };
   });
 
@@ -153,6 +157,24 @@ async function determineWinner(
       (player) => player.total === highestScore
     );
 
+    // Tie-breaking: when multiple players have the same highest score,
+    // the player with fewer blitz cards remaining in the final round wins.
+    if (potentialWinners.length > 1) {
+      const finalRound = game.rounds[game.rounds.length - 1];
+      potentialWinners.sort((a, b) => {
+        const aScore = finalRound.scores.find(
+          (s) => s.userId === a.id || s.guestId === a.id
+        );
+        const bScore = finalRound.scores.find(
+          (s) => s.userId === b.id || s.guestId === b.id
+        );
+        return (
+          (aScore?.blitzPileRemaining ?? 10) -
+          (bScore?.blitzPileRemaining ?? 10)
+        );
+      });
+    }
+
     const winnerId = potentialWinners[0].id;
     if (!game.isFinished) {
       const winnerPlayer = game.players.find(
@@ -191,7 +213,7 @@ export default async function transformGameData(
 
   // Convert to final display scores
   return Object.entries(playerScoresMap).map(
-    ([id, { username, isGuest, scoresByRound, total }]) => ({
+    ([id, { username, isGuest, scoresByRound, total, accentColor }]) => ({
       id,
       userId: id, // Add userId for backward compatibility with tests
       username,
@@ -200,6 +222,7 @@ export default async function transformGameData(
       total,
       isInLead: leaders.includes(id),
       isWinner: id === winnerId,
+      accentColor,
     })
   );
 }

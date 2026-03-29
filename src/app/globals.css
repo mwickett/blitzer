@@ -36,6 +36,18 @@
     --ring: 240 10% 3.9%;
 
     --radius: 0.5rem;
+
+    /* Scoring design tokens */
+    --scoring-bg: #fff7ea;
+    --scoring-bg-muted: #f0e6d2;
+    --scoring-bg-subtle: #faf5ed;
+    --scoring-border: #e6d7c3;
+    --scoring-border-muted: #d1bfa8;
+    --scoring-text: #290806;
+    --scoring-text-muted: #8b5e3c;
+    --scoring-text-negative: #b91c1c;
+    --scoring-success: #2a6517;
+    --scoring-success-hover: #1d4a10;
   }
 
   .dark {
@@ -76,4 +88,53 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes deltaFlash {
+  0% { opacity: 0; transform: scale(0.8); }
+  15% { opacity: 1; transform: scale(1.05); }
+  25% { transform: scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes celebrationFade {
+  0% { opacity: 0; }
+  8% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; pointer-events: none; }
+}
+
+@keyframes bgFlash {
+  0% { opacity: 0; }
+  8% { opacity: 0.95; }
+  70% { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+
+@keyframes contentPop {
+  0% { opacity: 0; transform: scale(0.5); }
+  12% { opacity: 1; transform: scale(1.1); }
+  18% { transform: scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: scale(0.95); }
+}
+
+@keyframes trophyBounce {
+  0% { opacity: 0; transform: scale(0) rotate(-20deg); }
+  15% { opacity: 1; transform: scale(1.3) rotate(5deg); }
+  22% { transform: scale(1) rotate(0deg); }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes confettiFall {
+  0% { opacity: 0; transform: translateY(-20px) rotate(0deg); }
+  10% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(600px) rotate(720deg); }
 }

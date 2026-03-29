@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blitzer Scoring Prototype — Approach A</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f7f2e9;
+    color: #290806;
+  }
+
+  .page-header {
+    text-align: center;
+    padding: 40px 20px 20px;
+  }
+  .page-header h1 { font-size: 24px; font-weight: 700; color: #290806; margin-bottom: 6px; }
+  .page-header p { color: #8b5e3c; font-size: 13px; }
+
+  .scenarios {
+    display: flex;
+    gap: 40px;
+    padding: 20px 40px 60px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .scenario {
+    flex-shrink: 0;
+  }
+  .scenario-label {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .scenario-label h2 { font-size: 15px; font-weight: 700; color: #290806; margin-bottom: 4px; }
+  .scenario-label span { font-size: 12px; color: #8b5e3c; }
+
+  /* Phone frame */
+  .phone {
+    width: 375px;
+    height: 812px;
+    background: #fff7ea;
+    border-radius: 40px;
+    border: 3px solid #e6d7c3;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 8px 32px rgba(42, 14, 2, 0.1);
+  }
+
+  .status-bar {
+    height: 50px;
+    background: #fff7ea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .notch {
+    width: 120px;
+    height: 28px;
+    background: #290806;
+    border-radius: 0 0 16px 16px;
+  }
+
+  .phone-content {
+    height: calc(100% - 50px);
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  /* Round header - sticky */
+  .round-header {
+    padding: 12px 20px 8px;
+    background: #fff7ea;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid #f0e6d2;
+  }
+  .round-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #290806;
+  }
+  .round-header .subtitle {
+    font-size: 12px;
+    color: #8b5e3c;
+    margin-top: 2px;
+  }
+
+  /* =========================================
+     RACE TRACK — distance to win
+     ========================================= */
+  .race-track {
+    margin: 12px 20px 4px;
+    position: relative;
+  }
+  .race-track-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: #8b5e3c;
+    margin-bottom: 6px;
+    padding: 0 2px;
+  }
+  .track-bg {
+    height: 28px;
+    background: #f0e6d2;
+    border-radius: 14px;
+    position: relative;
+    overflow: visible;
+  }
+  .track-zero-line {
+    position: absolute;
+    left: 15%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #d1bfa8;
+  }
+  .track-zero-label {
+    position: absolute;
+    left: 15%;
+    top: -14px;
+    transform: translateX(-50%);
+    font-size: 8px;
+    color: #8b5e3c;
+  }
+  .track-finish {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #290806;
+    border-radius: 0 14px 14px 0;
+  }
+  .track-finish-flag {
+    position: absolute;
+    right: -2px;
+    top: -14px;
+    font-size: 10px;
+  }
+  .track-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2.5px solid #fff7ea;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .track-score-label {
+    position: absolute;
+    bottom: -15px;
+    transform: translateX(-50%);
+    font-size: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* =========================================
+     PLAYER CARDS
+     ========================================= */
+  .players-area {
+    padding: 20px 16px 0;
+  }
+
+  .player-card {
+    background: #fff;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-left: 5px solid;
+    transition: all 0.15s;
+  }
+  .player-card.filled {
+    border-color: #e6d7c3;
+  }
+
+  .player-info {
+    flex-shrink: 0;
+    width: 64px;
+  }
+  .player-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #290806;
+  }
+  .player-score-current {
+    font-size: 11px;
+    color: #8b5e3c;
+    margin-top: 1px;
+  }
+  .player-score-current.negative {
+    color: #b91c1c;
+  }
+
+  .inputs {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+  }
+  .input-group {
+    flex: 1;
+  }
+  .input-group label {
+    display: block;
+    font-size: 9px;
+    color: #8b5e3c;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+  .input-field {
+    width: 100%;
+    height: 44px;
+    background: #fff7ea;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 8px;
+    color: #290806;
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+  }
+  .input-field.has-value {
+    border-color: #d1bfa8;
+    background: #fff;
+  }
+  .input-field.empty-val {
+    color: #d1bfa8;
+  }
+
+  .status-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+  .status-empty { background: #f0e6d2; color: #d1bfa8; }
+  .status-partial { background: #fef3c7; color: #b45309; }
+  .status-complete { background: #dcfce7; color: #2a6517; }
+
+  /* Submit button */
+  .submit-btn {
+    margin: 16px 16px 24px;
+    width: calc(100% - 32px);
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+  }
+  .submit-btn.active {
+    background: #2a6517;
+    color: #fff;
+  }
+  .submit-btn.inactive {
+    background: #f0e6d2;
+    color: #d1bfa8;
+  }
+
+  /* Dutch Blitz accent colors */
+  .color-blue { background: #3b82f6; }
+  .color-red { background: #ef4444; }
+  .color-yellow { background: #eab308; }
+  .color-green { background: #22c55e; }
+  .color-purple { background: #8b5cf6; }
+  .color-orange { background: #f97316; }
+
+  .border-blue { border-left-color: #3b82f6 !important; }
+  .border-red { border-left-color: #ef4444 !important; }
+  .border-yellow { border-left-color: #eab308 !important; }
+  .border-green { border-left-color: #22c55e !important; }
+  .border-purple { border-left-color: #8b5cf6 !important; }
+  .border-orange { border-left-color: #f97316 !important; }
+
+  .text-blue { color: #3b82f6; }
+  .text-red { color: #ef4444; }
+  .text-yellow { color: #b45309; }
+  .text-green { color: #22c55e; }
+  .text-purple { color: #8b5cf6; }
+  .text-orange { color: #f97316; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Blitzer — Scoring Prototype (Approach A)</h1>
+  <p>Race track leaderboard with negative score handling · Warm brand palette · 4-player and 6-player scenarios</p>
+</div>
+
+<div class="scenarios">
+
+  <!-- ====== SCENARIO 1: 4 players, mid-game, one negative ====== -->
+  <div class="scenario">
+    <div class="scenario-label">
+      <h2>4 Players — Mid-Game with Negative Score</h2>
+      <span>Round 5 · Mike is leading, Jo has gone negative</span>
+    </div>
+    <div class="phone">
+      <div class="status-bar"><div class="notch"></div></div>
+      <div class="phone-content">
+        <div class="round-header">
+          <h3>Round 5</h3>
+          <div class="subtitle">First to 75 wins</div>
+        </div>
+
+        <!-- Race Track -->
+        <div class="race-track">
+          <div class="race-track-labels">
+            <span>−20</span>
+            <span>75 to win</span>
+          </div>
+          <div class="track-bg">
+            <!-- Zero line at ~15% from left (mapping -20 to 75 range, 0 is at ~21%) -->
+            <div class="track-zero-line" style="left: 21%;"></div>
+            <div class="track-zero-label" style="left: 21%;">0</div>
+            <div class="track-finish"></div>
+            <div class="track-finish-flag">🏁</div>
+
+            <!-- Mike: 58 pts → maps to about 82% -->
+            <div class="track-marker color-blue" style="left: 82%;">
+            </div>
+            <div class="track-score-label text-blue" style="left: 82%;">58</div>
+
+            <!-- Sarah: 41 pts → about 64% -->
+            <div class="track-marker color-red" style="left: 64%;">
+            </div>
+            <div class="track-score-label text-red" style="left: 64%;">41</div>
+
+            <!-- Dan: 22 pts → about 44% -->
+            <div class="track-marker color-yellow" style="left: 44%;">
+            </div>
+            <div class="track-score-label text-yellow" style="left: 44%;">22</div>
+
+            <!-- Jo: -8 pts → about 13% -->
+            <div class="track-marker color-green" style="left: 13%;">
+            </div>
+            <div class="track-score-label" style="left: 13%; color: #b91c1c;">−8</div>
+          </div>
+        </div>
+
+        <div style="height: 16px;"></div>
+
+        <!-- Player Cards -->
+        <div class="players-area">
+          <!-- Mike — filled -->
+          <div class="player-card border-blue">
+            <div class="player-info">
+              <div class="player-name">Mike</div>
+              <div class="player-score-current">58 pts</div>
+            </div>
+            <div class="inputs">
+              <div class="input-group">
+                <label>Blitz left</label>
+                <div class="input-field has-value">0</div>
+              </div>
+              <div class="input-group">
+                <label>Cards played</label>
+                <div class="input-field has-value">28</div>
+              </div>
+            </div>
+            <div class="status-icon status-complete">✓</div>
+          </div>
+
+          <!-- Sarah — partial -->
+          <div class="player-card border-red">
+            <div class="player-info">
+              <div class="player-name">Sarah</div>
+              <div class="player-score-current">41 pts</div>
+            </div>
+            <div class="inputs">
+              <div class="input-group">
+                <label>Blitz left</label>
+                <div class="input-field has-value">3</div>
+              </div>
+              <div class="input-group">
+                <label>Cards played</label>
+                <div class="input-field empty-val">—</div>
+              </div>
+            </div>
+            <div class="status-icon status-partial">½</div>
+          </div>
+
+          <!-- Dan — empty -->
+          <div class="player-card border-yellow">
+            <div class="player-info">
+              <div class="player-name">Dan</div>
+              <div class="player-score-current">22 pts</div>
+            </div>
+            <div class="inputs">
+              <div class="input-group">
+                <label>Blitz left</label>
+                <div class="input-field empty-val">—</div>
+              </div>
+              <div class="input-group">
+                <label>Cards played</label>
+                <div class="input-field empty-val">—</div>
+              </div>
+            </div>
+            <div class="status-icon status-empty">○</div>
+          </div>
+
+          <!-- Jo — empty, negative score -->
+          <div class="player-card border-green">
+            <div class="player-info">
+              <div class="player-name">Jo</div>
+              <div class="player-score-current negative">−8 pts</div>
+            </div>
+            <div class="inputs">
+              <div class="input-group">
+                <label>Blitz left</label>
+                <div class="input-field empty-val">—</div>
+              </div>
+              <div class="input-group">
+                <label>Cards played</label>
+                <div class="input-field empty-val">—</div>
+              </div>
+            </div>
+            <div class="status-icon status-empty">○</div>
+          </div>
+        </div>
+
+        <div class="submit-btn inactive">Submit Round (3 remaining)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SCENARIO 2: 6 players, early game ====== -->
+  <div class="scenario">
+    <div class="scenario-label">
+      <h2>6 Players — Early Game (Expansion)</h2>
+      <span>Round 2 · All scores entered, ready to submit</span>
+    </div>
+    <div class="phone">
+      <div class="status-bar"><div class="notch"></div></div>
+      <div class="phone-content">
+        <div class="round-header">
+          <h3>Round 2</h3>
+          <div class="subtitle">First to 75 wins</div>
+        </div>
+
+        <!-- Race Track — 6 players -->
+        <div class="race-track">
+          <div class="race-track-labels">
+            <span>−20</span>
+            <span>75 to win</span>
+          </div>
+          <div class="track-bg">
+            <div class="track-zero-line" style="left: 21%;"></div>
+            <div class="track-zero-label" style="left: 21%;">0</div>
+            <div class="track-finish"></div>
+            <div class="track-finish-flag">🏁</div>
+
+            <!-- Ava: 24 → ~46% -->
+            <div class="track-marker color-purple" style="left: 46%;"></div>
+            <div class="track-score-label text-purple" style="left: 46%;">24</div>
+
+            <!-- Mike: 18 → ~40% -->
+            <div class="track-marker color-blue" style="left: 40%;"></div>
+            <div class="track-score-label text-blue" style="left: 40%;">18</div>
+
+            <!-- Sarah: 12 → ~34% -->
+            <div class="track-marker color-red" style="left: 34%;"></div>
+            <div class="track-score-label text-red" style="left: 34%;">12</div>
+
+            <!-- Dan: 6 → ~27% -->
+            <div class="track-marker color-yellow" style="left: 27%;"></div>
+            <div class="track-score-label text-yellow" style="left: 27%;">6</div>
+
+            <!-- Jo: 2 → ~23% -->
+            <div class="track-marker color-green" style="left: 23%;"></div>
+            <div class="track-score-label text-green" style="left: 23%;">2</div>
+
+            <!-- Liam: -6 → ~15% -->
+            <div class="track-marker color-orange" style="left: 15%;"></div>
+            <div class="track-score-label" style="left: 15%; color: #b91c1c;">−6</div>
+          </div>
+        </div>
+
+        <div style="height: 16px;"></div>
+
+        <!-- 6 Player Cards — all filled -->
+        <div class="players-area">
+          <div class="player-card border-purple">
+            <div class="player-info">
+              <div class="player-name">Ava</div>
+              <div class="player-score-current">24 pts</div>
+            </div>
+            <div class="inputs">
+              <div class="input-group">
+                <label>Blitz left</label>
+                <div class="input-field has-value">0</div>
+              </div>
+              <div class="input-group">
+                <label>Cards played</label>
+                <div class="input-field has-value">19</div>
+              </div>
+            </div>
+            <div class="status-icon status-complete">✓</div>
+          </div>
+
+          <div class="player-card border-blue">
+            <div class="player-info">
+              <div class="player-name">Mike</div>
+              <div class="player-score-current">18 pts</div>
+            </div>
+            <div class="inputs">
+              <div class="input-group">
+                <label>Blitz left</label>
+                <div class="input-field has-value">2</div>
+              </div>
+              <div class="input-group">
+                <label>Cards played</label>
+                <div class="input-field has-value">15</div>
+              </div>
+            </div>
+            <div class="status-icon status-complete">✓</div>
+          </div>
+
+          <div class="player-card border-red">
+            <div class="player-info">
+              <div class="player-name">Sarah</div>
+              <div class="player-score-current">12 pts</div>
+            </div>
+            <div class="inputs">
+              <div class="input-group">
+                <label>Blitz left</label>
+                <div class="input-field has-value">4</div>
+              </div>
+              <div class="input-group">
+                <label>Cards played</label>
+                <div class="input-field has-value">16</div>
+              </div>
+            </div>
+            <div class="status-icon status-complete">✓</div>
+          </div>
+
+          <div class="player-card border-yellow">
+            <div class="player-info">
+              <div class="player-name">Dan</div>
+              <div class="player-score-current">6 pts</div>
+            </div>
+            <div class="inputs">
+              <div class="input-group">
+                <label>Blitz left</label>
+                <div class="input-field has-value">5</div>
+              </div>
+              <div class="input-group">
+                <label>Cards played</label>
+                <div class="input-field has-value">12</div>
+              </div>
+            </div>
+            <div class="status-icon status-complete">✓</div>
+          </div>
+
+          <div class="player-card border-green">
+            <div class="player-info">
+              <div class="player-name">Jo</div>
+              <div class="player-score-current">2 pts</div>
+            </div>
+            <div class="inputs">
+              <div class="input-group">
+                <label>Blitz left</label>
+                <div class="input-field has-value">7</div>
+              </div>
+              <div class="input-group">
+                <label>Cards played</label>
+                <div class="input-field has-value">10</div>
+              </div>
+            </div>
+            <div class="status-icon status-complete">✓</div>
+          </div>
+
+          <div class="player-card border-orange">
+            <div class="player-info">
+              <div class="player-name">Liam</div>
+              <div class="player-score-current negative">−6 pts</div>
+            </div>
+            <div class="inputs">
+              <div class="input-group">
+                <label>Blitz left</label>
+                <div class="input-field has-value">9</div>
+              </div>
+              <div class="input-group">
+                <label>Cards played</label>
+                <div class="input-field has-value">8</div>
+              </div>
+            </div>
+            <div class="status-icon status-complete">✓</div>
+          </div>
+        </div>
+
+        <div class="submit-btn active">Submit Round</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SCENARIO 3: All submitted, viewing score display ====== -->
+  <div class="scenario">
+    <div class="scenario-label">
+      <h2>Score Display — Between Rounds</h2>
+      <span>After round 5 · Viewing standings before starting round 6</span>
+    </div>
+    <div class="phone">
+      <div class="status-bar"><div class="notch"></div></div>
+      <div class="phone-content">
+        <div class="round-header">
+          <h3>Game in Progress</h3>
+          <div class="subtitle">5 rounds played · First to 75</div>
+        </div>
+
+        <!-- Race Track -->
+        <div class="race-track">
+          <div class="race-track-labels">
+            <span>−20</span>
+            <span>75 to win</span>
+          </div>
+          <div class="track-bg">
+            <div class="track-zero-line" style="left: 21%;"></div>
+            <div class="track-zero-label" style="left: 21%;">0</div>
+            <div class="track-finish"></div>
+            <div class="track-finish-flag">🏁</div>
+
+            <div class="track-marker color-blue" style="left: 82%;"></div>
+            <div class="track-score-label text-blue" style="left: 82%;">58</div>
+
+            <div class="track-marker color-red" style="left: 64%;"></div>
+            <div class="track-score-label text-red" style="left: 64%;">41</div>
+
+            <div class="track-marker color-yellow" style="left: 44%;"></div>
+            <div class="track-score-label text-yellow" style="left: 44%;">22</div>
+
+            <div class="track-marker color-green" style="left: 13%;"></div>
+            <div class="track-score-label" style="left: 13%; color: #b91c1c;">−8</div>
+          </div>
+        </div>
+
+        <div style="height: 12px;"></div>
+
+        <!-- Standings list -->
+        <div style="padding: 0 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fff; border: 1.5px solid #e6d7c3; border-radius: 10px; margin-bottom: 6px; border-left: 5px solid #3b82f6;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 13px; font-weight: 700; color: #8b5e3c; width: 18px;">1</span>
+              <span style="font-size: 14px; font-weight: 600; color: #290806;">Mike</span>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 16px; font-weight: 700; color: #290806;">58</div>
+              <div style="font-size: 9px; color: #8b5e3c;">17 away</div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fff; border: 1.5px solid #e6d7c3; border-radius: 10px; margin-bottom: 6px; border-left: 5px solid #ef4444;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 13px; font-weight: 700; color: #8b5e3c; width: 18px;">2</span>
+              <span style="font-size: 14px; font-weight: 600; color: #290806;">Sarah</span>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 16px; font-weight: 700; color: #290806;">41</div>
+              <div style="font-size: 9px; color: #8b5e3c;">34 away</div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fff; border: 1.5px solid #e6d7c3; border-radius: 10px; margin-bottom: 6px; border-left: 5px solid #eab308;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 13px; font-weight: 700; color: #8b5e3c; width: 18px;">3</span>
+              <span style="font-size: 14px; font-weight: 600; color: #290806;">Dan</span>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 16px; font-weight: 700; color: #290806;">22</div>
+              <div style="font-size: 9px; color: #8b5e3c;">53 away</div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fff; border: 1.5px solid #e6d7c3; border-radius: 10px; margin-bottom: 6px; border-left: 5px solid #22c55e;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 13px; font-weight: 700; color: #8b5e3c; width: 18px;">4</span>
+              <span style="font-size: 14px; font-weight: 600; color: #290806;">Jo</span>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 16px; font-weight: 700; color: #b91c1c;">−8</div>
+              <div style="font-size: 9px; color: #8b5e3c;">83 away</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Round history preview -->
+        <div style="padding: 16px 16px 0;">
+          <div style="font-size: 11px; font-weight: 600; color: #8b5e3c; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Round Scores</div>
+          <div style="background: #fff; border: 1.5px solid #e6d7c3; border-radius: 10px; overflow: hidden;">
+            <!-- Header -->
+            <div style="display: flex; padding: 8px 12px; border-bottom: 1px solid #f0e6d2; background: #faf5ed;">
+              <div style="width: 50px; font-size: 10px; font-weight: 600; color: #8b5e3c;">Rnd</div>
+              <div style="flex: 1; font-size: 10px; font-weight: 600; text-align: center; color: #3b82f6;">Mike</div>
+              <div style="flex: 1; font-size: 10px; font-weight: 600; text-align: center; color: #ef4444;">Sarah</div>
+              <div style="flex: 1; font-size: 10px; font-weight: 600; text-align: center; color: #b45309;">Dan</div>
+              <div style="flex: 1; font-size: 10px; font-weight: 600; text-align: center; color: #22c55e;">Jo</div>
+            </div>
+            <!-- Rows -->
+            <div style="display: flex; padding: 7px 12px; border-bottom: 1px solid #f0e6d2;">
+              <div style="width: 50px; font-size: 11px; color: #8b5e3c;">1</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+18</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+12</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+8</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #b91c1c;">−4</div>
+            </div>
+            <div style="display: flex; padding: 7px 12px; border-bottom: 1px solid #f0e6d2;">
+              <div style="width: 50px; font-size: 11px; color: #8b5e3c;">2</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+6</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+14</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+2</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #b91c1c;">−6</div>
+            </div>
+            <div style="display: flex; padding: 7px 12px; border-bottom: 1px solid #f0e6d2;">
+              <div style="width: 50px; font-size: 11px; color: #8b5e3c;">3</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+14</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+8</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+10</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+6</div>
+            </div>
+            <div style="display: flex; padding: 7px 12px; border-bottom: 1px solid #f0e6d2;">
+              <div style="width: 50px; font-size: 11px; color: #8b5e3c;">4</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+8</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #b91c1c;">−2</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+4</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #b91c1c;">−8</div>
+            </div>
+            <div style="display: flex; padding: 7px 12px;">
+              <div style="width: 50px; font-size: 11px; color: #8b5e3c;">5</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+12</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+9</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #b91c1c;">−2</div>
+              <div style="flex: 1; font-size: 12px; font-weight: 500; text-align: center; color: #290806;">+4</div>
+            </div>
+            <!-- Totals -->
+            <div style="display: flex; padding: 8px 12px; background: #faf5ed; border-top: 2px solid #e6d7c3;">
+              <div style="width: 50px; font-size: 11px; font-weight: 700; color: #290806;">Total</div>
+              <div style="flex: 1; font-size: 13px; font-weight: 700; text-align: center; color: #290806;">58</div>
+              <div style="flex: 1; font-size: 13px; font-weight: 700; text-align: center; color: #290806;">41</div>
+              <div style="flex: 1; font-size: 13px; font-weight: 700; text-align: center; color: #290806;">22</div>
+              <div style="flex: 1; font-size: 13px; font-weight: 700; text-align: center; color: #b91c1c;">−8</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height: 8px;"></div>
+
+        <div class="submit-btn active" style="background: #290806;">Enter Round 6 Scores</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

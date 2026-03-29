@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blitzer — Round Editing Prototypes</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f7f2e9;
+    color: #290806;
+  }
+
+  .page-header {
+    text-align: center;
+    padding: 40px 20px 10px;
+  }
+  .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .page-header p { color: #8b5e3c; font-size: 13px; max-width: 650px; margin: 0 auto; }
+
+  .scenarios {
+    display: flex;
+    gap: 28px;
+    padding: 24px 32px 60px;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .scenario { width: 375px; flex-shrink: 0; }
+  .scenario-label { margin-bottom: 12px; }
+  .scenario-label h2 { font-size: 14px; font-weight: 700; color: #290806; margin-bottom: 2px; }
+  .scenario-label .step-num {
+    display: inline-block;
+    width: 20px; height: 20px;
+    background: #290806;
+    color: #fff;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 4px;
+  }
+  .scenario-label p { font-size: 11px; color: #8b5e3c; margin-top: 2px; line-height: 1.4; }
+
+  .phone {
+    width: 375px;
+    height: 720px;
+    background: #fff7ea;
+    border-radius: 40px;
+    border: 3px solid #e6d7c3;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 8px 32px rgba(42, 14, 2, 0.1);
+  }
+  .status-bar {
+    height: 50px;
+    background: #fff7ea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .notch {
+    width: 120px;
+    height: 28px;
+    background: #290806;
+    border-radius: 0 0 16px 16px;
+  }
+  .phone-content {
+    height: calc(100% - 50px);
+    overflow-y: auto;
+    padding: 0;
+    position: relative;
+  }
+
+  .round-header {
+    padding: 12px 20px 8px;
+    background: #fff7ea;
+    border-bottom: 1px solid #f0e6d2;
+  }
+  .round-header h3 { font-size: 18px; font-weight: 700; color: #290806; }
+  .round-header .subtitle { font-size: 12px; color: #8b5e3c; margin-top: 2px; }
+
+  /* Round history table */
+  .history-table {
+    margin: 0 16px;
+    background: #fff;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .history-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #8b5e3c;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 12px 16px 6px;
+  }
+  .history-header {
+    display: flex;
+    padding: 6px 12px;
+    background: #faf5ed;
+    border-bottom: 1px solid #f0e6d2;
+  }
+  .history-header .col { flex: 1; text-align: center; font-size: 10px; font-weight: 600; }
+  .history-header .col-rnd { width: 40px; font-size: 10px; font-weight: 600; color: #8b5e3c; }
+  .history-header .col-edit { width: 28px; }
+
+  .history-row {
+    display: flex;
+    padding: 7px 12px;
+    border-bottom: 1px solid #f0e6d2;
+    align-items: center;
+    transition: background 0.15s;
+  }
+  .history-row:last-child { border-bottom: none; }
+  .history-row .col { flex: 1; text-align: center; font-size: 12px; font-weight: 500; }
+  .history-row .col-rnd { width: 40px; font-size: 11px; color: #8b5e3c; }
+  .history-row .col-edit { width: 28px; display: flex; align-items: center; justify-content: center; }
+  .history-row.tappable { cursor: pointer; }
+  .history-row.tappable:hover { background: #faf5ed; }
+  .history-row.active-edit { background: #fef3c7; }
+  .neg { color: #b91c1c; }
+  .pos { color: #290806; }
+
+  .edit-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #8b5e3c;
+  }
+
+  .history-total {
+    display: flex;
+    padding: 8px 12px;
+    background: #faf5ed;
+    border-top: 2px solid #e6d7c3;
+  }
+  .history-total .col { flex: 1; text-align: center; font-size: 13px; font-weight: 700; }
+  .history-total .col-rnd { width: 40px; font-size: 11px; font-weight: 700; color: #290806; }
+  .history-total .col-edit { width: 28px; }
+
+  /* Player edit cards (inline in table) */
+  .inline-edit {
+    margin: 0 16px;
+    background: #fffbeb;
+    border: 2px solid #fbbf24;
+    border-radius: 12px;
+    padding: 12px 14px;
+    position: relative;
+  }
+  .inline-edit-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .inline-edit-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #290806;
+  }
+  .inline-edit-badge {
+    font-size: 9px;
+    font-weight: 600;
+    background: #fbbf24;
+    color: #92400e;
+    padding: 2px 8px;
+    border-radius: 8px;
+  }
+  .inline-edit-cancel {
+    font-size: 11px;
+    font-weight: 600;
+    color: #8b5e3c;
+    cursor: pointer;
+  }
+
+  .edit-player-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: #fff;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 10px;
+    border-left: 4px solid;
+  }
+  .edit-player-name {
+    width: 48px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #290806;
+    flex-shrink: 0;
+  }
+  .edit-player-inputs { display: flex; gap: 6px; flex: 1; }
+  .edit-input-group { flex: 1; }
+  .edit-input-group label {
+    display: block;
+    font-size: 8px;
+    color: #8b5e3c;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+  .edit-input {
+    width: 100%;
+    height: 36px;
+    background: #fff7ea;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: #290806;
+    font-family: 'Inter', sans-serif;
+  }
+  .edit-input.changed {
+    border-color: #fbbf24;
+    background: #fffbeb;
+  }
+  .edit-delta {
+    width: 36px;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .edit-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .edit-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  .edit-btn-save { background: #2a6517; color: #fff; }
+  .edit-btn-cancel { background: #f0e6d2; color: #8b5e3c; }
+
+  .edit-note {
+    margin-top: 8px;
+    font-size: 9px;
+    color: #8b5e3c;
+    text-align: center;
+    font-style: italic;
+  }
+
+  /* Undo toast */
+  .undo-toast {
+    position: absolute;
+    bottom: 80px;
+    left: 16px;
+    right: 16px;
+    background: #290806;
+    color: #fff;
+    padding: 12px 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    z-index: 30;
+  }
+  .undo-toast-text {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .undo-toast-btn {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fbbf24;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 6px;
+    background: rgba(251, 191, 36, 0.15);
+  }
+  .undo-toast-timer {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+    position: absolute;
+    bottom: 4px;
+    left: 12px;
+    right: 12px;
+    width: calc(100% - 24px);
+  }
+  .undo-toast-timer-fill {
+    height: 100%;
+    background: #fbbf24;
+    border-radius: 2px;
+    width: 60%;
+  }
+
+  /* Submit button */
+  .submit-btn {
+    margin: 12px 16px 20px;
+    width: calc(100% - 32px);
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+  }
+  .submit-btn.active { background: #2a6517; color: #fff; cursor: pointer; }
+  .submit-btn.inactive { background: #f0e6d2; color: #d1bfa8; }
+  .submit-btn.dark { background: #290806; color: #fff; cursor: pointer; }
+
+  /* Score entry card (mini version for context) */
+  .mini-card {
+    margin: 0 16px 6px;
+    background: #fff;
+    border: 1.5px solid #e6d7c3;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 4px solid;
+    opacity: 0.4;
+  }
+  .mini-card-name { font-size: 12px; font-weight: 600; color: #290806; width: 48px; }
+  .mini-card-score { font-size: 11px; color: #8b5e3c; }
+  .mini-card-fields {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+  }
+  .mini-card-field {
+    flex: 1;
+    height: 32px;
+    background: #fff7ea;
+    border: 1px solid #e6d7c3;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #290806;
+  }
+  .mini-card-status {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #dcfce7;
+    color: #2a6517;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+  }
+
+  /* Annotation callouts */
+  .callout {
+    margin: 8px 16px;
+    padding: 8px 12px;
+    background: #eef2ff;
+    border: 1.5px solid #c7d2fe;
+    border-radius: 8px;
+    font-size: 10px;
+    color: #4338ca;
+    line-height: 1.4;
+  }
+  .callout strong { font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Round Editing — Interaction Flow</h1>
+  <p>Three scenarios: undo right after submit, editing an older round via the history table, and what the table looks like when tappable</p>
+</div>
+
+<div class="scenarios">
+
+  <!-- ====== SCENARIO 1: Undo Toast ====== -->
+  <div class="scenario">
+    <div class="scenario-label">
+      <h2><span class="step-num">1</span> Just Submitted — Undo Toast</h2>
+      <p>Immediately after tapping "Submit Round", a toast appears for ~5 seconds. One tap to undo. Disappears quietly — no interruption if the score was correct.</p>
+    </div>
+    <div class="phone">
+      <div class="status-bar"><div class="notch"></div></div>
+      <div class="phone-content">
+        <div class="round-header">
+          <h3>Round 4</h3>
+          <div class="subtitle">First to 75 wins</div>
+        </div>
+
+        <!-- Race track placeholder -->
+        <div style="margin: 12px 20px; height: 40px; background: #f0e6d2; border-radius: 20px; position: relative; overflow: visible;">
+          <div style="position: absolute; left: 72%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #3b82f6; border: 2px solid #fff7ea;"></div>
+          <div style="position: absolute; left: 55%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #ef4444; border: 2px solid #fff7ea;"></div>
+          <div style="position: absolute; left: 38%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #eab308; border: 2px solid #fff7ea;"></div>
+          <div style="position: absolute; left: 18%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #22c55e; border: 2px solid #fff7ea;"></div>
+        </div>
+
+        <div style="height: 16px;"></div>
+
+        <!-- Empty score entry cards (new round ready) -->
+        <div class="mini-card" style="border-left-color: #3b82f6; opacity: 1;">
+          <div class="mini-card-name">Mike</div>
+          <div class="mini-card-score">52 pts</div>
+          <div class="mini-card-fields">
+            <div class="mini-card-field" style="color: #d1bfa8;">—</div>
+            <div class="mini-card-field" style="color: #d1bfa8;">—</div>
+          </div>
+          <div class="mini-card-status" style="background: #f0e6d2; color: #d1bfa8;">○</div>
+        </div>
+        <div class="mini-card" style="border-left-color: #ef4444; opacity: 1;">
+          <div class="mini-card-name">Sarah</div>
+          <div class="mini-card-score">38 pts</div>
+          <div class="mini-card-fields">
+            <div class="mini-card-field" style="color: #d1bfa8;">—</div>
+            <div class="mini-card-field" style="color: #d1bfa8;">—</div>
+          </div>
+          <div class="mini-card-status" style="background: #f0e6d2; color: #d1bfa8;">○</div>
+        </div>
+        <div class="mini-card" style="border-left-color: #eab308; opacity: 1;">
+          <div class="mini-card-name">Dan</div>
+          <div class="mini-card-score">20 pts</div>
+          <div class="mini-card-fields">
+            <div class="mini-card-field" style="color: #d1bfa8;">—</div>
+            <div class="mini-card-field" style="color: #d1bfa8;">—</div>
+          </div>
+          <div class="mini-card-status" style="background: #f0e6d2; color: #d1bfa8;">○</div>
+        </div>
+        <div class="mini-card" style="border-left-color: #22c55e; opacity: 1;">
+          <div class="mini-card-name">Jo</div>
+          <div class="mini-card-score" style="color: #b91c1c;">−6 pts</div>
+          <div class="mini-card-fields">
+            <div class="mini-card-field" style="color: #d1bfa8;">—</div>
+            <div class="mini-card-field" style="color: #d1bfa8;">—</div>
+          </div>
+          <div class="mini-card-status" style="background: #f0e6d2; color: #d1bfa8;">○</div>
+        </div>
+
+        <!-- Undo toast -->
+        <div class="undo-toast">
+          <div>
+            <div class="undo-toast-text">Round 3 submitted</div>
+          </div>
+          <div class="undo-toast-btn">Undo</div>
+          <div class="undo-toast-timer"><div class="undo-toast-timer-fill"></div></div>
+        </div>
+
+        <div class="submit-btn inactive">Submit Round (4 remaining)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SCENARIO 2: Tappable History Table ====== -->
+  <div class="scenario">
+    <div class="scenario-label">
+      <h2><span class="step-num">2</span> Between Rounds — Tappable History</h2>
+      <p>The round history table shows a subtle pencil icon on each row. Tap any row to edit that round. Current round entry is faded below.</p>
+    </div>
+    <div class="phone">
+      <div class="status-bar"><div class="notch"></div></div>
+      <div class="phone-content">
+        <div class="round-header">
+          <h3>Game in Progress</h3>
+          <div class="subtitle">3 rounds played · First to 75</div>
+        </div>
+
+        <!-- Race track placeholder -->
+        <div style="margin: 12px 20px; height: 40px; background: #f0e6d2; border-radius: 20px; position: relative;">
+          <div style="position: absolute; left: 60%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #3b82f6; border: 2px solid #fff7ea;"></div>
+          <div style="position: absolute; left: 48%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #ef4444; border: 2px solid #fff7ea;"></div>
+          <div style="position: absolute; left: 35%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #eab308; border: 2px solid #fff7ea;"></div>
+          <div style="position: absolute; left: 22%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #22c55e; border: 2px solid #fff7ea;"></div>
+        </div>
+
+        <div style="height: 8px;"></div>
+
+        <!-- Tappable history table -->
+        <div class="history-section-label">Round Scores <span style="font-weight: 400; text-transform: none; letter-spacing: 0;">· tap to edit</span></div>
+        <div class="history-table">
+          <div class="history-header">
+            <div class="col-rnd">Rnd</div>
+            <div class="col" style="color: #3b82f6;">Mike</div>
+            <div class="col" style="color: #ef4444;">Sarah</div>
+            <div class="col" style="color: #b45309;">Dan</div>
+            <div class="col" style="color: #22c55e;">Jo</div>
+            <div class="col-edit"></div>
+          </div>
+          <div class="history-row tappable">
+            <div class="col-rnd">1</div>
+            <div class="col pos">+18</div>
+            <div class="col pos">+12</div>
+            <div class="col pos">+8</div>
+            <div class="col neg">−4</div>
+            <div class="col-edit"><div class="edit-icon">✏️</div></div>
+          </div>
+          <div class="history-row tappable">
+            <div class="col-rnd">2</div>
+            <div class="col pos">+6</div>
+            <div class="col pos">+14</div>
+            <div class="col pos">+2</div>
+            <div class="col neg">−6</div>
+            <div class="col-edit"><div class="edit-icon">✏️</div></div>
+          </div>
+          <div class="history-row tappable">
+            <div class="col-rnd">3</div>
+            <div class="col pos">+14</div>
+            <div class="col pos">+8</div>
+            <div class="col pos">+10</div>
+            <div class="col pos">+6</div>
+            <div class="col-edit"><div class="edit-icon">✏️</div></div>
+          </div>
+          <div class="history-total">
+            <div class="col-rnd">Total</div>
+            <div class="col">38</div>
+            <div class="col">34</div>
+            <div class="col">20</div>
+            <div class="col neg">−4</div>
+            <div class="col-edit"></div>
+          </div>
+        </div>
+
+        <div class="submit-btn dark" style="margin-top: 16px;">Enter Round 4 Scores</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SCENARIO 3: Editing a Round Inline ====== -->
+  <div class="scenario">
+    <div class="scenario-label">
+      <h2><span class="step-num">3</span> Editing Round 2 — Inline Edit</h2>
+      <p>After tapping Round 2 in the table, it expands into an edit card with pre-filled values. Changed fields are highlighted. Save recalculates all totals.</p>
+    </div>
+    <div class="phone">
+      <div class="status-bar"><div class="notch"></div></div>
+      <div class="phone-content">
+        <div class="round-header">
+          <h3>Game in Progress</h3>
+          <div class="subtitle">Editing round 2 of 3</div>
+        </div>
+
+        <div style="height: 12px;"></div>
+
+        <!-- History table with round 2 highlighted -->
+        <div class="history-section-label">Round Scores</div>
+        <div class="history-table">
+          <div class="history-header">
+            <div class="col-rnd">Rnd</div>
+            <div class="col" style="color: #3b82f6;">Mike</div>
+            <div class="col" style="color: #ef4444;">Sarah</div>
+            <div class="col" style="color: #b45309;">Dan</div>
+            <div class="col" style="color: #22c55e;">Jo</div>
+            <div class="col-edit"></div>
+          </div>
+          <div class="history-row">
+            <div class="col-rnd">1</div>
+            <div class="col pos">+18</div>
+            <div class="col pos">+12</div>
+            <div class="col pos">+8</div>
+            <div class="col neg">−4</div>
+            <div class="col-edit"></div>
+          </div>
+          <div class="history-row active-edit">
+            <div class="col-rnd" style="font-weight: 700; color: #92400e;">2</div>
+            <div class="col" style="color: #92400e; font-weight: 600;">editing...</div>
+            <div class="col"></div>
+            <div class="col"></div>
+            <div class="col"></div>
+            <div class="col-edit"></div>
+          </div>
+          <div class="history-row" style="opacity: 0.5;">
+            <div class="col-rnd">3</div>
+            <div class="col pos">+14</div>
+            <div class="col pos">+8</div>
+            <div class="col pos">+10</div>
+            <div class="col pos">+6</div>
+            <div class="col-edit"></div>
+          </div>
+        </div>
+
+        <div style="height: 12px;"></div>
+
+        <!-- Inline edit card -->
+        <div class="inline-edit">
+          <div class="inline-edit-header">
+            <div class="inline-edit-title">Edit Round 2</div>
+            <div class="inline-edit-badge">Editing</div>
+          </div>
+
+          <!-- Mike: was blitz 4, cards 18 → changing cards to 22 -->
+          <div class="edit-player-row" style="border-left-color: #3b82f6;">
+            <div class="edit-player-name">Mike</div>
+            <div class="edit-player-inputs">
+              <div class="edit-input-group">
+                <label>Blitz left</label>
+                <input class="edit-input" value="4" readonly>
+              </div>
+              <div class="edit-input-group">
+                <label>Cards played</label>
+                <input class="edit-input changed" value="22">
+              </div>
+            </div>
+            <div class="edit-delta" style="color: #2a6517;">+14</div>
+          </div>
+
+          <!-- Sarah: unchanged -->
+          <div class="edit-player-row" style="border-left-color: #ef4444;">
+            <div class="edit-player-name">Sarah</div>
+            <div class="edit-player-inputs">
+              <div class="edit-input-group">
+                <label>Blitz left</label>
+                <input class="edit-input" value="1" readonly>
+              </div>
+              <div class="edit-input-group">
+                <label>Cards played</label>
+                <input class="edit-input" value="16" readonly>
+              </div>
+            </div>
+            <div class="edit-delta" style="color: #290806;">+14</div>
+          </div>
+
+          <!-- Dan: unchanged -->
+          <div class="edit-player-row" style="border-left-color: #eab308;">
+            <div class="edit-player-name">Dan</div>
+            <div class="edit-player-inputs">
+              <div class="edit-input-group">
+                <label>Blitz left</label>
+                <input class="edit-input" value="6" readonly>
+              </div>
+              <div class="edit-input-group">
+                <label>Cards played</label>
+                <input class="edit-input" value="14" readonly>
+              </div>
+            </div>
+            <div class="edit-delta" style="color: #290806;">+2</div>
+          </div>
+
+          <!-- Jo: was blitz 9, cards 6 → changing blitz to 7 -->
+          <div class="edit-player-row" style="border-left-color: #22c55e;">
+            <div class="edit-player-name">Jo</div>
+            <div class="edit-player-inputs">
+              <div class="edit-input-group">
+                <label>Blitz left</label>
+                <input class="edit-input changed" value="7">
+              </div>
+              <div class="edit-input-group">
+                <label>Cards played</label>
+                <input class="edit-input" value="6" readonly>
+              </div>
+            </div>
+            <div class="edit-delta neg">−8</div>
+          </div>
+
+          <div class="edit-actions">
+            <button class="edit-btn edit-btn-cancel">Cancel</button>
+            <button class="edit-btn edit-btn-save">Save Changes</button>
+          </div>
+
+          <div class="edit-note">Saving will recalculate all scores from round 2 onward</div>
+        </div>
+
+        <div style="height: 12px;"></div>
+
+        <div class="callout">
+          <strong>Changed fields</strong> are highlighted in yellow. The delta column on the right shows the resulting score for that round. "Save Changes" recascades all subsequent round totals.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SCENARIO 4: Undo alternative — subtle confirmation ====== -->
+  <div class="scenario">
+    <div class="scenario-label">
+      <h2><span class="step-num">Alt</span> No Undo — Confirmation Instead</h2>
+      <p>If the undo toast feels distracting: skip it entirely. Instead, after tapping Submit, briefly flash a confirmation with the round deltas, then transition to the next round. Editing is always via the table.</p>
+    </div>
+    <div class="phone">
+      <div class="status-bar"><div class="notch"></div></div>
+      <div class="phone-content">
+        <div class="round-header">
+          <h3>Round 3 Submitted</h3>
+          <div class="subtitle">Scores updated</div>
+        </div>
+
+        <!-- Race track placeholder -->
+        <div style="margin: 12px 20px; height: 40px; background: #f0e6d2; border-radius: 20px; position: relative;">
+          <div style="position: absolute; left: 60%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #3b82f6; border: 2px solid #fff7ea;"></div>
+          <div style="position: absolute; left: 48%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #ef4444; border: 2px solid #fff7ea;"></div>
+          <div style="position: absolute; left: 35%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #eab308; border: 2px solid #fff7ea;"></div>
+          <div style="position: absolute; left: 22%; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #22c55e; border: 2px solid #fff7ea;"></div>
+        </div>
+
+        <div style="height: 8px;"></div>
+
+        <!-- Confirmation card showing what just happened -->
+        <div style="margin: 0 16px; background: #fff; border: 1.5px solid #e6d7c3; border-radius: 12px; padding: 14px 16px;">
+          <div style="font-size: 11px; font-weight: 600; color: #8b5e3c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">Round 3 Results</div>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+            <div style="flex: 1; background: #f0f9ff; border-radius: 8px; padding: 8px; text-align: center; border-left: 3px solid #3b82f6;">
+              <div style="font-size: 10px; color: #8b5e3c;">Mike</div>
+              <div style="font-size: 16px; font-weight: 800; color: #2a6517;">+14</div>
+              <div style="font-size: 9px; color: #8b5e3c;">→ 38</div>
+            </div>
+            <div style="flex: 1; background: #fef2f2; border-radius: 8px; padding: 8px; text-align: center; border-left: 3px solid #ef4444;">
+              <div style="font-size: 10px; color: #8b5e3c;">Sarah</div>
+              <div style="font-size: 16px; font-weight: 800; color: #2a6517;">+8</div>
+              <div style="font-size: 9px; color: #8b5e3c;">→ 34</div>
+            </div>
+            <div style="flex: 1; background: #fffbeb; border-radius: 8px; padding: 8px; text-align: center; border-left: 3px solid #eab308;">
+              <div style="font-size: 10px; color: #8b5e3c;">Dan</div>
+              <div style="font-size: 16px; font-weight: 800; color: #2a6517;">+10</div>
+              <div style="font-size: 9px; color: #8b5e3c;">→ 20</div>
+            </div>
+            <div style="flex: 1; background: #f0fdf4; border-radius: 8px; padding: 8px; text-align: center; border-left: 3px solid #22c55e;">
+              <div style="font-size: 10px; color: #8b5e3c;">Jo</div>
+              <div style="font-size: 16px; font-weight: 800; color: #2a6517;">+6</div>
+              <div style="font-size: 9px; color: #8b5e3c;">→ −4</div>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 6px;">
+            <span style="font-size: 10px; color: #8b5e3c;">Something wrong? </span>
+            <span style="font-size: 10px; color: #3b82f6; font-weight: 600; cursor: pointer;">Edit Round 3 →</span>
+          </div>
+        </div>
+
+        <div style="height: 8px;"></div>
+
+        <div class="submit-btn dark">Enter Round 4 Scores</div>
+
+        <div class="callout">
+          <strong>No undo toast.</strong> Instead, the round results flash briefly as a confirmation card with a subtle "Edit Round 3 →" link. This auto-transitions to the next round entry after ~3 seconds, or the user taps "Enter Round 4" to proceed immediately.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

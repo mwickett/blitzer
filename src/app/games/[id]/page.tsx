@@ -1,8 +1,14 @@
 import ScoreEntry from "./scoreEntry";
 import ScoreDisplay from "./scoreDisplay";
+import { ScoringShell } from "@/components/scoring/ScoringShell";
 import { getGameById } from "@/server/queries";
 import { notFound } from "next/navigation";
 import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
+import { isFeatureEnabled } from "@/featureFlags";
+import {
+  resolvePlayerColor,
+  assignColorsToPlayers,
+} from "@/lib/scoring/colors";
 import { auth } from "@clerk/nextjs/server";
 
 export default async function GameView(props: {
@@ -41,6 +47,7 @@ export default async function GameView(props: {
       gameId: player.gameId,
       userId: player.userId || undefined,
       guestId: player.guestId || undefined,
+      accentColor: player.accentColor ?? undefined,
       user: player.user || undefined,
       guestUser: player.guestUser || undefined,
     })),
@@ -59,6 +66,35 @@ export default async function GameView(props: {
   // calculate the current round number
   const currentRoundNumber = game.rounds.length + 1;
 
+  const useScoringRevamp = await isFeatureEnabled("scoring-revamp");
+
+  // Resolve accent colors for all players
+  const playerColorInputs = game.players.map((p) => ({
+    id: p.id,
+    resolvedColor: resolvePlayerColor({
+      gameColor: p.accentColor ?? null,
+      userDefault: p.user?.accentColor ?? null,
+    }),
+  }));
+  const colorAssignments = assignColorsToPlayers(playerColorInputs);
+
+  // Build PlayerWithScore array for the new scoring shell
+  // DisplayScores.id is the participant's userId or guestId (stable ID from gameLogic.ts)
+  const scoringPlayers = displayScores.map((ds) => {
+    const gamePlayer = game.players.find(
+      (p) => p.userId === ds.id || p.guestId === ds.id
+    );
+    return {
+      id: ds.id,
+      name: ds.username,
+      color: colorAssignments[gamePlayer?.id ?? ds.id] ?? "#3b82f6",
+      isGuest: ds.isGuest,
+      userId: gamePlayer?.userId ?? undefined,
+      guestId: gamePlayer?.guestId ?? undefined,
+      score: ds.total,
+    };
+  });
+
   const { userId, orgId } = await auth();
   const isAuthenticated = !!userId;
 
@@ -66,6 +102,12 @@ export default async function GameView(props: {
   const canEnterScores =
     isAuthenticated &&
     !game.isFinished &&
+    !!game.organizationId &&
+    game.organizationId === orgId;
+
+  // Circle members can view the scoring shell (including game over state)
+  const canViewScoringShell =
+    isAuthenticated &&
     !!game.organizationId &&
     game.organizationId === orgId;
 
@@ -82,12 +124,37 @@ export default async function GameView(props: {
         gameId={game.id}
         isFinished={game.isFinished}
       />
-      {canEnterScores && (
-        <ScoreEntry
-          game={game}
-          currentRoundNumber={currentRoundNumber}
-          displayScores={displayScores}
-        />
+      {useScoringRevamp ? (
+        <>
+          {canViewScoringShell && (
+            <ScoringShell
+              gameId={game.id}
+              currentRoundNumber={currentRoundNumber}
+              players={scoringPlayers}
+              winThreshold={game.winThreshold}
+              isFinished={game.isFinished}
+              winnerId={displayScores.find((s) => s.isWinner)?.id}
+              endedAt={game.endedAt?.toISOString()}
+              rounds={game.rounds.map((r) => ({
+                id: r.id,
+                scores: r.scores.map((s) => ({
+                  userId: s.userId,
+                  guestId: s.guestId,
+                  blitzPileRemaining: s.blitzPileRemaining,
+                  totalCardsPlayed: s.totalCardsPlayed,
+                })),
+              }))}
+            />
+          )}
+        </>
+      ) : (
+        canEnterScores && (
+          <ScoreEntry
+            game={game}
+            currentRoundNumber={currentRoundNumber}
+            displayScores={displayScores}
+          />
+        )
       )}
     </section>
   );
