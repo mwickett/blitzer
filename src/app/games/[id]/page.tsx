@@ -1,6 +1,5 @@
 import ScoreEntry from "./scoreEntry";
 import ScoreDisplay from "./scoreDisplay";
-import GameOver from "./GameOver";
 import { ScoringShell } from "@/components/scoring/ScoringShell";
 import { getGameById } from "@/server/queries";
 import { notFound } from "next/navigation";
@@ -106,6 +105,12 @@ export default async function GameView(props: {
     !!game.organizationId &&
     game.organizationId === orgId;
 
+  // Circle members can view the scoring shell (including game over state)
+  const canViewScoringShell =
+    isAuthenticated &&
+    !!game.organizationId &&
+    game.organizationId === orgId;
+
   return (
     <section className="py-6">
       {game.winThreshold !== 75 && (
@@ -121,7 +126,7 @@ export default async function GameView(props: {
       />
       {useScoringRevamp ? (
         <>
-          {canEnterScores && (
+          {(canEnterScores || (canViewScoringShell && game.isFinished)) && (
             <ScoringShell
               gameId={game.id}
               currentRoundNumber={currentRoundNumber}
@@ -137,12 +142,6 @@ export default async function GameView(props: {
                   totalCardsPlayed: s.totalCardsPlayed,
                 })),
               }))}
-            />
-          )}
-          {game.isFinished && displayScores.find((s) => s.isWinner) && (
-            <GameOver
-              gameId={game.id}
-              winner={displayScores.find((s) => s.isWinner)!.username}
             />
           )}
         </>
