@@ -2,7 +2,6 @@
 
 import { type PlayerWithScore } from "./types";
 import { type GameStats } from "@/lib/scoring/gameStats";
-import { ACCENT_COLORS } from "@/lib/scoring/colors";
 import { RoundHistoryTable } from "./RoundHistoryTable";
 import { usePostHog } from "posthog-js/react";
 
@@ -34,8 +33,6 @@ export function GameOverView({
 }: GameOverViewProps) {
   const posthog = usePostHog();
   const sorted = [...players].sort((a, b) => b.score - a.score);
-  const colorLabel =
-    ACCENT_COLORS.find((c) => c.value === winner.color)?.label ?? "";
 
   return (
     <div>

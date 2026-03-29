@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { ScoreEntryView } from "./ScoreEntryView";
@@ -65,7 +65,6 @@ export function ScoringShell({
   const [editingRoundIndex, setEditingRoundIndex] = useState<number | null>(
     null
   );
-  const [editError, setEditError] = useState<string | null>(null);
 
   if (currentRoundNumber !== prevRound) {
     setPrevRound(currentRoundNumber);
@@ -79,26 +78,32 @@ export function ScoringShell({
       ? "entry"
       : "betweenRounds";
 
-  // Compute game stats from rounds data (client-side from serialized props)
-  const roundResults: RoundResult[] = rounds.map((round) => {
-    const deltas: Record<string, number> = {};
-    const blitzCounts: Record<string, number> = {};
-    for (const score of round.scores) {
-      const pid = score.userId ?? score.guestId ?? "";
-      deltas[pid] = calculateRoundScore(score);
-      blitzCounts[pid] = score.blitzPileRemaining === 0 ? 1 : 0;
-    }
-    return { deltas, blitzCounts };
-  });
-  const playerNameMap = Object.fromEntries(
-    players.map((p) => [p.id, p.name])
-  );
-  const gameStats = calcGameStats(roundResults, playerNameMap);
+  // Compute game stats only when rounds/players change (not on every render)
+  const gameStats = useMemo(() => {
+    const roundResults: RoundResult[] = rounds.map((round) => {
+      const deltas: Record<string, number> = {};
+      const blitzCounts: Record<string, number> = {};
+      for (const score of round.scores) {
+        const pid = score.userId ?? score.guestId ?? "";
+        deltas[pid] = calculateRoundScore(score);
+        blitzCounts[pid] = score.blitzPileRemaining === 0 ? 1 : 0;
+      }
+      return { deltas, blitzCounts };
+    });
+    const playerNameMap = Object.fromEntries(
+      players.map((p) => [p.id, p.name])
+    );
+    return calcGameStats(roundResults, playerNameMap);
+  }, [rounds, players]);
 
   // Use server-resolved winnerId (includes tie-breaking) instead of client sort
   const winner = winnerId ? players.find((p) => p.id === winnerId) : undefined;
 
   const showCelebration = isFinished && !hasSeenCelebration;
+
+  const handleCelebrationComplete = useCallback(() => {
+    setHasSeenCelebration(true);
+  }, []);
 
   const handleRematch = async () => {
     const newGameId = await cloneGame(gameId);
@@ -114,7 +119,6 @@ export function ScoringShell({
       posthog.capture("scoring_edit_round_tapped", {
         round_number: roundIndex + 1,
       });
-      setEditError(null);
       setEditingRoundIndex(roundIndex);
     },
     [posthog]
@@ -129,7 +133,6 @@ export function ScoringShell({
     ) => {
       if (editingRoundIndex === null) return;
       const round = rounds[editingRoundIndex];
-      setEditError(null);
 
       const scores = players.map((player) => {
         const data = updated[player.id];
@@ -142,19 +145,13 @@ export function ScoringShell({
         };
       });
 
-      try {
-        await updateRoundScores(gameId, round.id, scores);
-        posthog.capture("scoring_round_edited", {
-          game_id: gameId,
-          round_number: editingRoundIndex + 1,
-        });
-        setEditingRoundIndex(null);
-        router.refresh();
-      } catch (e) {
-        setEditError(
-          e instanceof Error ? e.message : "Failed to save changes"
-        );
-      }
+      await updateRoundScores(gameId, round.id, scores);
+      posthog.capture("scoring_round_edited", {
+        game_id: gameId,
+        round_number: editingRoundIndex + 1,
+      });
+      setEditingRoundIndex(null);
+      router.refresh();
     },
     [editingRoundIndex, rounds, players, gameId, posthog, router]
   );
@@ -177,7 +174,7 @@ export function ScoringShell({
             winnerName={winner.name}
             winnerScore={winner.score}
             winnerColor={winner.color}
-            onComplete={() => setHasSeenCelebration(true)}
+            onComplete={handleCelebrationComplete}
           />
         )}
 

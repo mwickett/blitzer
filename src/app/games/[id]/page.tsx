@@ -126,7 +126,7 @@ export default async function GameView(props: {
       />
       {useScoringRevamp ? (
         <>
-          {(canEnterScores || (canViewScoringShell && game.isFinished)) && (
+          {canViewScoringShell && (
             <ScoringShell
               gameId={game.id}
               currentRoundNumber={currentRoundNumber}
