@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 
 interface CelebrationOverlayProps {
   winnerName: string;
   winnerScore: number;
   winnerColor: string;
   onComplete: () => void;
-  onCancel?: () => void;
-  cancelled?: boolean;
 }
 
 function generateConfetti(count: number, colors: string[]) {
@@ -34,11 +32,9 @@ export function CelebrationOverlay({
   winnerScore,
   winnerColor,
   onComplete,
-  onCancel,
-  cancelled,
 }: CelebrationOverlayProps) {
   const [visible, setVisible] = useState(true);
-  const confetti = useRef(generateConfetti(50, CONFETTI_COLORS));
+  const [confetti] = useState(() => generateConfetti(50, CONFETTI_COLORS));
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -47,13 +43,6 @@ export function CelebrationOverlay({
     }, 2500);
     return () => clearTimeout(timer);
   }, [onComplete]);
-
-  useEffect(() => {
-    if (cancelled) {
-      setVisible(false);
-      onCancel?.();
-    }
-  }, [cancelled, onCancel]);
 
   if (!visible) return null;
 
@@ -69,7 +58,7 @@ export function CelebrationOverlay({
 
       {/* Confetti */}
       <div className="absolute inset-0 overflow-hidden">
-        {confetti.current.map((c) => (
+        {confetti.map((c) => (
           <div
             key={c.id}
             className="absolute animate-[confettiFall_3s_ease-out_forwards]"

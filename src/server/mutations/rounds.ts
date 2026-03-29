@@ -282,6 +282,7 @@ export async function updateRoundScores(
     );
 
     if (!anyoneAboveThreshold) {
+      // No one above threshold — reopen the game
       await prisma.game.update({
         where: { id: gameId },
         data: { isFinished: false, winnerId: null, endedAt: null },
@@ -292,6 +293,43 @@ export async function updateRoundScores(
         event: "game_reopened_after_edit",
         properties: { game_id: gameId },
       });
+    } else {
+      // Game still finished — check if the winner changed
+      const highestScore = Math.max(...Object.values(totals));
+      const topPlayers = Object.entries(totals)
+        .filter(([, total]) => total === highestScore)
+        .map(([pid]) => pid);
+
+      // Tie-break by fewest blitz cards remaining in final round
+      let newWinnerId = topPlayers[0];
+      if (topPlayers.length > 1) {
+        const finalRound =
+          updatedGame.rounds[updatedGame.rounds.length - 1];
+        let bestRemaining = Infinity;
+        for (const pid of topPlayers) {
+          const s = finalRound.scores.find(
+            (sc) => (sc.userId ?? sc.guestId ?? "") === pid
+          );
+          const remaining = s?.blitzPileRemaining ?? 10;
+          if (remaining < bestRemaining) {
+            bestRemaining = remaining;
+            newWinnerId = pid;
+          }
+        }
+      }
+
+      if (newWinnerId && newWinnerId !== updatedGame.winnerId) {
+        await prisma.game.update({
+          where: { id: gameId },
+          data: { winnerId: newWinnerId },
+        });
+
+        posthog.capture({
+          distinctId: user.userId,
+          event: "game_winner_updated_after_edit",
+          properties: { game_id: gameId, new_winner_id: newWinnerId },
+        });
+      }
     }
   }
 

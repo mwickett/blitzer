@@ -133,6 +133,8 @@ export default async function GameView(props: {
               players={scoringPlayers}
               winThreshold={game.winThreshold}
               isFinished={game.isFinished}
+              winnerId={displayScores.find((s) => s.isWinner)?.id}
+              endedAt={game.endedAt?.toISOString()}
               rounds={game.rounds.map((r) => ({
                 id: r.id,
                 scores: r.scores.map((s) => ({
