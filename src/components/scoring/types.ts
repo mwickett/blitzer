@@ -25,3 +25,15 @@ export function getEntryStatus(entry: PlayerEntry): EntryStatus {
   if (hasBlitz || hasCards) return "partial";
   return "empty";
 }
+
+export interface RoundScoreData {
+  userId?: string | null;
+  guestId?: string | null;
+  blitzPileRemaining: number;
+  totalCardsPlayed: number;
+}
+
+export interface RoundData {
+  id: string;
+  scores: RoundScoreData[];
+}
