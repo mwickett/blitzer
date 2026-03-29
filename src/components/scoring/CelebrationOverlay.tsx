@@ -7,6 +7,8 @@ interface CelebrationOverlayProps {
   winnerScore: number;
   winnerColor: string;
   onComplete: () => void;
+  onCancel?: () => void;
+  cancelled?: boolean;
 }
 
 function generateConfetti(count: number, colors: string[]) {
@@ -32,6 +34,8 @@ export function CelebrationOverlay({
   winnerScore,
   winnerColor,
   onComplete,
+  onCancel,
+  cancelled,
 }: CelebrationOverlayProps) {
   const [visible, setVisible] = useState(true);
   const confetti = useRef(generateConfetti(50, CONFETTI_COLORS));
@@ -44,10 +48,17 @@ export function CelebrationOverlay({
     return () => clearTimeout(timer);
   }, [onComplete]);
 
+  useEffect(() => {
+    if (cancelled) {
+      setVisible(false);
+      onCancel?.();
+    }
+  }, [cancelled, onCancel]);
+
   if (!visible) return null;
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center pointer-events-none animate-[celebrationFade_2.5s_ease-out_forwards]">
+    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center pointer-events-none animate-[celebrationFade_2.5s_ease-out_forwards]">
       {/* Background flash */}
       <div
         className="absolute inset-0 animate-[bgFlash_2.5s_ease-out_forwards]"

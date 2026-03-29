@@ -2,7 +2,11 @@
 
 import prisma from "@/server/db/db";
 import { getAuthenticatedUserWithOrg } from "./common";
-import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
+import {
+  validateGameRules,
+  ValidationError,
+  calculateRoundScore,
+} from "@/lib/validation/gameRules";
 
 // Create new round with scores
 export async function createRoundForGame(
@@ -184,9 +188,8 @@ export async function updateRoundScores(
     throw new Error("Game does not belong to your active circle");
   }
 
-  if (game.isFinished) {
-    throw new Error("Cannot update scores for a finished game");
-  }
+  // Finished games are still editable — if an edit drops all players
+  // below the threshold, the game will be reopened (see below).
 
   // Validate scores using centralized validation
   try {
@@ -256,6 +259,41 @@ export async function updateRoundScores(
       roundId: roundId,
     },
   });
+
+  // Check if editing a finished game should reopen it
+  const updatedGame = await prisma.game.findUnique({
+    where: { id: gameId },
+    include: {
+      rounds: { include: { scores: true } },
+    },
+  });
+
+  if (updatedGame?.isFinished) {
+    const totals: Record<string, number> = {};
+    for (const round of updatedGame.rounds) {
+      for (const score of round.scores) {
+        const pid = score.userId ?? score.guestId ?? "";
+        totals[pid] = (totals[pid] ?? 0) + calculateRoundScore(score);
+      }
+    }
+
+    const anyoneAboveThreshold = Object.values(totals).some(
+      (total) => total >= updatedGame.winThreshold
+    );
+
+    if (!anyoneAboveThreshold) {
+      await prisma.game.update({
+        where: { id: gameId },
+        data: { isFinished: false, winnerId: null, endedAt: null },
+      });
+
+      posthog.capture({
+        distinctId: user.userId,
+        event: "game_reopened_after_edit",
+        properties: { game_id: gameId },
+      });
+    }
+  }
 
   return updatedScores;
 }

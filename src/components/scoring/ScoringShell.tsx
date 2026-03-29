@@ -101,6 +101,8 @@ export function ScoringShell({
             winnerScore={winner.score}
             winnerColor={winner.color}
             onComplete={() => setHasSeenCelebration(true)}
+            cancelled={celebrationCancelled}
+            onCancel={() => setCelebrationCancelled(true)}
           />
         )}
         {winner && (

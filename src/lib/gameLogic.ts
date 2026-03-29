@@ -157,6 +157,24 @@ async function determineWinner(
       (player) => player.total === highestScore
     );
 
+    // Tie-breaking: when multiple players have the same highest score,
+    // the player with fewer blitz cards remaining in the final round wins.
+    if (potentialWinners.length > 1) {
+      const finalRound = game.rounds[game.rounds.length - 1];
+      potentialWinners.sort((a, b) => {
+        const aScore = finalRound.scores.find(
+          (s) => s.userId === a.id || s.guestId === a.id
+        );
+        const bScore = finalRound.scores.find(
+          (s) => s.userId === b.id || s.guestId === b.id
+        );
+        return (
+          (aScore?.blitzPileRemaining ?? 10) -
+          (bScore?.blitzPileRemaining ?? 10)
+        );
+      });
+    }
+
     const winnerId = potentialWinners[0].id;
     if (!game.isFinished) {
       const winnerPlayer = game.players.find(
