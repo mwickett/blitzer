@@ -51,13 +51,26 @@ export async function createRoundForGame(
     throw new Error("Invalid score submission");
   }
 
-  // Modified to match test expectations - create round with scores in one operation
-  const round = await prisma.round.create({
-    data: {
-      gameId: game.id,
-      round: roundNumber,
-    },
-  });
+  // Create round — the @@unique([gameId, round]) constraint prevents duplicates.
+  // If a duplicate is attempted (e.g. double-tap), return the existing round.
+  let round;
+  try {
+    round = await prisma.round.create({
+      data: {
+        gameId: game.id,
+        round: roundNumber,
+      },
+    });
+  } catch (error) {
+    // Unique constraint violation — round already exists (double submit)
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      const existing = await prisma.round.findFirst({
+        where: { gameId: game.id, round: roundNumber },
+      });
+      if (existing) return existing;
+    }
+    throw error;
+  }
 
   // Add scores one by one after round is created
   for (const score of scores) {
@@ -99,6 +112,50 @@ export async function createRoundForGame(
   posthog.capture({ distinctId: user.userId, event: "create_scores" });
 
   return round;
+}
+
+// Delete the latest round (for undo support)
+export async function deleteLatestRound(gameId: string) {
+  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
+
+  const game = await prisma.game.findUnique({
+    where: { id: gameId },
+    include: {
+      rounds: {
+        orderBy: { round: "desc" },
+        take: 1,
+        include: { scores: true },
+      },
+    },
+  });
+
+  if (!game) throw new Error("Game not found");
+  if (game.organizationId !== orgId) {
+    throw new Error("Game does not belong to your active circle");
+  }
+
+  const latestRound = game.rounds[0];
+  if (!latestRound) throw new Error("No rounds to undo");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.score.deleteMany({ where: { roundId: latestRound.id } });
+    await tx.round.delete({ where: { id: latestRound.id } });
+
+    if (game.isFinished) {
+      await tx.game.update({
+        where: { id: gameId },
+        data: { isFinished: false, winnerId: null, endedAt: null },
+      });
+    }
+  });
+
+  posthog.capture({
+    distinctId: user.userId,
+    event: "undo_round",
+    properties: { game_id: gameId, round_number: latestRound.round },
+  });
+
+  return { deletedRoundNumber: latestRound.round };
 }
 
 // Update scores for a round
