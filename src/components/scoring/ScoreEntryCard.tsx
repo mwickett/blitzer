@@ -2,6 +2,7 @@
 
 import { StatusIndicator } from "./StatusIndicator";
 import { type EntryStatus, type PlayerEntry } from "./types";
+import { GAME_RULES } from "@/lib/validation/gameRules";
 
 interface ScoreEntryCardProps {
   name: string;
@@ -61,7 +62,7 @@ export function ScoreEntryCard({
             pattern="[0-9]*"
             value={entry.blitzRemaining !== null ? String(entry.blitzRemaining) : ""}
             onChange={(e) =>
-              handleNumericInput(e.target.value, 10, (v) =>
+              handleNumericInput(e.target.value, GAME_RULES.MAX_BLITZ_PILE, (v) =>
                 onUpdate("blitzRemaining", v)
               )
             }
@@ -79,7 +80,7 @@ export function ScoreEntryCard({
             pattern="[0-9]*"
             value={entry.cardsPlayed !== null ? String(entry.cardsPlayed) : ""}
             onChange={(e) =>
-              handleNumericInput(e.target.value, 40, (v) =>
+              handleNumericInput(e.target.value, GAME_RULES.MAX_CARDS_PLAYED, (v) =>
                 onUpdate("cardsPlayed", v)
               )
             }

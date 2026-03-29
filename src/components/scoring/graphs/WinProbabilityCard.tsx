@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { type PlayerWithScore } from "../types";
 import {
   calcWinProbabilities,
@@ -15,9 +16,24 @@ export function WinProbabilityCard({
   roundsPlayed,
   winThreshold,
 }: WinProbabilityCardProps) {
-  const probabilities = calcWinProbabilities(
-    players.map((p) => ({ id: p.id, score: p.score, roundsPlayed })),
-    winThreshold
+  const probabilities = useMemo(
+    () =>
+      calcWinProbabilities(
+        players.map((p) => ({ id: p.id, score: p.score, roundsPlayed })),
+        winThreshold
+      ),
+    [players, roundsPlayed, winThreshold]
+  );
+
+  const sorted = useMemo(
+    () =>
+      probabilities
+        ? [...players].sort(
+            (a, b) =>
+              (probabilities[b.id] ?? 0) - (probabilities[a.id] ?? 0)
+          )
+        : players,
+    [players, probabilities]
   );
 
   if (!probabilities) {
@@ -32,10 +48,6 @@ export function WinProbabilityCard({
       </div>
     );
   }
-
-  const sorted = [...players].sort(
-    (a, b) => (probabilities[b.id] ?? 0) - (probabilities[a.id] ?? 0)
-  );
 
   return (
     <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-4">

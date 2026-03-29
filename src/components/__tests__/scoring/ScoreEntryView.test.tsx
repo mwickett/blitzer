@@ -23,6 +23,13 @@ jest.mock("posthog-js/react", () => ({
 
 // Mock game rules — keep real logic
 jest.mock("@/lib/validation/gameRules", () => ({
+  GAME_RULES: {
+    MAX_BLITZ_PILE: 10,
+    MAX_CARDS_PLAYED: 40,
+    BLITZ_PENALTY_MULTIPLIER: 2,
+    POINTS_TO_WIN: 75,
+    MIN_CARDS_FOR_BLITZ: 4,
+  },
   validateGameRules: jest.fn(),
   calculateRoundScore: jest.fn(
     (s: { blitzPileRemaining: number; totalCardsPlayed: number }) =>

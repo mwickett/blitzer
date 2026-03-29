@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -23,16 +24,16 @@ export function ScoreProgressionCard({
   scoresByRound,
   winThreshold,
 }: ScoreProgressionCardProps) {
-  const roundCount =
-    Object.values(scoresByRound)[0]?.length ?? 0;
-
-  const data = Array.from({ length: roundCount }, (_, i) => {
-    const point: Record<string, number | string> = { round: i + 1 };
-    for (const player of players) {
-      point[player.id] = scoresByRound[player.id]?.[i] ?? 0;
-    }
-    return point;
-  });
+  const data = useMemo(() => {
+    const roundCount = Object.values(scoresByRound)[0]?.length ?? 0;
+    return Array.from({ length: roundCount }, (_, i) => {
+      const point: Record<string, number | string> = { round: i + 1 };
+      for (const player of players) {
+        point[player.id] = scoresByRound[player.id]?.[i] ?? 0;
+      }
+      return point;
+    });
+  }, [players, scoresByRound]);
 
   return (
     <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-4">

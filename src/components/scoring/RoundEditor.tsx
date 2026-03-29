@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { type ScoringPlayer } from "./types";
-import { calculateRoundScore } from "@/lib/validation/gameRules";
+import { calculateRoundScore, GAME_RULES } from "@/lib/validation/gameRules";
 
 interface RoundEditorProps {
   roundIndex: number;
@@ -50,11 +50,11 @@ export function RoundEditor({
       updated[p.id] = {
         blitzPileRemaining: Math.max(
           0,
-          Math.min(10, parseInt(editData[p.id].blitz) || 0)
+          Math.min(GAME_RULES.MAX_BLITZ_PILE, parseInt(editData[p.id].blitz) || 0)
         ),
         totalCardsPlayed: Math.max(
           0,
-          Math.min(40, parseInt(editData[p.id].cards) || 0)
+          Math.min(GAME_RULES.MAX_CARDS_PLAYED, parseInt(editData[p.id].cards) || 0)
         ),
       };
     }

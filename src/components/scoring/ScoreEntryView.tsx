@@ -1,7 +1,7 @@
 // src/components/scoring/ScoreEntryView.tsx
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ScoreEntryCard } from "./ScoreEntryCard";
 import { FloatingCTA } from "./FloatingCTA";
@@ -43,10 +43,12 @@ export function ScoreEntryView({
   const [optimisticDeltas, setOptimisticDeltas] = useState<Record<string, number> | null>(null);
   const deltaTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const allComplete = useMemo(
-    () => Object.values(entries).every((e) => getEntryStatus(e) === "complete"),
-    [entries]
-  );
+  // Clean up delta flash timer on unmount
+  useEffect(() => {
+    return () => {
+      if (deltaTimerRef.current) clearTimeout(deltaTimerRef.current);
+    };
+  }, []);
 
   const remainingCount = useMemo(
     () =>
@@ -54,6 +56,7 @@ export function ScoreEntryView({
         .length,
     [entries]
   );
+  const allComplete = remainingCount === 0;
 
   const handleUpdate = useCallback(
     (playerId: string, field: "blitzRemaining" | "cardsPlayed", value: number | null) => {
@@ -128,7 +131,7 @@ export function ScoreEntryView({
       setError(e instanceof Error ? e.message : "Failed to submit round");
       setIsSubmitting(false);
     }
-  }, [allComplete, isSubmitting, players, entries, gameId, currentRoundNumber, router, posthog]);
+  }, [allComplete, isSubmitting, players, entries, gameId, currentRoundNumber, posthog]);
 
   const handleUndo = useCallback(async () => {
     if (!undoData) return;
@@ -154,6 +157,11 @@ export function ScoreEntryView({
 
     router.refresh();
   }, [undoData, gameId, router, posthog]);
+
+  const handleDismissUndo = useCallback(() => {
+    setUndoData(null);
+    router.refresh();
+  }, [router]);
 
   return (
     <div className="pb-4">
@@ -211,10 +219,7 @@ export function ScoreEntryView({
         <UndoToast
           roundNumber={undoData.roundNumber}
           onUndo={handleUndo}
-          onDismiss={() => {
-            setUndoData(null);
-            router.refresh();
-          }}
+          onDismiss={handleDismissUndo}
         />
       )}
     </div>

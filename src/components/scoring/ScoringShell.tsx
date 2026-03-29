@@ -5,7 +5,7 @@ import { ScoreEntryView } from "./ScoreEntryView";
 import { BetweenRoundsView } from "./BetweenRoundsView";
 import { type PlayerWithScore } from "./types";
 
-export type ScoringMode = "entry" | "betweenRounds" | "editing" | "gameOver";
+export type ScoringMode = "entry" | "betweenRounds" | "gameOver";
 
 interface ScoringShellProps {
   gameId: string;
@@ -13,7 +13,6 @@ interface ScoringShellProps {
   players: PlayerWithScore[];
   winThreshold: number;
   isFinished: boolean;
-  winnerName?: string;
   rounds: {
     id: string;
     scores: {

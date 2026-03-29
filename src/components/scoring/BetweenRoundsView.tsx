@@ -71,7 +71,7 @@ export function BetweenRoundsView({
   const handleSaveEdit = useCallback(async (
     updated: Record<string, { blitzPileRemaining: number; totalCardsPlayed: number }>
   ) => {
-    if (editingRoundIndex === null) return;
+    if (editingRoundIndex === null || editingRoundIndex >= rounds.length) return;
     const round = rounds[editingRoundIndex];
     setEditError(null);
 
@@ -156,7 +156,7 @@ export function BetweenRoundsView({
       )}
 
       {/* Round editor (inline) */}
-      {editingRoundIndex !== null && (
+      {editingRoundIndex !== null && editingRoundIndex < rounds.length && (
         <RoundEditor
           roundIndex={editingRoundIndex}
           players={players}
