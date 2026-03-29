@@ -1,6 +1,7 @@
 import { Game, User, Score, Round, GuestUser } from "@/generated/prisma/client";
 import { updateGameAsFinished } from "@/server/mutations";
 import { calculateRoundScore, isWinningScore } from "./validation/gameRules";
+import { breakTie } from "./scoring/tiebreak";
 
 export interface GameWithPlayersAndScores extends Game {
   players: {
@@ -159,23 +160,19 @@ async function determineWinner(
 
     // Tie-breaking: when multiple players have the same highest score,
     // the player with fewer blitz cards remaining in the final round wins.
+    let winnerId: string;
     if (potentialWinners.length > 1) {
       const finalRound = game.rounds[game.rounds.length - 1];
-      potentialWinners.sort((a, b) => {
-        const aScore = finalRound.scores.find(
-          (s) => s.userId === a.id || s.guestId === a.id
+      const candidates = potentialWinners.map((pw) => {
+        const score = finalRound.scores.find(
+          (s) => s.userId === pw.id || s.guestId === pw.id
         );
-        const bScore = finalRound.scores.find(
-          (s) => s.userId === b.id || s.guestId === b.id
-        );
-        return (
-          (aScore?.blitzPileRemaining ?? 10) -
-          (bScore?.blitzPileRemaining ?? 10)
-        );
+        return { playerId: pw.id, blitzPileRemaining: score?.blitzPileRemaining ?? 10 };
       });
+      winnerId = breakTie(candidates);
+    } else {
+      winnerId = potentialWinners[0].id;
     }
-
-    const winnerId = potentialWinners[0].id;
     if (!game.isFinished) {
       const winnerPlayer = game.players.find(
         (player) => player.guestId === winnerId || player.userId === winnerId
