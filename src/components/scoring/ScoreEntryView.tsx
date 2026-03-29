@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ScoreEntryCard } from "./ScoreEntryCard";
 import { FloatingCTA } from "./FloatingCTA";
 import { RoundHeader } from "./RoundHeader";
+import { RaceTrack } from "./RaceTrack";
 import { type PlayerEntry, type PlayerWithScore, getEntryStatus } from "./types";
 import { validateGameRules } from "@/lib/validation/gameRules";
 import { createRoundForGame } from "@/server/mutations";
@@ -94,6 +95,11 @@ export function ScoreEntryView({
         title={`Round ${currentRoundNumber}`}
         subtitle={`First to ${winThreshold} wins`}
       />
+
+      {/* Race Track */}
+      <div className="px-5 pt-2 pb-2">
+        <RaceTrack players={players} winThreshold={winThreshold} />
+      </div>
 
       {/* Error banner */}
       {error && (

@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { ScoreEntryView } from "./ScoreEntryView";
+import { BetweenRoundsView } from "./BetweenRoundsView";
 import { type PlayerWithScore } from "./types";
 
 export type ScoringMode = "entry" | "betweenRounds" | "editing" | "gameOver";
@@ -28,14 +30,40 @@ export function ScoringShell({
   players,
   winThreshold,
   isFinished,
+  rounds,
 }: ScoringShellProps) {
-  // Derive mode from props — not useState — so it reacts to server state changes
-  // after router.refresh() (App Router preserves client state but updates props).
-  // Plans 2-4 will add betweenRounds, editing, and gameOver rendering.
-  const mode: ScoringMode = isFinished ? "gameOver" : "entry";
+  // showEntry is a client override — when user taps "Enter Next Round" we flip to entry.
+  // Reset when currentRoundNumber changes (i.e. after a round is submitted + refresh).
+  // Uses React's "adjust state during render" pattern to avoid useEffect lint issues.
+  const [showEntry, setShowEntry] = useState(false);
+  const [prevRound, setPrevRound] = useState(currentRoundNumber);
 
-  if (mode !== "entry") {
+  if (currentRoundNumber !== prevRound) {
+    setPrevRound(currentRoundNumber);
+    setShowEntry(false);
+  }
+
+  // Derive mode from props + client override
+  const mode: ScoringMode = isFinished
+    ? "gameOver"
+    : rounds.length === 0 || showEntry
+      ? "entry"
+      : "betweenRounds";
+
+  if (mode === "gameOver") {
     return null;
+  }
+
+  if (mode === "betweenRounds") {
+    return (
+      <BetweenRoundsView
+        players={players}
+        rounds={rounds}
+        winThreshold={winThreshold}
+        nextRoundNumber={currentRoundNumber}
+        onEnterScores={() => setShowEntry(true)}
+      />
+    );
   }
 
   return (
