@@ -8,11 +8,12 @@ import { BetweenRoundsView } from "./BetweenRoundsView";
 import { CelebrationOverlay } from "./CelebrationOverlay";
 import { GameOverView } from "./GameOverView";
 import { RoundEditor } from "./RoundEditor";
-import { type PlayerWithScore } from "./types";
+import { findPlayerScore } from "./utils";
+import { useRoundEditing } from "./useRoundEditing";
+import { type PlayerWithScore, type RoundData } from "./types";
 import { calcGameStats, type RoundResult } from "@/lib/scoring/gameStats";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
 import { cloneGame } from "@/server/mutations/games";
-import { updateRoundScores } from "@/server/mutations/rounds";
 
 export type ScoringMode = "entry" | "betweenRounds" | "gameOver";
 
@@ -24,15 +25,7 @@ interface ScoringShellProps {
   isFinished: boolean;
   winnerId?: string;
   endedAt?: string;
-  rounds: {
-    id: string;
-    scores: {
-      userId?: string | null;
-      guestId?: string | null;
-      blitzPileRemaining: number;
-      totalCardsPlayed: number;
-    }[];
-  }[];
+  rounds: RoundData[];
 }
 
 export function ScoringShell({
@@ -61,10 +54,9 @@ export function ScoringShell({
     return Date.now() - new Date(endedAt).getTime() >= 30_000;
   });
 
-  // Editing state for game over view
-  const [editingRoundIndex, setEditingRoundIndex] = useState<number | null>(
-    null
-  );
+  // Editing state — shared hook for game-over round editing
+  const { editingRoundIndex, editError, handleEditRound, handleSaveEdit, cancelEdit } =
+    useRoundEditing({ gameId, rounds, players });
 
   if (currentRoundNumber !== prevRound) {
     setPrevRound(currentRoundNumber);
@@ -114,59 +106,7 @@ export function ScoringShell({
     router.push("/games");
   };
 
-  const handleEditRound = useCallback(
-    (roundIndex: number) => {
-      posthog.capture("scoring_edit_round_tapped", {
-        round_number: roundIndex + 1,
-      });
-      setEditingRoundIndex(roundIndex);
-    },
-    [posthog]
-  );
-
-  const handleSaveEdit = useCallback(
-    async (
-      updated: Record<
-        string,
-        { blitzPileRemaining: number; totalCardsPlayed: number }
-      >
-    ) => {
-      if (editingRoundIndex === null) return;
-      const round = rounds[editingRoundIndex];
-
-      const scores = players.map((player) => {
-        const data = updated[player.id];
-        return {
-          ...(player.isGuest
-            ? { guestId: player.guestId }
-            : { userId: player.userId }),
-          blitzPileRemaining: data.blitzPileRemaining,
-          totalCardsPlayed: data.totalCardsPlayed,
-        };
-      });
-
-      await updateRoundScores(gameId, round.id, scores);
-      posthog.capture("scoring_round_edited", {
-        game_id: gameId,
-        round_number: editingRoundIndex + 1,
-      });
-      setEditingRoundIndex(null);
-      router.refresh();
-    },
-    [editingRoundIndex, rounds, players, gameId, posthog, router]
-  );
-
   if (mode === "gameOver") {
-    const findPlayerScore = (
-      player: PlayerWithScore,
-      roundScores: ScoringShellProps["rounds"][0]["scores"]
-    ) =>
-      roundScores.find(
-        (s) =>
-          (player.userId && s.userId === player.userId) ||
-          (player.guestId && s.guestId === player.guestId)
-      );
-
     return (
       <>
         {showCelebration && winner && (
@@ -176,6 +116,12 @@ export function ScoringShell({
             winnerColor={winner.color}
             onComplete={handleCelebrationComplete}
           />
+        )}
+
+        {editError && (
+          <div className="mx-4 mb-2 p-3 bg-[#fef2f2] border border-[#fecaca] rounded-lg text-sm text-[#b91c1c]">
+            {editError}
+          </div>
         )}
 
         {/* Inline round editor for finished games */}
@@ -199,7 +145,7 @@ export function ScoringShell({
               })
             )}
             onSave={handleSaveEdit}
-            onCancel={() => setEditingRoundIndex(null)}
+            onCancel={cancelEdit}
           />
         )}
 

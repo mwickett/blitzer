@@ -1,6 +1,6 @@
 "use client";
 
-import { type PlayerWithScore } from "./types";
+import { type PlayerWithScore, type RoundData } from "./types";
 import { type GameStats } from "@/lib/scoring/gameStats";
 import { RoundHistoryTable } from "./RoundHistoryTable";
 import { usePostHog } from "posthog-js/react";
@@ -9,14 +9,7 @@ interface GameOverViewProps {
   winner: PlayerWithScore;
   players: PlayerWithScore[];
   stats: GameStats;
-  rounds: {
-    scores: {
-      userId?: string | null;
-      guestId?: string | null;
-      blitzPileRemaining: number;
-      totalCardsPlayed: number;
-    }[];
-  }[];
+  rounds: RoundData[];
   onEditRound?: (roundIndex: number) => void;
   onRematch: () => void;
   onBackToCircle: () => void;
