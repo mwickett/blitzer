@@ -36,6 +36,7 @@ export default async function NewGamePage() {
       username: true,
       clerk_user_id: true,
       avatarUrl: true,
+      accentColor: true,
     },
   });
 

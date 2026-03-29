@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { User } from "@/generated/prisma/client";
 import { useUser } from "@clerk/nextjs";
 import { createGame } from "@/server/mutations";
+import { GameColorStep } from "@/components/scoring/GameColorStep";
+import { type ColorStepPlayer } from "@/components/scoring/useGameColors";
+import { saveUserAccentColor } from "@/server/mutations/games";
 import { GAME_RULES } from "@/lib/validation/gameRules";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -43,7 +46,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 
-type UserSubset = Pick<User, "id" | "username" | "clerk_user_id" | "avatarUrl">;
+type UserSubset = Pick<User, "id" | "username" | "clerk_user_id" | "avatarUrl" | "accentColor">;
 
 type GamePlayer = UserSubset | { id: string; username: string; isGuest: true };
 
@@ -56,6 +59,7 @@ export default function NewGameChooser({
 }: NewGameChooserProps) {
   const [inGamePlayers, setInGamePlayers] = useState<GamePlayer[]>([]);
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"players" | "colors">("players");
   const [addingPlayer, setAddingPlayer] = useState(false);
   const [activeTab, setActiveTab] = useState("existing");
   const [guestName, setGuestName] = useState("");
@@ -152,10 +156,48 @@ export default function NewGameChooser({
     return "isGuest" in player && player.isGuest === true;
   };
 
+  const buildColorStepPlayers = (): ColorStepPlayer[] => {
+    return inGamePlayers.map((player) => {
+      const isGuest = isGuestPlayer(player);
+      const isCurrent = isCurrentUser(player);
+      const defaultColor = !isGuest && "accentColor" in player
+        ? player.accentColor ?? null
+        : null;
+
+      return {
+        id: player.id,
+        name: player.username,
+        isGuest,
+        isCurrentUser: isCurrent,
+        defaultColor,
+        avatarUrl: "avatarUrl" in player ? player.avatarUrl : null,
+      };
+    });
+  };
+
   // Handle game creation and redirect
-  const handleCreateGame = async () => {
+  const handleCreateGame = async (
+    playerColors: Record<string, string>,
+    saveCreatorDefault: boolean
+  ) => {
     try {
-      const result = await createGame(inGamePlayers, winThreshold);
+      const playersWithColors = inGamePlayers.map((p) => ({
+        ...p,
+        accentColor: playerColors[p.id],
+      }));
+      const result = await createGame(playersWithColors, winThreshold);
+
+      // Fire-and-forget: saving the creator's default must not block
+      // navigation or cause a retry that duplicates the game.
+      if (saveCreatorDefault) {
+        const currentPlayer = inGamePlayers.find((p) => isCurrentUser(p));
+        if (currentPlayer && playerColors[currentPlayer.id]) {
+          saveUserAccentColor(playerColors[currentPlayer.id]).catch((e) =>
+            console.error("Failed to save default color:", e)
+          );
+        }
+      }
+
       if (result && result.gameId) {
         router.push(`/games/${result.gameId}`);
       }
@@ -163,6 +205,26 @@ export default function NewGameChooser({
       console.error("Error creating game:", error);
     }
   };
+
+  if (step === "colors") {
+    return (
+      <Card className="mx-auto shadow-md border-[#e6d7c3] max-w-md my-6">
+        <CardHeader className="bg-gradient-to-r from-[#5a341f] to-[#8b5e3c] text-white rounded-t-lg">
+          <CardTitle className="text-xl flex items-center gap-2">
+            <PlayCircle className="h-5 w-5" />
+            Choose Colors
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          <GameColorStep
+            players={buildColorStepPlayers()}
+            onConfirm={handleCreateGame}
+            onBack={() => setStep("players")}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="mx-auto shadow-md border-[#e6d7c3] max-w-md my-6">
@@ -424,11 +486,11 @@ export default function NewGameChooser({
       <CardFooter className="bg-[#f7f2e9] border-t border-[#e6d7c3] p-4 flex justify-end">
         <Button
           className="bg-[#2a6517] hover:bg-[#1d4a10] text-white font-medium px-6 h-10"
-          onClick={handleCreateGame}
+          onClick={() => setStep("colors")}
           disabled={inGamePlayers.length < 2}
         >
           <PlayCircle className="mr-2 h-4 w-4" />
-          Start Game
+          Next
         </Button>
       </CardFooter>
     </Card>
