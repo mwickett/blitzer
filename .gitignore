@@ -57,3 +57,6 @@ claude_desktop_config.json
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# worktrees
+.worktrees/
