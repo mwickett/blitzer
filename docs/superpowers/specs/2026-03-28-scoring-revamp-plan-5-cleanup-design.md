@@ -22,10 +22,12 @@ Extract the duplicated round editing logic from `BetweenRoundsView` and `Scoring
 
 Duplicated state and handlers:
 - `editingRoundIndex` state (`useState<number | null>`)
-- `handleEditRound` callback (sets index, tracks PostHog event)
-- `handleSaveEdit` callback (calls `editRoundScores` mutation, resets state, refreshes router)
+- `editError` state (`useState<string | null>`) — present in BetweenRoundsView but missing from ScoringShell. The hook must include this so both consumers surface inline errors on failed edits.
+- `handleEditRound` callback (sets index, clears error, tracks PostHog event)
+- `handleSaveEdit` callback (calls `editRoundScores` mutation, resets state, refreshes router; catches errors and sets `editError`)
+- Cancel/reset behavior (clears `editingRoundIndex` and `editError` together)
 
-The hook takes `gameId`, `rounds`, and `players` as inputs. Returns `{ editingRoundIndex, handleEditRound, handleSaveEdit }`.
+The hook takes `gameId`, `rounds`, and `players` as inputs. Returns `{ editingRoundIndex, editError, handleEditRound, handleSaveEdit, cancelEdit }`.
 
 ### 1c. `breakTie` function
 
@@ -47,11 +49,14 @@ Define this once in `src/components/scoring/types.ts` (which already exists) and
 
 The game page (`src/app/games/[id]/page.tsx`) currently renders `ScoreDisplay` unconditionally (line 121-126), outside the feature flag conditional. When the `scoring-revamp` flag is on, both the old score table and the new `ScoringShell` render simultaneously.
 
-**Fix:** Move `ScoreDisplay` inside the flag-off branch so it only renders when the old UI is active.
+**Fix:** ScoreDisplay currently serves as the read-only view for non-circle-members and logged-out users. It cannot simply move into the flag-off branch — that would leave flagged games blank for public viewers.
 
 Result:
-- Flag on: `ScoringShell` only (gated by `canViewScoringShell`)
+- Flag on + circle member: `ScoringShell` only (no `ScoreDisplay` above it)
+- Flag on + non-member / logged-out: `ScoreDisplay` (read-only fallback, same as today)
 - Flag off: `ScoreDisplay` + `ScoreEntry` (existing behavior)
+
+The conditional becomes: render `ScoreDisplay` unless (flag is on AND user is a circle member who sees `ScoringShell`).
 
 No files are deleted. All legacy components remain in place.
 
@@ -67,8 +72,9 @@ The game creation page (`src/app/games/new/newGameChooser.tsx`) currently has tw
 
 ### Per-player behavior
 
-- **Registered users with a saved `accentColor`:** Pre-filled with their default. "Save as my default color" checkbox shown (checked by default). Override allowed.
-- **Registered users without a saved color:** Auto-picks the first available unselected color. "Save as my default color" checkbox shown (checked by default).
+- **Current user (game creator) with a saved `accentColor`:** Pre-filled with their default. "Save as my default color" checkbox shown (checked by default). Override allowed.
+- **Current user (game creator) without a saved color:** Auto-picks the first available unselected color. "Save as my default color" checkbox shown (checked by default).
+- **Other registered users:** Pre-filled with their saved default if they have one, otherwise auto-picks next available. No "Save as default" checkbox — the creator cannot update another user's profile preferences. Color saved to the game record only.
 - **Guest users:** Auto-picks the first available unselected color. No "Save as default" checkbox — color saved to game record only. Shows italic note: "Color saved to this game only."
 
 ### Conflict resolution
@@ -77,13 +83,13 @@ Players are processed top-to-bottom in list order. First player with a given sav
 
 ### Taken color handling
 
-Each player's picker dims and disables colors already selected by players above them in the list. A player can always see and select any color not taken by another player.
+Each player's picker dims and disables colors already selected by other players. When an earlier player switches to a color currently held by a later player, the later player is auto-bumped to the next available color (cascade reassignment). This prevents duplicate colors despite the interactive UI — the invariant is that no two players can hold the same color at any point.
 
 ### Data flow
 
 On confirm:
 - Each player's chosen color is passed to the `createGame` mutation as `accentColor` on the game-player record.
-- For registered users with "Save as default" checked, also update their user profile's `accentColor`.
+- If the current user (game creator) checked "Save as default," update their own user profile's `accentColor`. This uses the existing `updateAccentColor` mutation which only updates the authenticated user's own profile — no new permission model needed.
 - The existing `resolvePlayerColor` / `assignColorsToPlayers` pipeline on the game page finds colors already set (instead of auto-assigning).
 
 ### Mockup
@@ -96,7 +102,7 @@ A visual mockup of this flow is saved at `.superpowers/brainstorm/` in the proje
 - **No feature flag removal:** The `scoring-revamp` flag remains active. Full removal deferred to a future plan.
 - **Bottom-up ordering:** Extract shared code first, fix gating second, build ColorPrompt third.
 - **Conflict resolution by list order:** Consistent with how `assignColorsToPlayers` already works on the game page.
-- **"Save as default" only for registered users:** Guests have no profile to persist to.
+- **"Save as default" only for the game creator:** Only the authenticated user can update their own profile. Other registered users' colors are saved to the game record only — no delegated profile edits.
 
 ## Open Questions
 
