@@ -110,6 +110,7 @@ export function ScoringShell({
             winner={winner}
             players={players}
             stats={gameStats}
+            rounds={rounds}
             onRematch={handleRematch}
             onBackToCircle={handleBackToCircle}
           />

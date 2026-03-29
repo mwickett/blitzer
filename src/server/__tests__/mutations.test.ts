@@ -202,7 +202,10 @@ describe("Game Mutations", () => {
 
     it("should update scores for a round", async () => {
       const mockGame = { id: mockGameId, isFinished: false, organizationId: mockOrgId };
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+      // First call: initial game fetch; second call: re-fetch for reopen check
+      (prisma.game.findUnique as jest.Mock)
+        .mockResolvedValueOnce(mockGame)
+        .mockResolvedValueOnce({ ...mockGame, rounds: [], winThreshold: 75 });
       (prisma.$transaction as jest.Mock).mockResolvedValue([{ count: 1 }]);
 
       const result = await updateRoundScores(
@@ -245,13 +248,22 @@ describe("Game Mutations", () => {
       });
     });
 
-    it("should throw error if game is finished", async () => {
+    it("should allow editing finished games", async () => {
       const mockGame = { id: mockGameId, isFinished: true, organizationId: mockOrgId };
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+      // First call: initial game fetch; second call: re-fetch for reopen check
+      (prisma.game.findUnique as jest.Mock)
+        .mockResolvedValueOnce(mockGame)
+        .mockResolvedValueOnce({ ...mockGame, rounds: [], winThreshold: 75 });
+      (prisma.$transaction as jest.Mock).mockResolvedValue([{ count: 1 }]);
 
-      await expect(
-        updateRoundScores(mockGameId, mockRoundId, validScores)
-      ).rejects.toThrow("Cannot update scores for a finished game");
+      const result = await updateRoundScores(
+        mockGameId,
+        mockRoundId,
+        validScores
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(result).toEqual([{ count: 1 }]);
     });
 
     it("should throw error if game is not found", async () => {

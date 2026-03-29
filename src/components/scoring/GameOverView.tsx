@@ -3,11 +3,22 @@
 import { type PlayerWithScore } from "./types";
 import { type GameStats } from "@/lib/scoring/gameStats";
 import { ACCENT_COLORS } from "@/lib/scoring/colors";
+import { RoundHistoryTable } from "./RoundHistoryTable";
+import { usePostHog } from "posthog-js/react";
 
 interface GameOverViewProps {
   winner: PlayerWithScore;
   players: PlayerWithScore[];
   stats: GameStats;
+  rounds: {
+    scores: {
+      userId?: string | null;
+      guestId?: string | null;
+      blitzPileRemaining: number;
+      totalCardsPlayed: number;
+    }[];
+  }[];
+  onEditRound?: (roundIndex: number) => void;
   onRematch: () => void;
   onBackToCircle: () => void;
 }
@@ -16,9 +27,12 @@ export function GameOverView({
   winner,
   players,
   stats,
+  rounds,
+  onEditRound,
   onRematch,
   onBackToCircle,
 }: GameOverViewProps) {
+  const posthog = usePostHog();
   const sorted = [...players].sort((a, b) => b.score - a.score);
   const colorLabel =
     ACCENT_COLORS.find((c) => c.value === winner.color)?.label ?? "";
@@ -144,16 +158,33 @@ export function GameOverView({
         </div>
       </div>
 
+      {/* Round history — tap to edit */}
+      <div className="pt-4 pb-2">
+        <RoundHistoryTable
+          players={players}
+          rounds={rounds}
+          onEditRound={onEditRound}
+        />
+      </div>
+
       {/* Actions */}
       <div className="px-4 pt-5 pb-6 space-y-2">
         <button
-          onClick={onRematch}
+          onClick={() => {
+            posthog.capture("game_over_rematch", {
+              player_count: players.length,
+            });
+            onRematch();
+          }}
           className="w-full py-3.5 rounded-xl text-[15px] font-bold bg-[#290806] text-white hover:bg-[#3d1a0a] transition-colors cursor-pointer"
         >
           New Game with Same Players
         </button>
         <button
-          onClick={onBackToCircle}
+          onClick={() => {
+            posthog.capture("game_over_back_to_circle");
+            onBackToCircle();
+          }}
           className="w-full py-3 rounded-xl text-[13px] font-semibold border-[1.5px] border-[#e6d7c3] bg-white text-[#8b5e3c] hover:bg-[#faf5ed] transition-colors cursor-pointer"
         >
           Back to Circle
