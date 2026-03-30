@@ -25,7 +25,9 @@ export function UndoToast({
         const next = prev - (intervalMs / durationMs) * 100;
         if (next <= 0) {
           if (timerRef.current) clearInterval(timerRef.current);
-          onDismiss();
+          // Defer onDismiss out of the state updater to avoid calling
+          // setState on a parent component during React's render phase.
+          queueMicrotask(onDismiss);
           return 0;
         }
         return next;

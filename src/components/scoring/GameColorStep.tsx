@@ -91,7 +91,7 @@ export function GameColorStep({ players, onConfirm, onBack }: GameColorStepProps
       })}
 
       <div className="flex justify-between items-center pt-2 border-t border-[#e6d7c3]">
-        <Button variant="ghost" size="sm" className="text-[#5a341f]" onClick={onBack}>
+        <Button type="button" variant="ghost" size="sm" className="text-[#5a341f]" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back
         </Button>

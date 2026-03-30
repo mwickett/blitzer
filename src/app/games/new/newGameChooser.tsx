@@ -9,7 +9,7 @@ import { type ColorStepPlayer } from "@/components/scoring/useGameColors";
 import { saveUserAccentColor } from "@/server/mutations/games";
 import { GAME_RULES } from "@/lib/validation/gameRules";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 // UI Components
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -59,7 +59,8 @@ export default function NewGameChooser({
 }: NewGameChooserProps) {
   const [inGamePlayers, setInGamePlayers] = useState<GamePlayer[]>([]);
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<"players" | "colors">("players");
+  const searchParams = useSearchParams();
+  const step = searchParams.get("step") === "colors" ? "colors" : "players";
   const [addingPlayer, setAddingPlayer] = useState(false);
   const [activeTab, setActiveTab] = useState("existing");
   const [guestName, setGuestName] = useState("");
@@ -199,6 +200,10 @@ export default function NewGameChooser({
       }
 
       if (result && result.gameId) {
+        // Use replaceState to remove ?step=colors from history, then
+        // push the game URL. Next.js router.replace() doesn't reliably
+        // replace the history entry when crossing route boundaries.
+        window.history.replaceState(null, "", `/games/${result.gameId}`);
         router.push(`/games/${result.gameId}`);
       }
     } catch (error) {
@@ -219,7 +224,7 @@ export default function NewGameChooser({
           <GameColorStep
             players={buildColorStepPlayers()}
             onConfirm={handleCreateGame}
-            onBack={() => setStep("players")}
+            onBack={() => router.back()}
           />
         </CardContent>
       </Card>
@@ -486,7 +491,7 @@ export default function NewGameChooser({
       <CardFooter className="bg-[#f7f2e9] border-t border-[#e6d7c3] p-4 flex justify-end">
         <Button
           className="bg-[#2a6517] hover:bg-[#1d4a10] text-white font-medium px-6 h-10"
-          onClick={() => setStep("colors")}
+          onClick={() => router.push("/games/new?step=colors")}
           disabled={inGamePlayers.length < 2}
         >
           <PlayCircle className="mr-2 h-4 w-4" />
