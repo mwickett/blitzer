@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { type PlayerWithScore } from "./types";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
 
@@ -36,10 +37,15 @@ export function RoundHistoryTable({
 
   return (
     <div className="mx-4 bg-white border-[1.5px] border-[#e6d7c3] rounded-xl overflow-hidden">
-      <div className="px-3 py-2 bg-[#faf5ed] border-b border-[#e6d7c3]">
+      <div className="px-3 py-2 bg-[#faf5ed] border-b border-[#e6d7c3] flex items-baseline justify-between gap-2">
         <div className="text-[10px] font-semibold text-[#8b5e3c] uppercase tracking-wider">
           Round Scores
         </div>
+        {onEditRound && (
+          <div className="text-[10px] text-[#8b5e3c] italic">
+            tap a round to edit
+          </div>
+        )}
       </div>
 
       {/* Header */}
@@ -56,13 +62,14 @@ export function RoundHistoryTable({
             {p.name}
           </div>
         ))}
+        {onEditRound && <div className="w-6" aria-hidden />}
       </div>
 
       {/* Rows */}
       {rounds.map((round, ri) => (
         <div
           key={ri}
-          className={`flex px-3 py-1.5 border-b border-[#f0e6d2] last:border-b-0${onEditRound ? " cursor-pointer hover:bg-[#faf5ed] active:bg-[#f0e6d2] transition-colors" : ""}`}
+          className={`flex px-3 py-1.5 border-b border-[#f0e6d2] last:border-b-0 items-center${onEditRound ? " cursor-pointer hover:bg-[#faf5ed] active:bg-[#f0e6d2] transition-colors" : ""}`}
           onClick={onEditRound ? () => onEditRound(ri) : undefined}
         >
           <div className="w-10 text-[11px] text-[#8b5e3c]">
@@ -79,6 +86,11 @@ export function RoundHistoryTable({
               </div>
             );
           })}
+          {onEditRound && (
+            <div className="w-6 flex justify-end text-[#8b5e3c]/60">
+              <Pencil className="w-3 h-3" aria-label="Edit round" />
+            </div>
+          )}
         </div>
       ))}
 
@@ -93,6 +105,7 @@ export function RoundHistoryTable({
             {p.score}
           </div>
         ))}
+        {onEditRound && <div className="w-6" aria-hidden />}
       </div>
     </div>
   );

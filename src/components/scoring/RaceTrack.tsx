@@ -31,10 +31,11 @@ export function RaceTrack({
   }));
 
   const groups = groupMarkers(markers, pillThreshold, bounds.min, bounds.max);
+  const truncateName = (name: string) => (name.length > 7 ? `${name.slice(0, 6)}…` : name);
 
   return (
     <div className="w-full">
-      <div className="flex justify-between text-[13px] md:text-[11px] text-[#8b5e3c] mb-1.5 px-0.5">
+      <div className="flex justify-between text-[13px] md:text-[11px] text-[#8b5e3c] mb-1.5 px-0.5 pr-6">
         <span>{bounds.min}</span>
         <span>{winThreshold} to win</span>
       </div>
@@ -54,7 +55,7 @@ export function RaceTrack({
 
         {/* Finish line */}
         <div className="absolute top-0 bottom-0 w-[3px] bg-[#290806] right-0 rounded-r-full" />
-        <div className="absolute -top-4 right-[-2px] text-[10px]">🏁</div>
+        <div className="absolute -top-5 right-[-2px] text-[12px]">🏁</div>
 
         {/* Pill groups */}
         {groups.map((group, gi) => {
@@ -78,10 +79,11 @@ export function RaceTrack({
                   {m.score}
                 </div>
                 <div
-                  className="absolute top-9 left-1/2 -translate-x-1/2 text-[13px] md:text-xs font-semibold whitespace-nowrap"
+                  className="absolute top-9 left-1/2 -translate-x-1/2 text-[13px] md:text-xs font-semibold whitespace-nowrap max-w-[60px] overflow-hidden text-ellipsis"
                   style={{ color: m.score < 0 ? "#b91c1c" : m.color }}
+                  title={m.name}
                 >
-                  {m.name}
+                  {truncateName(m.name)}
                 </div>
               </div>
             );
@@ -113,8 +115,9 @@ export function RaceTrack({
                     key={m.id}
                     className="text-[13px] md:text-[11px] font-semibold"
                     style={{ color: m.score < 0 ? "#b91c1c" : m.color }}
+                    title={m.name}
                   >
-                    {m.name}
+                    {truncateName(m.name)}
                   </span>
                 ))}
               </div>
