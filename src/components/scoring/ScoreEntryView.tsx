@@ -171,7 +171,7 @@ export function ScoreEntryView({
       />
 
       {/* Race Track */}
-      <div className="px-5 pt-2 pb-2">
+      <div className="px-4 pt-2 pb-2">
         <RaceTrack players={players} winThreshold={winThreshold} />
       </div>
 
