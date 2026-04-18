@@ -14,9 +14,9 @@ jest.mock("@/server/mutations", () => ({
 }));
 
 // Mock next/navigation router
-const mockRefresh = jest.fn();
+const mockReplace = jest.fn();
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: mockRefresh }),
+  useRouter: () => ({ replace: mockReplace }),
 }));
 
 // Mock posthog-js/react
@@ -104,8 +104,8 @@ describe("ScoreEntryView", () => {
     expect(screen.getByText(/1 remaining/)).toBeInTheDocument();
   });
 
-  it("calls router.refresh after successful submit", async () => {
-    mockRefresh.mockClear();
+  it("calls router.replace to the current game after successful submit", async () => {
+    mockReplace.mockClear();
     render(
       <ScoreEntryView
         gameId="game-1"
@@ -124,6 +124,8 @@ describe("ScoreEntryView", () => {
 
     fireEvent.click(screen.getByText("Submit Round"));
 
-    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith("/games/game-1")
+    );
   });
 });

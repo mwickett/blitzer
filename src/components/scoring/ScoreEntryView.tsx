@@ -109,7 +109,14 @@ export function ScoreEntryView({
         player_count: players.length,
       });
       setIsSubmitting(false);
-      router.refresh();
+      // router.replace to the current URL (not router.refresh) — forces
+      // Next.js to rebuild its internal route state, which can be stale
+      // after the /games/new?step=colors → /games/[id] transition that
+      // uses window.history.replaceState. Using router.refresh here
+      // would refresh the stale pre-replaceState route and navigate
+      // the user back to the colors step.
+      // See docs/solutions/ui-bugs/nextjs-router-replace-history-cross-route.md
+      router.replace(`/games/${gameId}`);
     } catch (e) {
       setEntries(preSubmitEntries);
       setOptimisticDeltas(null);
