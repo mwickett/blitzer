@@ -39,10 +39,10 @@ export function WinProbabilityCard({
   if (!probabilities) {
     return (
       <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-4">
-        <div className="text-[11px] font-bold text-[#290806] mb-0.5">
+        <div className="text-base md:text-sm font-bold text-[#290806] mb-0.5">
           Win Probability
         </div>
-        <div className="text-[9px] text-[#8b5e3c]">
+        <div className="text-[13px] md:text-xs text-[#8b5e3c]">
           Available after 3 rounds
         </div>
       </div>
@@ -51,10 +51,10 @@ export function WinProbabilityCard({
 
   return (
     <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-4">
-      <div className="text-[11px] font-bold text-[#290806] mb-0.5">
+      <div className="text-base md:text-sm font-bold text-[#290806] mb-0.5">
         Win Probability
       </div>
-      <div className="text-[9px] text-[#8b5e3c] mb-3">
+      <div className="text-[13px] md:text-xs text-[#8b5e3c] mb-3">
         Based on scoring pace through {roundsPlayed} rounds
       </div>
 
