@@ -119,50 +119,6 @@ export async function createRoundForGame(
   return round;
 }
 
-// Delete the latest round (for undo support)
-export async function deleteLatestRound(gameId: string) {
-  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
-
-  const game = await prisma.game.findUnique({
-    where: { id: gameId },
-    include: {
-      rounds: {
-        orderBy: { round: "desc" },
-        take: 1,
-        include: { scores: true },
-      },
-    },
-  });
-
-  if (!game) throw new Error("Game not found");
-  if (game.organizationId !== orgId) {
-    throw new Error("Game does not belong to your active circle");
-  }
-
-  const latestRound = game.rounds[0];
-  if (!latestRound) throw new Error("No rounds to undo");
-
-  await prisma.$transaction(async (tx) => {
-    await tx.score.deleteMany({ where: { roundId: latestRound.id } });
-    await tx.round.delete({ where: { id: latestRound.id } });
-
-    if (game.isFinished) {
-      await tx.game.update({
-        where: { id: gameId },
-        data: { isFinished: false, winnerId: null, endedAt: null },
-      });
-    }
-  });
-
-  posthog.capture({
-    distinctId: user.userId,
-    event: "undo_round",
-    properties: { game_id: gameId, round_number: latestRound.round },
-  });
-
-  return { deletedRoundNumber: latestRound.round };
-}
-
 // Update scores for a round
 export async function updateRoundScores(
   gameId: string,

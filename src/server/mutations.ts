@@ -17,8 +17,8 @@ import { createGame, updateGameAsFinished, cloneGame } from "./mutations/games";
 export { createGame, updateGameAsFinished, cloneGame };
 
 // Re-export round-related mutations
-import { createRoundForGame, updateRoundScores, deleteLatestRound } from "./mutations/rounds";
-export { createRoundForGame, updateRoundScores, deleteLatestRound };
+import { createRoundForGame, updateRoundScores } from "./mutations/rounds";
+export { createRoundForGame, updateRoundScores };
 
 // Re-export guest-related mutations
 import {
