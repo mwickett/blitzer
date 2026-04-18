@@ -7,6 +7,7 @@ import {
   ValidationError,
   calculateRoundScore,
 } from "@/lib/validation/gameRules";
+import { breakTie } from "@/lib/scoring/tiebreak";
 
 // Create new round with scores
 export async function createRoundForGame(
@@ -301,22 +302,14 @@ export async function updateRoundScores(
           .map(([pid]) => pid);
 
         // Tie-break by fewest blitz cards remaining in final round
-        let newWinnerId = topPlayers[0];
-        if (topPlayers.length > 1) {
-          const finalRound =
-            updatedGame.rounds[updatedGame.rounds.length - 1];
-          let bestRemaining = Infinity;
-          for (const pid of topPlayers) {
-            const s = finalRound.scores.find(
-              (sc) => (sc.userId ?? sc.guestId ?? "") === pid
-            );
-            const remaining = s?.blitzPileRemaining ?? 10;
-            if (remaining < bestRemaining) {
-              bestRemaining = remaining;
-              newWinnerId = pid;
-            }
-          }
-        }
+        const finalRound = updatedGame.rounds[updatedGame.rounds.length - 1];
+        const candidates = topPlayers.map((pid) => {
+          const s = finalRound.scores.find(
+            (sc) => (sc.userId ?? sc.guestId ?? "") === pid
+          );
+          return { playerId: pid, blitzPileRemaining: s?.blitzPileRemaining ?? 10 };
+        });
+        const newWinnerId = breakTie(candidates);
 
         if (newWinnerId && newWinnerId !== updatedGame.winnerId) {
           await prisma.game.update({

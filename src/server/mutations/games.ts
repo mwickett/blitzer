@@ -12,6 +12,7 @@ export async function createGame(
     id: string;
     username?: string;
     isGuest?: boolean;
+    accentColor?: string;
   }[],
   winThreshold?: number
 ) {
@@ -90,7 +91,7 @@ export async function createGame(
       const userDefault = playerDefaults.find((p) => p.id === u.id);
       return {
         id: u.id,
-        resolvedColor: resolvePlayerColor({
+        resolvedColor: u.accentColor ?? resolvePlayerColor({
           gameColor: null,
           userDefault: userDefault?.accentColor ?? null,
         }),

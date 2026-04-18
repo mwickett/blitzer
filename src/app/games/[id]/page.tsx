@@ -118,12 +118,14 @@ export default async function GameView(props: {
           Playing to {game.winThreshold} points
         </p>
       )}
-      <ScoreDisplay
-        displayScores={displayScores}
-        numRounds={game.rounds.length}
-        gameId={game.id}
-        isFinished={game.isFinished}
-      />
+      {!(useScoringRevamp && canViewScoringShell) && (
+        <ScoreDisplay
+          displayScores={displayScores}
+          numRounds={game.rounds.length}
+          gameId={game.id}
+          isFinished={game.isFinished}
+        />
+      )}
       {useScoringRevamp ? (
         <>
           {canViewScoringShell && (

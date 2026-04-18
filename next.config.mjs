@@ -1,6 +1,7 @@
 import {withSentryConfig} from "@sentry/nextjs";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ["192.168.7.249"],
   async rewrites() {
     return [
       {
