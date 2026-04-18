@@ -130,7 +130,7 @@ export function BetweenRoundsView({
       </div>
 
       {/* Bottom spacer for floating CTA */}
-      <div className="h-20" />
+      <div className="h-28" />
 
       {/* Floating CTA */}
       <FloatingCTA
