@@ -106,20 +106,22 @@ export function RaceTrack({
         })}
       </div>
 
-      {/* Legend */}
+      {/* Legend — ordered left-to-right to match on-track positions (ascending score) */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 px-0.5 text-[13px] md:text-[11px] font-medium">
-        {players.map((p) => (
-          <div key={p.id} className="flex items-center gap-1.5">
-            <span
-              className="w-2.5 h-2.5 rounded-full shrink-0"
-              style={{ backgroundColor: p.color }}
-              aria-hidden
-            />
-            <span style={{ color: p.score < 0 ? "#b91c1c" : p.color }}>
-              {p.name}
-            </span>
-          </div>
-        ))}
+        {[...players]
+          .sort((a, b) => a.score - b.score)
+          .map((p) => (
+            <div key={p.id} className="flex items-center gap-1.5">
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: p.color }}
+                aria-hidden
+              />
+              <span style={{ color: p.score < 0 ? "#b91c1c" : p.color }}>
+                {p.name}
+              </span>
+            </div>
+          ))}
       </div>
     </div>
   );
