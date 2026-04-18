@@ -31,7 +31,6 @@ export function RaceTrack({
   }));
 
   const groups = groupMarkers(markers, pillThreshold, bounds.min, bounds.max);
-  const truncateName = (name: string) => (name.length > 7 ? `${name.slice(0, 6)}…` : name);
 
   return (
     <div className="w-full">
@@ -78,13 +77,6 @@ export function RaceTrack({
                 >
                   {m.score}
                 </div>
-                <div
-                  className="absolute top-9 left-1/2 -translate-x-1/2 text-[13px] md:text-xs font-semibold whitespace-nowrap max-w-[60px] overflow-hidden text-ellipsis"
-                  style={{ color: m.score < 0 ? "#b91c1c" : m.color }}
-                  title={m.name}
-                >
-                  {truncateName(m.name)}
-                </div>
               </div>
             );
           }
@@ -109,24 +101,26 @@ export function RaceTrack({
                   </div>
                 ))}
               </div>
-              <div className="absolute top-9 left-1/2 -translate-x-1/2 flex gap-1.5 whitespace-nowrap">
-                {group.markers.map((m) => (
-                  <span
-                    key={m.id}
-                    className="text-[13px] md:text-[11px] font-semibold"
-                    style={{ color: m.score < 0 ? "#b91c1c" : m.color }}
-                    title={m.name}
-                  >
-                    {truncateName(m.name)}
-                  </span>
-                ))}
-              </div>
             </div>
           );
         })}
       </div>
 
-      <div className="h-5" />
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 px-0.5 text-[13px] md:text-[11px] font-medium">
+        {players.map((p) => (
+          <div key={p.id} className="flex items-center gap-1.5">
+            <span
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: p.color }}
+              aria-hidden
+            />
+            <span style={{ color: p.score < 0 ? "#b91c1c" : p.color }}>
+              {p.name}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
