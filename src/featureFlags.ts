@@ -18,26 +18,7 @@ export async function isFeatureEnabled(flagKey: string): Promise<boolean> {
   if (user?.username) personProperties.username = user.username;
 
   const posthog = PostHogClient();
-  let flags: Record<string, string | boolean> = {};
-  let error: unknown = null;
-  try {
-    flags = await posthog.getAllFlags(userId, { personProperties });
-  } catch (e) {
-    error = e;
-  }
-
-  // Diagnostic logging — remove once flag evaluation on preview is verified.
-  // Check Vercel function logs for these entries.
-  console.log("[flag-debug]", {
-    flagKey,
-    userId,
-    personProperties,
-    flagValue: flags[flagKey],
-    allFlags: flags,
-    error: error instanceof Error ? { message: error.message, name: error.name } : error,
-    host: process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/ingest` : "localhost/ingest",
-    hasPosthogKey: !!process.env.NEXT_PUBLIC_POSTHOG_KEY,
-  });
+  const flags = await posthog.getAllFlags(userId, { personProperties });
 
   return !!flags[flagKey];
 }
