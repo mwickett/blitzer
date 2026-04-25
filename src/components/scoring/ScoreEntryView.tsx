@@ -7,11 +7,10 @@ import { ScoreEntryCard } from "./ScoreEntryCard";
 import { FloatingCTA } from "./FloatingCTA";
 import { RoundHeader } from "./RoundHeader";
 import { RaceTrack } from "./RaceTrack";
-import { UndoToast } from "./UndoToast";
 import { type PlayerEntry, type PlayerWithScore, getEntryStatus } from "./types";
 import { usePostHog } from "posthog-js/react";
 import { validateGameRules, calculateRoundScore } from "@/lib/validation/gameRules";
-import { createRoundForGame, deleteLatestRound } from "@/server/mutations";
+import { createRoundForGame } from "@/server/mutations";
 
 interface ScoreEntryViewProps {
   gameId: string;
@@ -35,11 +34,6 @@ export function ScoreEntryView({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [undoData, setUndoData] = useState<{
-    roundNumber: number;
-    preSubmitEntries: Record<string, PlayerEntry>;
-    serverConfirmed: boolean;
-  } | null>(null);
   const [optimisticDeltas, setOptimisticDeltas] = useState<Record<string, number> | null>(null);
   const deltaTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -85,12 +79,11 @@ export function ScoreEntryView({
       };
     });
 
-    // Save pre-submit state for undo
     const preSubmitEntries = { ...entries };
 
     try {
       validateGameRules(scores);
-      // Calculate deltas for flash animation
+
       const deltas: Record<string, number> = {};
       for (const player of players) {
         const entry = entries[player.id];
@@ -103,8 +96,6 @@ export function ScoreEntryView({
       if (deltaTimerRef.current) clearTimeout(deltaTimerRef.current);
       deltaTimerRef.current = setTimeout(() => setOptimisticDeltas(null), 1200);
 
-      // Show undo toast optimistically
-      setUndoData({ roundNumber: currentRoundNumber, preSubmitEntries, serverConfirmed: false });
       setEntries(
         Object.fromEntries(
           players.map((p) => [p.id, { blitzRemaining: null, cardsPlayed: null }])
@@ -112,56 +103,27 @@ export function ScoreEntryView({
       );
 
       await createRoundForGame(gameId, currentRoundNumber, scores);
-      // Mark server-confirmed so undo knows to call deleteLatestRound
-      // Don't router.refresh() here — that would unmount this component (ScoringShell
-      // flips to betweenRounds mode when round number changes), killing the undo toast.
-      // Refresh is deferred to onDismiss/onUndo.
-      setUndoData((prev) => prev ? { ...prev, serverConfirmed: true } : null);
       posthog.capture("scoring_round_submitted", {
         game_id: gameId,
         round_number: currentRoundNumber,
         player_count: players.length,
       });
       setIsSubmitting(false);
+      // router.replace to the current URL (not router.refresh) — forces
+      // Next.js to rebuild its internal route state, which can be stale
+      // after the /games/new?step=colors → /games/[id] transition that
+      // uses window.history.replaceState. Using router.refresh here
+      // would refresh the stale pre-replaceState route and navigate
+      // the user back to the colors step.
+      // See docs/solutions/ui-bugs/nextjs-router-replace-history-cross-route.md
+      router.replace(`/games/${gameId}`);
     } catch (e) {
-      // Revert optimistic update
       setEntries(preSubmitEntries);
-      setUndoData(null);
       setOptimisticDeltas(null);
       setError(e instanceof Error ? e.message : "Failed to submit round");
       setIsSubmitting(false);
     }
-  }, [allComplete, isSubmitting, players, entries, gameId, currentRoundNumber, posthog]);
-
-  const handleUndo = useCallback(async () => {
-    if (!undoData) return;
-    const wasConfirmed = undoData.serverConfirmed;
-    const savedEntries = undoData.preSubmitEntries;
-
-    // Immediately revert local state
-    posthog.capture("scoring_round_undone", {
-      game_id: gameId,
-      round_number: undoData.roundNumber,
-    });
-    setUndoData(null);
-    setOptimisticDeltas(null);
-    setEntries(savedEntries);
-
-    if (wasConfirmed) {
-      try {
-        await deleteLatestRound(gameId);
-      } catch {
-        setError("Failed to undo. Please refresh the page.");
-      }
-    }
-
-    router.refresh();
-  }, [undoData, gameId, router, posthog]);
-
-  const handleDismissUndo = useCallback(() => {
-    setUndoData(null);
-    router.refresh();
-  }, [router]);
+  }, [allComplete, isSubmitting, players, entries, gameId, currentRoundNumber, posthog, router]);
 
   return (
     <div className="pb-4">
@@ -171,7 +133,7 @@ export function ScoreEntryView({
       />
 
       {/* Race Track */}
-      <div className="px-5 pt-2 pb-2">
+      <div className="px-4 pt-2 pb-2">
         <RaceTrack players={players} winThreshold={winThreshold} />
       </div>
 
@@ -214,14 +176,6 @@ export function ScoreEntryView({
         onAction={handleSubmit}
       />
 
-      {/* Undo toast */}
-      {undoData && (
-        <UndoToast
-          roundNumber={undoData.roundNumber}
-          onUndo={handleUndo}
-          onDismiss={handleDismissUndo}
-        />
-      )}
     </div>
   );
 }

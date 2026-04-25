@@ -11,7 +11,12 @@ if (!globalThis.crypto?.randomUUID) {
 // Mock server actions
 jest.mock("@/server/mutations", () => ({
   createRoundForGame: jest.fn().mockResolvedValue({ id: "round-1" }),
-  deleteLatestRound: jest.fn().mockResolvedValue({ deletedRoundNumber: 1 }),
+}));
+
+// Mock next/navigation router
+const mockReplace = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: mockReplace }),
 }));
 
 // Mock posthog-js/react
@@ -99,7 +104,8 @@ describe("ScoreEntryView", () => {
     expect(screen.getByText(/1 remaining/)).toBeInTheDocument();
   });
 
-  it("shows undo toast after submit", async () => {
+  it("calls router.replace to the current game after successful submit", async () => {
+    mockReplace.mockClear();
     render(
       <ScoreEntryView
         gameId="game-1"
@@ -116,14 +122,10 @@ describe("ScoreEntryView", () => {
     fireEvent.change(inputs[2], { target: { value: "5" } });
     fireEvent.change(inputs[3], { target: { value: "14" } });
 
-    // Submit
-    const submitBtn = screen.getByText("Submit Round");
-    fireEvent.click(submitBtn);
+    fireEvent.click(screen.getByText("Submit Round"));
 
-    // Undo toast should appear
-    await waitFor(() => {
-      expect(screen.getByText("Round 1 submitted")).toBeInTheDocument();
-      expect(screen.getByText("Undo")).toBeInTheDocument();
-    });
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith("/games/game-1")
+    );
   });
 });

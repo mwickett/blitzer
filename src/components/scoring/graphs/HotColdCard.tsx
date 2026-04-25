@@ -21,10 +21,10 @@ export function HotColdCard({ players, deltasByRound }: HotColdCardProps) {
 
   return (
     <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-4">
-      <div className="text-[11px] font-bold text-[#290806] mb-0.5">
+      <div className="text-base md:text-sm font-bold text-[#290806] mb-0.5">
         Hot & Cold
       </div>
-      <div className="text-[9px] text-[#8b5e3c] mb-3">
+      <div className="text-[13px] md:text-xs text-[#8b5e3c] mb-3">
         Performance intensity per round
       </div>
 

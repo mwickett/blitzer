@@ -16,8 +16,10 @@ export function GraphCarousel({ children }: GraphCarouselProps) {
 
     const handleScroll = () => {
       const scrollLeft = el.scrollLeft;
-      const cardWidth = el.offsetWidth * 0.88; // ~88% card width + gap
-      const index = Math.round(scrollLeft / cardWidth);
+      const firstCard = el.firstElementChild as HTMLElement | null;
+      if (!firstCard) return;
+      const cardStride = firstCard.offsetWidth + 12; // card width + gap-3
+      const index = Math.round(scrollLeft / cardStride);
       setActiveIndex(Math.min(index, children.length - 1));
     };
 
@@ -35,7 +37,7 @@ export function GraphCarousel({ children }: GraphCarouselProps) {
         {children.map((child, i) => (
           <div
             key={i}
-            className="min-w-[88%] snap-start"
+            className="min-w-[82%] md:min-w-[88%] snap-start"
           >
             {child}
           </div>

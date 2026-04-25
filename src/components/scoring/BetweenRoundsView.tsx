@@ -67,7 +67,7 @@ export function BetweenRoundsView({
   return (
     <>
       {/* Race Track */}
-      <div className="px-5 pt-4 pb-2">
+      <div className="px-4 pt-4 pb-2">
         <RaceTrack players={players} winThreshold={winThreshold} />
       </div>
 
@@ -130,7 +130,7 @@ export function BetweenRoundsView({
       </div>
 
       {/* Bottom spacer for floating CTA */}
-      <div className="h-20" />
+      <div className="h-28" />
 
       {/* Floating CTA */}
       <FloatingCTA
