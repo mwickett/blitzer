@@ -1,6 +1,7 @@
 import { Game, User, Score, Round, GuestUser } from "@/generated/prisma/client";
 import { updateGameAsFinished } from "@/server/mutations";
 import { calculateRoundScore, isWinningScore } from "./validation/gameRules";
+import { breakTie } from "./scoring/tiebreak";
 
 export interface GameWithPlayersAndScores extends Game {
   players: {
@@ -8,6 +9,7 @@ export interface GameWithPlayersAndScores extends Game {
     gameId: string;
     userId?: string;
     guestId?: string;
+    accentColor?: string | null;
     user?: User;
     guestUser?: GuestUser;
   }[];
@@ -31,6 +33,7 @@ export interface DisplayScores {
   total: number;
   isInLead?: boolean;
   isWinner?: boolean;
+  accentColor?: string | null;
 }
 
 export interface ProcessedPlayerScore {
@@ -39,6 +42,7 @@ export interface ProcessedPlayerScore {
   isGuest: boolean;
   scoresByRound: number[];
   total: number;
+  accentColor?: string | null;
 }
 
 // Function to get player name - handles both regular users and guest users
@@ -77,6 +81,7 @@ function initializePlayerScoresMap(
       isGuest: isGuestPlayer(player),
       scoresByRound: [],
       total: 0,
+      accentColor: player.accentColor ?? null,
     };
   });
 
@@ -153,7 +158,21 @@ async function determineWinner(
       (player) => player.total === highestScore
     );
 
-    const winnerId = potentialWinners[0].id;
+    // Tie-breaking: when multiple players have the same highest score,
+    // the player with fewer blitz cards remaining in the final round wins.
+    let winnerId: string;
+    if (potentialWinners.length > 1) {
+      const finalRound = game.rounds[game.rounds.length - 1];
+      const candidates = potentialWinners.map((pw) => {
+        const score = finalRound.scores.find(
+          (s) => s.userId === pw.id || s.guestId === pw.id
+        );
+        return { playerId: pw.id, blitzPileRemaining: score?.blitzPileRemaining ?? 10 };
+      });
+      winnerId = breakTie(candidates);
+    } else {
+      winnerId = potentialWinners[0].id;
+    }
     if (!game.isFinished) {
       const winnerPlayer = game.players.find(
         (player) => player.guestId === winnerId || player.userId === winnerId
@@ -191,7 +210,7 @@ export default async function transformGameData(
 
   // Convert to final display scores
   return Object.entries(playerScoresMap).map(
-    ([id, { username, isGuest, scoresByRound, total }]) => ({
+    ([id, { username, isGuest, scoresByRound, total, accentColor }]) => ({
       id,
       userId: id, // Add userId for backward compatibility with tests
       username,
@@ -200,6 +219,7 @@ export default async function transformGameData(
       total,
       isInLead: leaders.includes(id),
       isWinner: id === winnerId,
+      accentColor,
     })
   );
 }

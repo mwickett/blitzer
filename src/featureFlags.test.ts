@@ -8,8 +8,10 @@ jest.mock("./app/posthog", () => ({
 
 // Mock the auth module
 const mockAuth = jest.fn();
+const mockCurrentUser = jest.fn();
 jest.mock("@clerk/nextjs/server", () => ({
   auth: () => mockAuth(),
+  currentUser: () => mockCurrentUser(),
 }));
 
 // Mock our module to spy on the isFeatureEnabled function
@@ -42,6 +44,10 @@ describe("Feature Flags", () => {
     it("returns flag value from PostHog if user is authenticated", async () => {
       // Mock auth to return a userId
       mockAuth.mockResolvedValue({ userId: "user-123" });
+      mockCurrentUser.mockResolvedValue({
+        primaryEmailAddress: { emailAddress: "test@example.com" },
+        username: "tester",
+      });
 
       // Mock PostHog client
       const mockGetAllFlags = jest.fn().mockResolvedValue({
@@ -54,7 +60,9 @@ describe("Feature Flags", () => {
       const result = await isFeatureEnabled("test-flag");
       expect(result).toBe(true);
       expect(PostHogClient).toHaveBeenCalled();
-      expect(mockGetAllFlags).toHaveBeenCalledWith("user-123");
+      expect(mockGetAllFlags).toHaveBeenCalledWith("user-123", {
+        personProperties: { email: "test@example.com", username: "tester" },
+      });
     });
   });
 

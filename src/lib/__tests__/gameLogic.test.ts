@@ -203,6 +203,58 @@ describe("transformGameData", () => {
     expect(leadPlayers[0].total).toBe(leadPlayers[1].total);
   });
 
+  describe("tie-breaking", () => {
+    it("should break ties by fewest blitz cards remaining in the final round", async () => {
+      // user1 has MORE blitz cards remaining in the final round (worse)
+      // user2 has FEWER blitz cards remaining in the final round (better)
+      // Without tie-breaking, user1 would win because it appears first in the array.
+      // With proper tie-breaking, user2 should win.
+      const mockGame = createMockGame(
+        [
+          { userId: "user1", username: "Player 1" },
+          { userId: "user2", username: "Player 2" },
+        ],
+        [
+          {
+            roundNumber: 1,
+            scores: [
+              { userId: "user1", blitzPileRemaining: 0, totalCardsPlayed: 25 },
+              { userId: "user2", blitzPileRemaining: 0, totalCardsPlayed: 25 },
+            ],
+          },
+          {
+            roundNumber: 2,
+            scores: [
+              { userId: "user1", blitzPileRemaining: 0, totalCardsPlayed: 25 },
+              { userId: "user2", blitzPileRemaining: 0, totalCardsPlayed: 25 },
+            ],
+          },
+          {
+            roundNumber: 3,
+            scores: [
+              // Player 1: 28 points (blitzPile=2, cards=32 -> 32-4=28). Total = 78
+              { userId: "user1", blitzPileRemaining: 2, totalCardsPlayed: 32 },
+              // Player 2: 28 points (blitzPile=0, cards=28). Total = 78
+              { userId: "user2", blitzPileRemaining: 0, totalCardsPlayed: 28 },
+            ],
+          },
+        ]
+      );
+
+      const result = await transformGameData(mockGame);
+
+      // Both players should be at 78
+      const player1 = result.find((p) => p.userId === "user1");
+      const player2 = result.find((p) => p.userId === "user2");
+      expect(player1?.total).toBe(78);
+      expect(player2?.total).toBe(78);
+
+      // Player 2 should win because they had fewer blitz cards remaining (0 vs 2) in the final round
+      expect(player2?.isWinner).toBe(true);
+      expect(player1?.isWinner).toBe(false);
+    });
+  });
+
   it("marks guest winners correctly when finishing a game", async () => {
     const mockGame: GameWithPlayersAndScores = {
       id: "guest-game-id",

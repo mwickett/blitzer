@@ -57,3 +57,10 @@ claude_desktop_config.json
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# worktrees
+.worktrees/
+
+# superpowers brainstorm sessions + playwright mcp state
+.superpowers/
+.playwright-mcp/

@@ -1,5 +1,6 @@
 "use server";
 
+import { Suspense } from "react";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
 import NewGameChooser from "./newGameChooser";
@@ -36,12 +37,15 @@ export default async function NewGamePage() {
       username: true,
       clerk_user_id: true,
       avatarUrl: true,
+      accentColor: true,
     },
   });
 
   return (
     <main className="container mx-auto p-4">
-      <NewGameChooser users={users} />
+      <Suspense>
+        <NewGameChooser users={users} />
+      </Suspense>
     </main>
   );
 }
