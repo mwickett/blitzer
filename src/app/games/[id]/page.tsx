@@ -63,6 +63,11 @@ export default async function GameView(props: {
 
   const displayScores = await transformGameData(game);
 
+  // Derive isFinished from transformGameData result: it may have just
+  // detected a winner and updated the DB, but game.isFinished was read
+  // before that update, so use the display scores as source of truth.
+  const isFinished = game.isFinished || displayScores.some((s) => s.isWinner);
+
   // calculate the current round number
   const currentRoundNumber = game.rounds.length + 1;
 
@@ -101,7 +106,7 @@ export default async function GameView(props: {
   // ScoreEntry is only visible to circle members for non-finished games
   const canEnterScores =
     isAuthenticated &&
-    !game.isFinished &&
+    !isFinished &&
     !!game.organizationId &&
     game.organizationId === orgId;
 
@@ -123,7 +128,7 @@ export default async function GameView(props: {
           displayScores={displayScores}
           numRounds={game.rounds.length}
           gameId={game.id}
-          isFinished={game.isFinished}
+          isFinished={isFinished}
         />
       )}
       {useScoringRevamp ? (
@@ -134,7 +139,7 @@ export default async function GameView(props: {
               currentRoundNumber={currentRoundNumber}
               players={scoringPlayers}
               winThreshold={game.winThreshold}
-              isFinished={game.isFinished}
+              isFinished={isFinished}
               winnerId={displayScores.find((s) => s.isWinner)?.id}
               endedAt={game.endedAt?.toISOString()}
               rounds={game.rounds.map((r) => ({
