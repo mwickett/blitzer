@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const eventType = evt.type;
 
   if (eventType === "user.created") {
-    console.log("Processing user.created event", {
+    console.info("Processing Clerk user.created webhook", {
       id: evt.data.id,
       username: evt.data.username,
     });
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
             avatarUrl: evt.data.image_url,
           },
         });
-        console.log("Updated existing user with new Clerk ID:", {
+        console.info("Updated existing user from Clerk webhook", {
           id: user.id,
           email: user.email,
         });
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
             avatarUrl: evt.data.image_url,
           },
         });
-        console.log("Created new user:", {
+        console.info("Created user from Clerk webhook", {
           id: user.id,
           email: user.email,
         });
@@ -87,14 +87,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (eventType === "user.deleted") {
-    console.log("Processing user.deleted event", {
+    console.info("Processing Clerk user.deleted webhook", {
       id: evt.data.id,
     });
     // Doing nothing with this for now because I don't want to delete users from the database as it leaves holes in the game history
   }
 
   if (eventType === "user.updated") {
-    console.log("Processing user.updated event", {
+    console.info("Processing Clerk user.updated webhook", {
       id: evt.data.id,
       username: evt.data.username,
     });
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
           avatarUrl: evt.data.image_url,
         },
       });
-      console.log("User updated successfully:", {
+      console.info("Updated user from Clerk webhook", {
         id: updateUser.id,
         username: updateUser.username,
       });

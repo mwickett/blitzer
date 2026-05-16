@@ -1,7 +1,9 @@
+import crypto from "crypto";
 import React from "react";
 import { Resend } from "resend";
 import { WelcomeEmail } from "@/components/email/welcome-template";
 import { GameCompleteEmail } from "@/components/email/game-complete-template";
+import { GuestInvitationEmail } from "@/components/email/guest-invitation-template";
 import posthogClient from "@/app/posthog";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -12,6 +14,16 @@ export const EMAIL_MAX_RETRY_ATTEMPTS = 3;
 export const EMAIL_RETRY_BASE_DELAY_MS = 1000;
 export const EMAIL_INTER_SEND_DELAY_MS = 600;
 
+function createIdempotencyKey(scope: string, ...parts: string[]) {
+  const digest = crypto
+    .createHash("sha256")
+    .update(parts.join(":"))
+    .digest("hex")
+    .slice(0, 32);
+
+  return `${scope}/${digest}`;
+}
+
 async function sendEmail(options: {
   to: string[];
   subject: string;
@@ -19,6 +31,7 @@ async function sendEmail(options: {
   text: string;
   emailType?: string; // Type of email for analytics (welcome, game_complete, friend_request, etc.)
   userId?: string; // User ID for analytics if available
+  idempotencyKey?: string;
 }): Promise<EmailResult> {
   const posthog = posthogClient();
   const distinctId = options.userId || "system";
@@ -51,13 +64,18 @@ async function sendEmail(options: {
         });
       }
 
-      const { data, error } = await resend.emails.send({
-        from: sender,
-        to: options.to,
-        subject: options.subject,
-        react: options.react,
-        text: options.text,
-      });
+      const { data, error } = await resend.emails.send(
+        {
+          from: sender,
+          to: options.to,
+          subject: options.subject,
+          react: options.react,
+          text: options.text,
+        },
+        {
+          idempotencyKey: options.idempotencyKey,
+        }
+      );
 
       if (error) {
         // Check if it's a rate limit error
@@ -248,6 +266,10 @@ export async function sendWelcomeEmail(params: {
     text: await emailTemplate.text,
     emailType: "welcome",
     userId: params.userId,
+    idempotencyKey: createIdempotencyKey(
+      "welcome-email",
+      params.userId ?? params.email
+    ),
   });
 }
 
@@ -275,6 +297,37 @@ export async function sendGameCompleteEmail(params: {
     text: await emailTemplate.text,
     emailType: "game_complete",
     userId: params.userId,
+    idempotencyKey: createIdempotencyKey(
+      "game-complete",
+      params.gameId,
+      params.email
+    ),
   });
 }
 
+export async function sendGuestInvitationEmail(params: {
+  email: string;
+  guestName: string;
+  inviterUsername: string;
+  guestId: string;
+  userId?: string;
+}): Promise<EmailResult> {
+  const emailTemplate = GuestInvitationEmail({
+    guestName: params.guestName,
+    inviterUsername: params.inviterUsername,
+  });
+
+  return await sendEmail({
+    to: [params.email],
+    subject: `${params.inviterUsername} invited you to join Blitzer`,
+    react: emailTemplate.component,
+    text: await emailTemplate.text,
+    emailType: "guest_invitation",
+    userId: params.userId,
+    idempotencyKey: createIdempotencyKey(
+      "guest-invitation",
+      params.guestId,
+      params.email
+    ),
+  });
+}

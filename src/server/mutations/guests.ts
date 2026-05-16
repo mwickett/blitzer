@@ -2,6 +2,7 @@
 
 import prisma from "@/server/db/db";
 import { getAuthenticatedUserPrismaId, getAuthenticatedUserWithOrg } from "./common";
+import { sendGuestInvitationEmail } from "@/server/email";
 
 // Create a guest user
 export async function createGuestUser(name: string) {
@@ -54,14 +55,36 @@ export async function inviteGuestUser(guestId: string, email: string) {
   // Check if user owns this guest
   const guestUser = await prisma.guestUser.findUnique({
     where: { id: guestId },
-    select: { createdById: true, name: true },
+    select: {
+      createdById: true,
+      name: true,
+      createdBy: {
+        select: {
+          username: true,
+        },
+      },
+    },
   });
 
   if (!guestUser) throw new Error("Guest user not found");
   if (guestUser.createdById !== id)
     throw new Error("Unauthorized - not the creator of this guest");
 
-  // Update guest with invitation details
+  const emailResult = await sendGuestInvitationEmail({
+    email,
+    guestName: guestUser.name,
+    inviterUsername: guestUser.createdBy.username,
+    guestId,
+    userId: clerkUserId,
+  });
+
+  if (!emailResult.success) {
+    return {
+      success: false,
+      error: emailResult.error ?? "Failed to send invitation",
+    };
+  }
+
   await prisma.guestUser.update({
     where: { id: guestId },
     data: {
@@ -71,8 +94,6 @@ export async function inviteGuestUser(guestId: string, email: string) {
     },
   });
 
-  // TODO: Implement email sending for guest invitation
-  // For now, record the event in PostHog
   posthog.capture({
     distinctId: clerkUserId,
     event: "invite_guest_user",

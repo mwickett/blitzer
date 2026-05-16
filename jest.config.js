@@ -20,6 +20,7 @@ const customJestConfig = {
     '!src/**/*.d.ts',
     '!src/**/_*.{js,jsx,ts,tsx}',
     '!src/**/*.stories.{js,jsx,ts,tsx}',
+    '!src/generated/prisma/**',
   ],
 }
 
