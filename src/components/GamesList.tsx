@@ -21,8 +21,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, Trophy } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown, Eye, Trophy, X } from "lucide-react";
 import {
   formatDistanceToNow,
   isToday,
@@ -54,6 +66,7 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
   const [statusFilter, setStatusFilter] =
     useState<GameStatusFilter>("all");
   const [playerFilters, setPlayerFilters] = useState<string[]>([]);
+  const [playerFilterOpen, setPlayerFilterOpen] = useState(false);
 
   const allPlayers = useMemo(() => {
     const playerMap = new Map<string, { id: string; username: string }>();
@@ -134,6 +147,11 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
     return null;
   };
 
+  const selectedPlayers = useMemo(
+    () => allPlayers.filter((player) => playerFilters.includes(player.id)),
+    [allPlayers, playerFilters]
+  );
+
   const filteredGames = useMemo(() => {
     return games.filter((game) => {
       const statusMatch =
@@ -157,6 +175,14 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
   }, [statusFilter, playerFilters, games]);
 
   const hasActiveFilters = statusFilter !== "all" || playerFilters.length > 0;
+
+  const togglePlayerFilter = (playerId: string) => {
+    setPlayerFilters((prev) =>
+      prev.includes(playerId)
+        ? prev.filter((id) => id !== playerId)
+        : [...prev, playerId]
+    );
+  };
 
   const resetFilters = () => {
     setStatusFilter("all");
@@ -197,39 +223,94 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
               <SelectItem value="ended">Ended without winner</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Includes players:
-            </span>
-            {allPlayers.map((player) => (
-              <label
-                key={player.id}
-                className="flex items-center space-x-2 bg-secondary/20 rounded-lg px-2 py-1"
-              >
-                <Checkbox
-                  checked={playerFilters.includes(player.id)}
-                  onCheckedChange={(checked) => {
-                    setPlayerFilters((prev) =>
-                      checked
-                        ? [...prev, player.id]
-                        : prev.filter((p) => p !== player.id)
-                    );
-                  }}
-                />
-                <span className="text-sm">{player.username}</span>
-              </label>
-            ))}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+            <Popover open={playerFilterOpen} onOpenChange={setPlayerFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-label="Filter by players"
+                  aria-expanded={playerFilterOpen}
+                  disabled={allPlayers.length === 0}
+                  className="w-full justify-between sm:w-[260px]"
+                >
+                  {allPlayers.length === 0
+                    ? "No players yet"
+                    : playerFilters.length === 0
+                      ? "Players: All"
+                      : `Players: ${playerFilters.length} selected`}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[280px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search players..." />
+                  <CommandList>
+                    <CommandEmpty>No players found.</CommandEmpty>
+                    <CommandGroup>
+                      {allPlayers.map((player) => {
+                        const selected = playerFilters.includes(player.id);
+
+                        return (
+                          <CommandItem
+                            key={player.id}
+                            value={player.username}
+                            onSelect={() => togglePlayerFilter(player.id)}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                selected ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            <span className="truncate">{player.username}</span>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+                {playerFilters.length > 0 && (
+                  <div className="border-t p-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setPlayerFilters([])}
+                    >
+                      Clear player filter
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={resetFilters}>
-                Clear filters
+                Clear all filters
               </Button>
             )}
           </div>
         </div>
-        {playerFilters.length > 1 && (
-          <p className="text-sm text-muted-foreground">
-            Player filters match games that include every selected player.
-          </p>
+        {selectedPlayers.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {selectedPlayers.map((player) => (
+              <Badge key={player.id} variant="secondary" className="gap-1 pr-1">
+                {player.username}
+                <button
+                  type="button"
+                  className="rounded-full p-0.5 hover:bg-background/60 focus:outline-none focus:ring-1 focus:ring-ring"
+                  onClick={() => togglePlayerFilter(player.id)}
+                  aria-label={`Remove ${player.username} filter`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+            {selectedPlayers.length > 1 && (
+              <p className="w-full text-sm text-muted-foreground">
+                Matching games include every selected player.
+              </p>
+            )}
+          </div>
         )}
       </div>
 
