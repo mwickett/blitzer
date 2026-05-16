@@ -117,7 +117,6 @@ export function ScoreEditor({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, roundIndex, validateScores]);
 
   const handleSave = async () => {

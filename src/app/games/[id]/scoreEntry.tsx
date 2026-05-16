@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,17 @@ const playerScoreSchema = z.object({
     totalCardsPlayed: z.boolean(),
   }),
 });
+
+type PlayerScore = z.infer<typeof playerScoreSchema>;
+
+function areScoresValid(playerScores: PlayerScore[]) {
+  try {
+    playerScoreSchema.parse(playerScores[0]);
+    return playerScores.every((player) => player.touched.totalCardsPlayed);
+  } catch {
+    return false;
+  }
+}
 
 // Helper function to get player name
 function getPlayerName(
@@ -79,26 +90,9 @@ function ScoreEntry({
       },
     }))
   );
-  const [scoresValid, setScoresValid] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const winner = displayScores.find((score) => score.isWinner);
-
-  // Only validate that all fields are filled out
-  const validateScores = useCallback(() => {
-    try {
-      playerScoreSchema.parse(playerScores[0]); // Validate structure
-      const allFieldsTouched = playerScores.every(
-        (player) => player.touched.totalCardsPlayed
-      );
-      setScoresValid(allFieldsTouched);
-    } catch (e) {
-      setScoresValid(false);
-    }
-  }, [playerScores]);
-
-  useEffect(() => {
-    validateScores();
-  }, [playerScores, validateScores]);
+  const scoresValid = areScoresValid(playerScores);
 
   // If a winner exists, we will render a modal overlay below while keeping
   // the current screen visible in the background.
@@ -125,7 +119,6 @@ function ScoreEntry({
           : player
       )
     );
-    validateScores();
   };
 
   const handleTotalCardsChange = (playerId: string, value: string) => {
@@ -147,7 +140,6 @@ function ScoreEntry({
           : player
       )
     );
-    validateScores();
   };
 
   const handleBlitzPileBlur = (playerId: string) => {
@@ -222,7 +214,6 @@ function ScoreEntry({
           },
         }))
       );
-      setScoresValid(false);
       router.refresh();
     } catch (e) {
       if (e instanceof Error) {
