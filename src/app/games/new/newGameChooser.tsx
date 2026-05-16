@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { User } from "@/generated/prisma/client";
 import { useUser } from "@clerk/nextjs";
 import { createGame } from "@/server/mutations";
@@ -50,6 +50,14 @@ type UserSubset = Pick<User, "id" | "username" | "clerk_user_id" | "avatarUrl" |
 
 type GamePlayer = UserSubset | { id: string; username: string; isGuest: true };
 
+function createGuestId() {
+  try {
+    return `guest-${crypto.randomUUID()}`;
+  } catch {
+    return `guest-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  }
+}
+
 interface NewGameChooserProps {
   users: UserSubset[];
 }
@@ -57,7 +65,14 @@ interface NewGameChooserProps {
 export default function NewGameChooser({
   users,
 }: NewGameChooserProps) {
-  const [inGamePlayers, setInGamePlayers] = useState<GamePlayer[]>([]);
+  const { user: clerkUser } = useUser();
+  const currentUser = clerkUser
+    ? users.find((user) => user.clerk_user_id === clerkUser.id)
+    : undefined;
+  const [selectedPlayers, setSelectedPlayers] = useState<GamePlayer[]>([]);
+  const [hasEditedPlayers, setHasEditedPlayers] = useState(false);
+  const inGamePlayers =
+    hasEditedPlayers || !currentUser ? selectedPlayers : [currentUser];
   const [open, setOpen] = useState(false);
   const searchParams = useSearchParams();
   const step = searchParams.get("step") === "colors" ? "colors" : "players";
@@ -65,7 +80,6 @@ export default function NewGameChooser({
   const [activeTab, setActiveTab] = useState("existing");
   const [guestName, setGuestName] = useState("");
   const [guestError, setGuestError] = useState("");
-  const [isInitialUserSet, setIsInitialUserSet] = useState(false);
   const [winThreshold, setWinThreshold] = useState<number>(GAME_RULES.POINTS_TO_WIN);
   const [showCustomThreshold, setShowCustomThreshold] = useState(false);
 
@@ -73,28 +87,25 @@ export default function NewGameChooser({
   const MIN_THRESHOLD = 25;
   const MAX_THRESHOLD = 200;
 
-  const { user: clerkUser } = useUser();
   const router = useRouter();
 
-  // Initialize with current user when clerkUser is loaded
-  useEffect(() => {
-    // Only set initial player if clerk user is loaded, users exist, and initial player hasn't been set
-    if (clerkUser && users.length > 0 && !isInitialUserSet) {
-      const currentUser = users.find(
-        (user) => user.clerk_user_id === clerkUser.id // clerkUser is guaranteed to exist here
-      );
-      if (currentUser) {
-        setInGamePlayers([currentUser]);
-      }
-      // We removed the potentially incorrect fallback here.
-      // If the logged-in user isn't in the `users` list for some reason, they won't be added automatically.
-      setIsInitialUserSet(true); // Mark initial user as set
-    }
-  }, [clerkUser, users, isInitialUserSet]); // Depend on clerkUser, users, and the flag
+  const updateInGamePlayers = (
+    nextPlayers: GamePlayer[] | ((players: GamePlayer[]) => GamePlayer[])
+  ) => {
+    setHasEditedPlayers(true);
+    setSelectedPlayers((previousPlayers) => {
+      const basePlayers =
+        hasEditedPlayers || !currentUser ? previousPlayers : [currentUser];
+
+      return typeof nextPlayers === "function"
+        ? nextPlayers(basePlayers)
+        : nextPlayers;
+    });
+  };
 
   const handleAddUser = (user: UserSubset) => {
     if (!inGamePlayers.some((p) => p.id === user.id)) {
-      setInGamePlayers([...inGamePlayers, user]);
+      updateInGamePlayers([...inGamePlayers, user]);
     }
     setOpen(false);
     resetAddPlayerState();
@@ -106,12 +117,7 @@ export default function NewGameChooser({
       return;
     }
 
-    let guestId: string;
-    try {
-      guestId = `guest-${crypto.randomUUID()}`;
-    } catch (error) {
-      guestId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    }
+    const guestId = createGuestId();
 
     // Create a temporary guest object with a client-side ID
     const tempGuestUser = {
@@ -120,7 +126,7 @@ export default function NewGameChooser({
       isGuest: true as const, // Flag to identify guest users in the UI
     };
 
-    setInGamePlayers((prev) => [...prev, tempGuestUser]);
+    updateInGamePlayers((prev) => [...prev, tempGuestUser]);
     resetAddPlayerState();
   };
 
@@ -137,7 +143,7 @@ export default function NewGameChooser({
 
   const removePlayer = (playerId: string) => {
     // Allow removing any player including yourself
-    setInGamePlayers(inGamePlayers.filter((player) => player.id !== playerId));
+    updateInGamePlayers(inGamePlayers.filter((player) => player.id !== playerId));
   };
 
   // Helper to determine if a player is the current user
