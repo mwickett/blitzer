@@ -77,41 +77,26 @@ export async function createRoundForGame(
     throw error;
   }
 
-  // Add scores one by one after round is created
-  for (const score of scores) {
-    if (!score.userId && !score.guestId) {
-      console.error("Score missing both userId and guestId:", score);
-      continue; // Skip this score and continue with others
-    }
-
-    const scoreData = {
+  // Batch-insert all scores in a single createMany call to minimise DB roundtrips
+  const now = new Date();
+  const scoreRows = scores
+    .filter((score) => {
+      if (!score.userId && !score.guestId) {
+        console.error("Score missing both userId and guestId:", score);
+        return false;
+      }
+      return true;
+    })
+    .map((score) => ({
       roundId: round.id,
       blitzPileRemaining: score.blitzPileRemaining,
       totalCardsPlayed: score.totalCardsPlayed,
-      updatedAt: new Date(),
-    };
+      updatedAt: now,
+      ...(score.userId ? { userId: score.userId } : { guestId: score.guestId }),
+    }));
 
-    try {
-      if (score.userId) {
-        await prisma.score.create({
-          data: {
-            ...scoreData,
-            userId: score.userId,
-          },
-        });
-      } else if (score.guestId) {
-        // Create score with guest ID only
-        await prisma.score.create({
-          data: {
-            ...scoreData,
-            guestId: score.guestId,
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Error creating score:", error, score);
-      // Continue with other scores even if one fails
-    }
+  if (scoreRows.length > 0) {
+    await prisma.score.createMany({ data: scoreRows });
   }
 
   posthog.capture({ distinctId: user.userId, event: "create_scores" });

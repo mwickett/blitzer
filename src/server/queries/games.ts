@@ -84,12 +84,7 @@ export async function getGameById(id: string) {
       },
       rounds: {
         include: {
-          scores: {
-            include: {
-              user: true,
-              guestUser: true,
-            },
-          },
+          scores: true,
         },
       },
     },

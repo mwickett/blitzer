@@ -38,6 +38,7 @@ jest.mock("../db/db", () => ({
     },
     score: {
       create: jest.fn(),
+      createMany: jest.fn(),
       updateMany: jest.fn(),
     },
     user: {
@@ -77,6 +78,10 @@ jest.mock("@/app/posthog", () => ({
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
+}));
+
+jest.mock("next/server", () => ({
+  after: jest.fn((cb: () => Promise<void>) => void cb()),
 }));
 
 describe("Game Mutations", () => {
