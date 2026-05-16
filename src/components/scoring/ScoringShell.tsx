@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { ScoreEntryView } from "./ScoreEntryView";
@@ -10,7 +10,7 @@ import { GameOverView } from "./GameOverView";
 import { RoundEditor } from "./RoundEditor";
 import { findPlayerScore } from "./utils";
 import { useRoundEditing } from "./useRoundEditing";
-import { type PlayerWithScore, type RoundData } from "./types";
+import { type PlayerWithScore, type RoundData, type RoundScoreData } from "./types";
 import { calcGameStats, type RoundResult } from "@/lib/scoring/gameStats";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
 import { cloneGame } from "@/server/mutations/games";
@@ -40,12 +40,17 @@ export function ScoringShell({
 }: ScoringShellProps) {
   const router = useRouter();
   const posthog = usePostHog();
+  const [isPending, startTransition] = useTransition();
 
   // showEntry is a client override — when user taps "Enter Next Round" we flip to entry.
   // Reset when currentRoundNumber changes (i.e. after a round is submitted + refresh).
   // Uses React's "adjust state during render" pattern to avoid useEffect lint issues.
   const [showEntry, setShowEntry] = useState(false);
   const [prevRound, setPrevRound] = useState(currentRoundNumber);
+
+  // Optimistic round data — appended after a round is submitted so the UI
+  // transitions to betweenRounds immediately without waiting for server refresh.
+  const [optimisticRound, setOptimisticRound] = useState<RoundData | null>(null);
 
   // Celebration: only show for recently-finished games (within 30s of endedAt).
   // useState initializer runs once on mount — safe to call Date.now() there.
@@ -61,18 +66,46 @@ export function ScoringShell({
   if (currentRoundNumber !== prevRound) {
     setPrevRound(currentRoundNumber);
     setShowEntry(false);
+    setOptimisticRound(null); // server data caught up — drop the optimistic round
   }
+
+  // Merge optimistic round into rounds and players for downstream components
+  const effectiveRounds = useMemo(
+    () => (optimisticRound ? [...rounds, optimisticRound] : rounds),
+    [rounds, optimisticRound]
+  );
+  const effectivePlayers = useMemo(() => {
+    if (!optimisticRound) return players;
+    return players.map((p) => {
+      const s = optimisticRound.scores.find(
+        (sc) => (sc.userId ?? sc.guestId) === p.id
+      );
+      if (!s) return p;
+      return { ...p, score: p.score + calculateRoundScore(s) };
+    });
+  }, [players, optimisticRound]);
+
+  const handleRoundSubmitted = useCallback(
+    (scoreData: RoundScoreData[]) => {
+      setOptimisticRound({ id: `optimistic-${Date.now()}`, scores: scoreData });
+      setShowEntry(false);
+      startTransition(() => {
+        router.replace(`/games/${gameId}`);
+      });
+    },
+    [router, gameId, startTransition]
+  );
 
   // Derive mode from props + client override
   const mode: ScoringMode = isFinished
     ? "gameOver"
-    : rounds.length === 0 || showEntry
+    : (rounds.length === 0 && !optimisticRound) || showEntry
       ? "entry"
       : "betweenRounds";
 
   // Compute game stats only when rounds/players change (not on every render)
   const gameStats = useMemo(() => {
-    const roundResults: RoundResult[] = rounds.map((round) => {
+    const roundResults: RoundResult[] = effectiveRounds.map((round) => {
       const deltas: Record<string, number> = {};
       const blitzCounts: Record<string, number> = {};
       for (const score of round.scores) {
@@ -86,7 +119,7 @@ export function ScoringShell({
       players.map((p) => [p.id, p.name])
     );
     return calcGameStats(roundResults, playerNameMap);
-  }, [rounds, players]);
+  }, [effectiveRounds, players]);
 
   // Use server-resolved winnerId (includes tie-breaking) instead of client sort
   const winner = winnerId ? players.find((p) => p.id === winnerId) : undefined;
@@ -125,7 +158,7 @@ export function ScoringShell({
         )}
 
         {/* Inline round editor for finished games */}
-        {editingRoundIndex !== null && editingRoundIndex < rounds.length && (
+        {editingRoundIndex !== null && editingRoundIndex < effectiveRounds.length && (
           <RoundEditor
             roundIndex={editingRoundIndex}
             players={players}
@@ -133,7 +166,7 @@ export function ScoringShell({
               players.map((p) => {
                 const s = findPlayerScore(
                   p,
-                  rounds[editingRoundIndex].scores
+                  effectiveRounds[editingRoundIndex].scores
                 );
                 return [
                   p.id,
@@ -152,9 +185,9 @@ export function ScoringShell({
         {winner && (
           <GameOverView
             winner={winner}
-            players={players}
+            players={effectivePlayers}
             stats={gameStats}
-            rounds={rounds}
+            rounds={effectiveRounds}
             onEditRound={handleEditRound}
             onRematch={handleRematch}
             onBackToCircle={handleBackToCircle}
@@ -168,10 +201,10 @@ export function ScoringShell({
     return (
       <BetweenRoundsView
         gameId={gameId}
-        players={players}
-        rounds={rounds}
+        players={effectivePlayers}
+        rounds={effectiveRounds}
         winThreshold={winThreshold}
-        nextRoundNumber={currentRoundNumber}
+        nextRoundNumber={optimisticRound ? currentRoundNumber + 1 : currentRoundNumber}
         onEnterScores={() => setShowEntry(true)}
       />
     );
@@ -183,6 +216,7 @@ export function ScoringShell({
       currentRoundNumber={currentRoundNumber}
       players={players}
       winThreshold={winThreshold}
+      onRoundSubmitted={handleRoundSubmitted}
     />
   );
 }

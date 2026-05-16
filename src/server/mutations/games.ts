@@ -218,76 +218,6 @@ export async function updateGameAsFinished(
     },
   });
 
-  // Send emails to all registered players (can't send to guests)
-  // Process emails sequentially with delay to avoid rate limits
-  const registeredPlayers = game.players.filter((player) => player.user);
-
-  // Track email batch in PostHog
-  posthog.capture({
-    distinctId: user.userId,
-    event: "email_batch_started",
-    properties: {
-      gameId,
-      emailType: "game_complete",
-      recipientCount: registeredPlayers.length,
-      winnerName,
-      isGuestWinner,
-    },
-  });
-
-  for (let i = 0; i < registeredPlayers.length; i++) {
-    const player = registeredPlayers[i];
-    const userEmail = player.user!.email;
-    const username = player.user!.username;
-    const userId = player.user!.id;
-    // Use clerk_user_id if available for consistent tracking
-    const userClerkId = player.user!.clerk_user_id || user.userId;
-
-    try {
-      await sendGameCompleteEmail({
-        email: userEmail,
-        username: username,
-        winnerUsername: winnerName,
-        isWinner: isGuestWinner ? false : userId === winnerId,
-        gameId,
-        userId: userClerkId,
-      });
-
-      // Add delay between email sends to avoid rate limiting (Resend limit is 2 per second)
-      if (i < registeredPlayers.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, EMAIL_INTER_SEND_DELAY_MS)); // delay between emails to avoid rate limiting
-      }
-    } catch (error) {
-      console.error(`Failed to send email to ${username}:`, error);
-      // Track individual email failure
-      posthog.capture({
-        distinctId: user.userId,
-        event: "email_batch_item_failed",
-        properties: {
-          gameId,
-          recipientEmail: userEmail,
-          recipientUsername: username,
-          recipientId: userId,
-          errorMessage: error instanceof Error ? error.message : String(error),
-        },
-      });
-      // Continue with other emails even if one fails
-    }
-  }
-
-  // Track email batch completion
-  posthog.capture({
-    distinctId: user.userId,
-    event: "email_batch_completed",
-    properties: {
-      gameId,
-      emailType: "game_complete",
-      recipientCount: registeredPlayers.length,
-      winnerName,
-      isGuestWinner,
-    },
-  });
-
   posthog.capture({
     distinctId: user.userId,
     event: "update_game_as_finished",
@@ -296,6 +226,77 @@ export async function updateGameAsFinished(
       winnerId: winnerId,
       isGuestWinner: isGuestWinner,
     },
+  });
+
+  // Fire-and-forget: send emails without blocking the response.
+  // The sequential delays for rate-limiting still apply inside the promise.
+  const registeredPlayers = game.players.filter((player) => player.user);
+
+  void (async () => {
+    posthog.capture({
+      distinctId: user.userId,
+      event: "email_batch_started",
+      properties: {
+        gameId,
+        emailType: "game_complete",
+        recipientCount: registeredPlayers.length,
+        winnerName,
+        isGuestWinner,
+      },
+    });
+
+    for (let i = 0; i < registeredPlayers.length; i++) {
+      const player = registeredPlayers[i];
+      const userEmail = player.user!.email;
+      const username = player.user!.username;
+      const pUserId = player.user!.id;
+      const userClerkId = player.user!.clerk_user_id || user.userId;
+
+      try {
+        await sendGameCompleteEmail({
+          email: userEmail,
+          username: username,
+          winnerUsername: winnerName,
+          isWinner: isGuestWinner ? false : pUserId === winnerId,
+          gameId,
+          userId: userClerkId,
+        });
+
+        if (i < registeredPlayers.length - 1) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, EMAIL_INTER_SEND_DELAY_MS)
+          );
+        }
+      } catch (error) {
+        console.error(`Failed to send email to ${username}:`, error);
+        posthog.capture({
+          distinctId: user.userId,
+          event: "email_batch_item_failed",
+          properties: {
+            gameId,
+            recipientEmail: userEmail,
+            recipientUsername: username,
+            recipientId: pUserId,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
+    }
+
+    posthog.capture({
+      distinctId: user.userId,
+      event: "email_batch_completed",
+      properties: {
+        gameId,
+        emailType: "game_complete",
+        recipientCount: registeredPlayers.length,
+        winnerName,
+        isGuestWinner,
+      },
+    });
+  })().catch((error) => {
+    console.error("Failed to send game-complete emails:", error);
   });
 }
 

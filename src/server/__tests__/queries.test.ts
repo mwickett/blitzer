@@ -115,12 +115,7 @@ describe("Queries", () => {
           },
           rounds: {
             include: {
-              scores: {
-                include: {
-                  user: true,
-                  guestUser: true,
-                },
-              },
+              scores: true,
             },
           },
         },

@@ -15,7 +15,13 @@ export default async function GameView(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
-  const gameData = await getGameById(params.id);
+
+  // Parallelize independent async calls — they don't depend on each other
+  const [gameData, { userId, orgId }, useScoringRevamp] = await Promise.all([
+    getGameById(params.id),
+    auth(),
+    isFeatureEnabled("scoring-revamp"),
+  ]);
 
   if (!gameData) {
     notFound();
@@ -71,8 +77,6 @@ export default async function GameView(props: {
   // calculate the current round number
   const currentRoundNumber = game.rounds.length + 1;
 
-  const useScoringRevamp = await isFeatureEnabled("scoring-revamp");
-
   // Resolve accent colors for all players
   const playerColorInputs = game.players.map((p) => ({
     id: p.id,
@@ -99,8 +103,6 @@ export default async function GameView(props: {
       score: ds.total,
     };
   });
-
-  const { userId, orgId } = await auth();
   const isAuthenticated = !!userId;
 
   // ScoreEntry is only visible to circle members for non-finished games

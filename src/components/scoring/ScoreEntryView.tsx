@@ -1,13 +1,13 @@
 // src/components/scoring/ScoreEntryView.tsx
 "use client";
 
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ScoreEntryCard } from "./ScoreEntryCard";
 import { FloatingCTA } from "./FloatingCTA";
 import { RoundHeader } from "./RoundHeader";
 import { RaceTrack } from "./RaceTrack";
-import { type PlayerEntry, type PlayerWithScore, getEntryStatus } from "./types";
+import { type PlayerEntry, type PlayerWithScore, type RoundScoreData, getEntryStatus } from "./types";
 import { usePostHog } from "posthog-js/react";
 import { validateGameRules, calculateRoundScore } from "@/lib/validation/gameRules";
 import { createRoundForGame } from "@/server/mutations";
@@ -17,6 +17,7 @@ interface ScoreEntryViewProps {
   currentRoundNumber: number;
   players: PlayerWithScore[];
   winThreshold: number;
+  onRoundSubmitted?: (scores: RoundScoreData[]) => void;
 }
 
 export function ScoreEntryView({
@@ -24,9 +25,11 @@ export function ScoreEntryView({
   currentRoundNumber,
   players,
   winThreshold,
+  onRoundSubmitted,
 }: ScoreEntryViewProps) {
   const router = useRouter();
   const posthog = usePostHog();
+  const [isPending, startTransition] = useTransition();
   const [entries, setEntries] = useState<Record<string, PlayerEntry>>(() =>
     Object.fromEntries(
       players.map((p) => [p.id, { blitzRemaining: null, cardsPlayed: null }])
@@ -109,21 +112,36 @@ export function ScoreEntryView({
         player_count: players.length,
       });
       setIsSubmitting(false);
-      // router.replace to the current URL (not router.refresh) — forces
-      // Next.js to rebuild its internal route state, which can be stale
-      // after the /games/new?step=colors → /games/[id] transition that
-      // uses window.history.replaceState. Using router.refresh here
-      // would refresh the stale pre-replaceState route and navigate
-      // the user back to the colors step.
-      // See docs/solutions/ui-bugs/nextjs-router-replace-history-cross-route.md
-      router.replace(`/games/${gameId}`);
+
+      if (onRoundSubmitted) {
+        // Let ScoringShell handle the optimistic transition + navigation
+        const roundScoreData: RoundScoreData[] = scores.map((s) => ({
+          userId: s.userId ?? undefined,
+          guestId: s.guestId ?? undefined,
+          blitzPileRemaining: s.blitzPileRemaining,
+          totalCardsPlayed: s.totalCardsPlayed,
+        }));
+        onRoundSubmitted(roundScoreData);
+      } else {
+        // Fallback: navigate directly
+        // router.replace to the current URL (not router.refresh) — forces
+        // Next.js to rebuild its internal route state, which can be stale
+        // after the /games/new?step=colors → /games/[id] transition that
+        // uses window.history.replaceState. Using router.refresh here
+        // would refresh the stale pre-replaceState route and navigate
+        // the user back to the colors step.
+        // See docs/solutions/ui-bugs/nextjs-router-replace-history-cross-route.md
+        startTransition(() => {
+          router.replace(`/games/${gameId}`);
+        });
+      }
     } catch (e) {
       setEntries(preSubmitEntries);
       setOptimisticDeltas(null);
       setError(e instanceof Error ? e.message : "Failed to submit round");
       setIsSubmitting(false);
     }
-  }, [allComplete, isSubmitting, players, entries, gameId, currentRoundNumber, posthog, router]);
+  }, [allComplete, isSubmitting, players, entries, gameId, currentRoundNumber, posthog, router, onRoundSubmitted]);
 
   return (
     <div className="pb-4">
@@ -171,7 +189,7 @@ export function ScoreEntryView({
         state={{
           mode: "submit",
           remainingCount,
-          allComplete: allComplete && !isSubmitting,
+          allComplete: allComplete && !isSubmitting && !isPending,
         }}
         onAction={handleSubmit}
       />

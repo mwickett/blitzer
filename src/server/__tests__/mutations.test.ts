@@ -38,6 +38,7 @@ jest.mock("../db/db", () => ({
     },
     score: {
       create: jest.fn(),
+      createMany: jest.fn(),
       updateMany: jest.fn(),
     },
     user: {
