@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useOrganization } from "@clerk/nextjs";
+import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,18 +41,22 @@ type GameWithPlayersAndUsers = Game & {
     user?: User | null;
     guestUser?: { id: string; name: string } | null;
   })[];
+  rounds: { id: string }[];
 };
+
+type GameStatusFilter = "all" | "completed" | "active" | "ended";
 
 function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
   const router = useRouter();
+  const { organization } = useOrganization();
+  const circleName = organization?.name ?? "the active Circle";
 
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "completed" | "ongoing"
-  >("all");
+  const [statusFilter, setStatusFilter] =
+    useState<GameStatusFilter>("all");
   const [playerFilters, setPlayerFilters] = useState<string[]>([]);
 
   const allPlayers = useMemo(() => {
-    const playerMap = new Map();
+    const playerMap = new Map<string, { id: string; username: string }>();
 
     games.forEach((game) =>
       game.players.forEach((player) => {
@@ -133,11 +139,12 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
       const statusMatch =
         statusFilter === "all" ||
         (statusFilter === "completed" && game.isFinished) ||
-        (statusFilter === "ongoing" && !game.isFinished);
+        (statusFilter === "active" && !game.isFinished && !game.endedAt) ||
+        (statusFilter === "ended" && !game.isFinished && !!game.endedAt);
 
       const playerMatch =
         playerFilters.length === 0 ||
-        playerFilters.some((playerId) =>
+        playerFilters.every((playerId) =>
           game.players.some(
             (p) =>
               (p.user && p.user.id === playerId) ||
@@ -149,30 +156,51 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
     });
   }, [statusFilter, playerFilters, games]);
 
+  const hasActiveFilters = statusFilter !== "all" || playerFilters.length > 0;
+
+  const resetFilters = () => {
+    setStatusFilter("all");
+    setPlayerFilters([]);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Games</h1>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Games</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Showing {filteredGames.length} of {games.length}{" "}
+            {games.length === 1 ? "game" : "games"} from {circleName}. Filters
+            narrow this Circle-wide list.
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/games/new">New Game</Link>
+        </Button>
       </div>
 
       <div className="mb-6 space-y-4">
         <div className="flex flex-col sm:flex-row gap-4">
           <Select
             value={statusFilter}
-            onValueChange={(value: "all" | "completed" | "ongoing") =>
-              setStatusFilter(value)
+            onValueChange={(value) =>
+              setStatusFilter(value as GameStatusFilter)
             }
           >
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Games</SelectItem>
+              <SelectItem value="all">All Circle games</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="ongoing">Ongoing</SelectItem>
+              <SelectItem value="active">In progress</SelectItem>
+              <SelectItem value="ended">Ended without winner</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Includes players:
+            </span>
             {allPlayers.map((player) => (
               <label
                 key={player.id}
@@ -191,8 +219,18 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
                 <span className="text-sm">{player.username}</span>
               </label>
             ))}
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={resetFilters}>
+                Clear filters
+              </Button>
+            )}
           </div>
         </div>
+        {playerFilters.length > 1 && (
+          <p className="text-sm text-muted-foreground">
+            Player filters match games that include every selected player.
+          </p>
+        )}
       </div>
 
       {/* Desktop view */}
@@ -204,6 +242,7 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
               <TableHead>Winner</TableHead>
               <TableHead>Players</TableHead>
               <TableHead>Started</TableHead>
+              <TableHead>Rounds</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -237,6 +276,7 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
                   </div>
                 </TableCell>
                 <TableCell>{formatGameDate(game.createdAt)}</TableCell>
+                <TableCell>{game.rounds.length}</TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="outline"
@@ -283,6 +323,10 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
                     ))}
                   </div>
                 </div>
+                <div>
+                  <div className="text-sm font-medium mb-1">Rounds</div>
+                  <div>{game.rounds.length}</div>
+                </div>
                 {game.winnerId && (
                   <div>
                     <div className="text-sm font-medium mb-1">Winner</div>
@@ -309,7 +353,9 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
 
       {filteredGames.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
-          No games found matching your filters
+          {hasActiveFilters
+            ? "No games found matching your filters"
+            : `No games found in ${circleName}`}
         </div>
       )}
     </div>
