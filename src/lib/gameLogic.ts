@@ -1,5 +1,4 @@
 import { Game, User, Score, Round, GuestUser } from "@/generated/prisma/client";
-import { updateGameAsFinished } from "@/server/mutations";
 import { calculateRoundScore, isWinningScore } from "./validation/gameRules";
 import { breakTie } from "./scoring/tiebreak";
 
@@ -43,6 +42,12 @@ export interface ProcessedPlayerScore {
   scoresByRound: number[];
   total: number;
   accentColor?: string | null;
+}
+
+export interface GameCompletion {
+  winnerId: string | null;
+  isGuestWinner: boolean;
+  gameShouldBeFinalized: boolean;
 }
 
 // Function to get player name - handles both regular users and guest users
@@ -146,10 +151,10 @@ function processGameScores(
 }
 
 // Function to determine the winner
-async function determineWinner(
+function determineWinner(
   game: GameWithPlayersAndScores,
   playersAboveThreshold: { id: string; total: number }[]
-): Promise<string | null> {
+): string | null {
   if (playersAboveThreshold.length > 0) {
     const highestScore = Math.max(
       ...playersAboveThreshold.map((player) => player.total)
@@ -173,28 +178,36 @@ async function determineWinner(
     } else {
       winnerId = potentialWinners[0].id;
     }
-    if (!game.isFinished) {
-      const winnerPlayer = game.players.find(
-        (player) => player.guestId === winnerId || player.userId === winnerId
-      );
-      const isGuestWinner = !!winnerPlayer?.guestId;
-
-      try {
-        await updateGameAsFinished(game.id, winnerId, isGuestWinner);
-      } catch {
-        // Viewer isn't authenticated or isn't in the right circle —
-        // game finalization will happen when a circle member views it.
-      }
-    }
     return winnerId;
   }
   return null;
 }
 
+export function getGameCompletion(game: GameWithPlayersAndScores): GameCompletion {
+  const playerScoresMap = initializePlayerScoresMap(game.players);
+  const { playersAboveThreshold } = processGameScores(
+    game.rounds,
+    playerScoresMap,
+    game.winThreshold
+  );
+  const winnerId = determineWinner(game, playersAboveThreshold);
+  const winnerPlayer = winnerId
+    ? game.players.find(
+        (player) => player.guestId === winnerId || player.userId === winnerId
+      )
+    : undefined;
+
+  return {
+    winnerId,
+    isGuestWinner: !!winnerPlayer?.guestId,
+    gameShouldBeFinalized: !!winnerId && !game.isFinished,
+  };
+}
+
 // Main function
-export default async function transformGameData(
+export default function transformGameData(
   game: GameWithPlayersAndScores
-): Promise<DisplayScores[]> {
+): DisplayScores[] {
   // Initialize player scores map with all players
   const playerScoresMap = initializePlayerScoresMap(game.players);
 
@@ -206,7 +219,7 @@ export default async function transformGameData(
   );
 
   // Determine the winner
-  const winnerId = await determineWinner(game, playersAboveThreshold);
+  const winnerId = determineWinner(game, playersAboveThreshold);
 
   // Convert to final display scores
   return Object.entries(playerScoresMap).map(

@@ -35,6 +35,7 @@ jest.mock("../db/db", () => ({
     },
     round: {
       create: jest.fn(),
+      findFirst: jest.fn(),
     },
     score: {
       create: jest.fn(),
@@ -44,6 +45,9 @@ jest.mock("../db/db", () => ({
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+    },
+    guestUser: {
+      findUnique: jest.fn(),
     },
     gamePlayers: {
       create: jest.fn(),
@@ -113,10 +117,18 @@ describe("Game Mutations", () => {
     ];
 
     it("should create a new round with scores", async () => {
-      const mockGame = { id: mockGameId, organizationId: mockOrgId };
+      const mockGame = {
+        id: mockGameId,
+        organizationId: mockOrgId,
+        isFinished: false,
+        winnerId: null,
+        winThreshold: 75,
+      };
       const mockRound = { id: "round-1", scores: validScores };
 
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+      (prisma.game.findUnique as jest.Mock)
+        .mockResolvedValueOnce(mockGame)
+        .mockResolvedValueOnce({ ...mockGame, players: [], rounds: [] });
       (prisma.round.create as jest.Mock).mockResolvedValue(mockRound);
 
       const result = await createRoundForGame(mockGameId, 1, validScores);
@@ -129,6 +141,156 @@ describe("Game Mutations", () => {
       });
 
       expect(result).toBe(mockRound);
+    });
+
+    it("should finalize an unfinished game when the new score crosses the threshold", async () => {
+      const mockGame = {
+        id: mockGameId,
+        organizationId: mockOrgId,
+        isFinished: false,
+        winnerId: null,
+        winThreshold: 50,
+        createdAt: new Date(),
+        endedAt: null,
+      };
+      const mockRound = { id: "round-2", scores: validScores };
+      const completionGame = {
+        ...mockGame,
+        players: [
+          {
+            id: "game-player-1",
+            gameId: mockGameId,
+            userId: "player1",
+            guestId: null,
+            accentColor: null,
+            user: {
+              id: "player1",
+              clerk_user_id: "clerk-player1",
+              email: "player1@example.com",
+              username: "Player 1",
+              avatarUrl: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            guestUser: null,
+          },
+          {
+            id: "game-player-2",
+            gameId: mockGameId,
+            userId: "player2",
+            guestId: null,
+            accentColor: null,
+            user: {
+              id: "player2",
+              clerk_user_id: "clerk-player2",
+              email: "player2@example.com",
+              username: "Player 2",
+              avatarUrl: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            guestUser: null,
+          },
+        ],
+        rounds: [
+          {
+            id: "round-1",
+            gameId: mockGameId,
+            round: 1,
+            createdAt: new Date(),
+            scores: [
+              {
+                id: "score-1-player1",
+                userId: "player1",
+                guestId: null,
+                roundId: "round-1",
+                blitzPileRemaining: 0,
+                totalCardsPlayed: 25,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
+              {
+                id: "score-1-player2",
+                userId: "player2",
+                guestId: null,
+                roundId: "round-1",
+                blitzPileRemaining: 5,
+                totalCardsPlayed: 20,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
+            ],
+          },
+          {
+            id: "round-2",
+            gameId: mockGameId,
+            round: 2,
+            createdAt: new Date(),
+            scores: [
+              {
+                id: "score-2-player1",
+                userId: "player1",
+                guestId: null,
+                roundId: "round-2",
+                blitzPileRemaining: 0,
+                totalCardsPlayed: 27,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
+              {
+                id: "score-2-player2",
+                userId: "player2",
+                guestId: null,
+                roundId: "round-2",
+                blitzPileRemaining: 5,
+                totalCardsPlayed: 20,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
+            ],
+          },
+        ],
+      };
+
+      (prisma.game.findUnique as jest.Mock)
+        .mockResolvedValueOnce(mockGame)
+        .mockResolvedValueOnce(completionGame)
+        .mockResolvedValueOnce(completionGame);
+      (prisma.round.create as jest.Mock).mockResolvedValue(mockRound);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        username: "Player 1",
+      });
+
+      await createRoundForGame(mockGameId, 2, [
+        {
+          userId: "player1",
+          blitzPileRemaining: 0,
+          totalCardsPlayed: 27,
+        },
+        {
+          userId: "player2",
+          blitzPileRemaining: 5,
+          totalCardsPlayed: 20,
+        },
+      ]);
+
+      expect(prisma.game.update).toHaveBeenCalledWith({
+        where: { id: mockGameId },
+        data: {
+          isFinished: true,
+          winnerId: "player1",
+          endedAt: expect.any(Date),
+        },
+      });
+      expect(mockCapture).toHaveBeenCalledWith({
+        distinctId: mockUserId,
+        event: "update_game_as_finished",
+        properties: {
+          gameId: mockGameId,
+          winnerId: "player1",
+          isGuestWinner: false,
+        },
+      });
     });
 
     it("should throw error if validation fails", async () => {
@@ -207,10 +369,15 @@ describe("Game Mutations", () => {
 
     it("should update scores for a round", async () => {
       const mockGame = { id: mockGameId, isFinished: false, organizationId: mockOrgId };
-      // First call: initial game fetch; second call: re-fetch for reopen check
       (prisma.game.findUnique as jest.Mock)
         .mockResolvedValueOnce(mockGame)
-        .mockResolvedValueOnce({ ...mockGame, rounds: [], winThreshold: 75 });
+        .mockResolvedValueOnce({
+          ...mockGame,
+          winnerId: null,
+          winThreshold: 75,
+          players: [],
+          rounds: [],
+        });
       (prisma.$transaction as jest.Mock).mockResolvedValue([{ count: 1 }]);
 
       const result = await updateRoundScores(
@@ -255,10 +422,15 @@ describe("Game Mutations", () => {
 
     it("should allow editing finished games", async () => {
       const mockGame = { id: mockGameId, isFinished: true, organizationId: mockOrgId };
-      // First call: initial game fetch; second call: re-fetch for reopen check
       (prisma.game.findUnique as jest.Mock)
         .mockResolvedValueOnce(mockGame)
-        .mockResolvedValueOnce({ ...mockGame, rounds: [], winThreshold: 75 });
+        .mockResolvedValueOnce({
+          ...mockGame,
+          winnerId: "player1",
+          winThreshold: 75,
+          players: [],
+          rounds: [],
+        });
       (prisma.$transaction as jest.Mock).mockResolvedValue([{ count: 1 }]);
 
       const result = await updateRoundScores(

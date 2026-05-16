@@ -2,12 +2,81 @@
 
 import prisma from "@/server/db/db";
 import { getAuthenticatedUserWithOrg } from "./common";
+import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 import {
-  validateGameRules,
-  ValidationError,
-  calculateRoundScore,
-} from "@/lib/validation/gameRules";
-import { breakTie } from "@/lib/scoring/tiebreak";
+  getGameCompletion,
+  type GameWithPlayersAndScores,
+} from "@/lib/gameLogic";
+import { updateGameAsFinished } from "./games";
+
+type AuthenticatedContext = Awaited<ReturnType<typeof getAuthenticatedUserWithOrg>>;
+
+async function loadGameForCompletion(gameId: string) {
+  return prisma.game.findUnique({
+    where: { id: gameId },
+    include: {
+      players: {
+        include: {
+          user: true,
+          guestUser: true,
+        },
+      },
+      rounds: {
+        include: { scores: true },
+        orderBy: { round: "asc" },
+      },
+    },
+  });
+}
+
+async function syncGameCompletionAfterScoreWrite(
+  gameId: string,
+  userId: string,
+  posthog: AuthenticatedContext["posthog"]
+) {
+  const updatedGame = await loadGameForCompletion(gameId);
+  if (!updatedGame) return;
+
+  const completion = getGameCompletion(updatedGame as GameWithPlayersAndScores);
+
+  if (!completion.winnerId) {
+    if (updatedGame.isFinished) {
+      await prisma.game.update({
+        where: { id: gameId },
+        data: { isFinished: false, winnerId: null, endedAt: null },
+      });
+
+      posthog.capture({
+        distinctId: userId,
+        event: "game_reopened_after_edit",
+        properties: { game_id: gameId },
+      });
+    }
+    return;
+  }
+
+  if (completion.gameShouldBeFinalized) {
+    await updateGameAsFinished(
+      gameId,
+      completion.winnerId,
+      completion.isGuestWinner
+    );
+    return;
+  }
+
+  if (completion.winnerId !== updatedGame.winnerId) {
+    await prisma.game.update({
+      where: { id: gameId },
+      data: { winnerId: completion.winnerId },
+    });
+
+    posthog.capture({
+      distinctId: userId,
+      event: "game_winner_updated_after_edit",
+      properties: { game_id: gameId, new_winner_id: completion.winnerId },
+    });
+  }
+}
 
 // Create new round with scores
 export async function createRoundForGame(
@@ -72,7 +141,10 @@ export async function createRoundForGame(
       const existing = await prisma.round.findFirst({
         where: { gameId: game.id, round: roundNumber },
       });
-      if (existing) return existing;
+      if (existing) {
+        await syncGameCompletionAfterScoreWrite(game.id, user.userId, posthog);
+        return existing;
+      }
     }
     throw error;
   }
@@ -100,6 +172,8 @@ export async function createRoundForGame(
   }
 
   posthog.capture({ distinctId: user.userId, event: "create_scores" });
+
+  await syncGameCompletionAfterScoreWrite(game.id, user.userId, posthog);
 
   return round;
 }
@@ -202,71 +276,7 @@ export async function updateRoundScores(
     },
   });
 
-  // Only re-fetch and check thresholds for finished games
-  if (game.isFinished) {
-    const updatedGame = await prisma.game.findUnique({
-      where: { id: gameId },
-      include: {
-        rounds: { include: { scores: true } },
-      },
-    });
-
-    if (updatedGame) {
-      const totals: Record<string, number> = {};
-      for (const round of updatedGame.rounds) {
-        for (const score of round.scores) {
-          const pid = score.userId ?? score.guestId ?? "";
-          totals[pid] = (totals[pid] ?? 0) + calculateRoundScore(score);
-        }
-      }
-
-      const anyoneAboveThreshold = Object.values(totals).some(
-        (total) => total >= updatedGame.winThreshold
-      );
-
-      if (!anyoneAboveThreshold) {
-        await prisma.game.update({
-          where: { id: gameId },
-          data: { isFinished: false, winnerId: null, endedAt: null },
-        });
-
-        posthog.capture({
-          distinctId: user.userId,
-          event: "game_reopened_after_edit",
-          properties: { game_id: gameId },
-        });
-      } else {
-        // Game still finished — check if the winner changed
-        const highestScore = Math.max(...Object.values(totals));
-        const topPlayers = Object.entries(totals)
-          .filter(([, total]) => total === highestScore)
-          .map(([pid]) => pid);
-
-        // Tie-break by fewest blitz cards remaining in final round
-        const finalRound = updatedGame.rounds[updatedGame.rounds.length - 1];
-        const candidates = topPlayers.map((pid) => {
-          const s = finalRound.scores.find(
-            (sc) => (sc.userId ?? sc.guestId ?? "") === pid
-          );
-          return { playerId: pid, blitzPileRemaining: s?.blitzPileRemaining ?? 10 };
-        });
-        const newWinnerId = breakTie(candidates);
-
-        if (newWinnerId && newWinnerId !== updatedGame.winnerId) {
-          await prisma.game.update({
-            where: { id: gameId },
-            data: { winnerId: newWinnerId },
-          });
-
-          posthog.capture({
-            distinctId: user.userId,
-            event: "game_winner_updated_after_edit",
-            properties: { game_id: gameId, new_winner_id: newWinnerId },
-          });
-        }
-      }
-    }
-  }
+  await syncGameCompletionAfterScoreWrite(gameId, user.userId, posthog);
 
   return updatedScores;
 }
