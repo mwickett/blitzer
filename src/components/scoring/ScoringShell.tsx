@@ -40,7 +40,7 @@ export function ScoringShell({
 }: ScoringShellProps) {
   const router = useRouter();
   const posthog = usePostHog();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   // showEntry is a client override — when user taps "Enter Next Round" we flip to entry.
   // Reset when currentRoundNumber changes (i.e. after a round is submitted + refresh).

@@ -2,6 +2,7 @@
 
 import prisma from "@/server/db/db";
 import { clerkClient } from "@clerk/nextjs/server";
+import { after } from "next/server";
 import { getAuthenticatedUserWithOrg } from "./common";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 import { resolvePlayerColor, assignColorsToPlayers } from "@/lib/scoring/colors";
@@ -228,11 +229,11 @@ export async function updateGameAsFinished(
     },
   });
 
-  // Fire-and-forget: send emails without blocking the response.
-  // The sequential delays for rate-limiting still apply inside the promise.
+  // Schedule emails after the response is sent — the platform keeps the
+  // runtime alive until the callback resolves (replaces fire-and-forget IIFE).
   const registeredPlayers = game.players.filter((player) => player.user);
 
-  void (async () => {
+  after(async () => {
     posthog.capture({
       distinctId: user.userId,
       event: "email_batch_started",
@@ -295,8 +296,6 @@ export async function updateGameAsFinished(
         isGuestWinner,
       },
     });
-  })().catch((error) => {
-    console.error("Failed to send game-complete emails:", error);
   });
 }
 

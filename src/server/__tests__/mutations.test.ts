@@ -80,6 +80,10 @@ jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
 }));
 
+jest.mock("next/server", () => ({
+  after: jest.fn((cb: () => Promise<void>) => void cb()),
+}));
+
 describe("Game Mutations", () => {
   const mockUserId = "test-user-id";
   const mockGameId = "test-game-id";
