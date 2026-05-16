@@ -116,8 +116,8 @@ export function ScoreEntryView({
       if (onRoundSubmitted) {
         // Let ScoringShell handle the optimistic transition + navigation
         const roundScoreData: RoundScoreData[] = scores.map((s) => ({
-          userId: s.userId ?? undefined,
-          guestId: s.guestId ?? undefined,
+          userId: "userId" in s ? s.userId : undefined,
+          guestId: "guestId" in s ? s.guestId : undefined,
           blitzPileRemaining: s.blitzPileRemaining,
           totalCardsPlayed: s.totalCardsPlayed,
         }));
