@@ -1,10 +1,8 @@
-import transformGameData, { GameWithPlayersAndScores } from "../gameLogic";
+import transformGameData, {
+  GameWithPlayersAndScores,
+  getGameCompletion,
+} from "../gameLogic";
 import { Game, User, Round, Score } from "@/generated/prisma/client";
-
-// Mock the updateGameAsFinished function
-jest.mock("@/server/mutations", () => ({
-  updateGameAsFinished: jest.fn(),
-}));
 
 describe("transformGameData", () => {
   beforeEach(() => {
@@ -20,7 +18,8 @@ describe("transformGameData", () => {
         blitzPileRemaining: number;
         totalCardsPlayed: number;
       }>;
-    }>
+    }>,
+    winThreshold = 75
   ): GameWithPlayersAndScores => {
     const mockGame: GameWithPlayersAndScores = {
       id: "test-game-id",
@@ -28,7 +27,7 @@ describe("transformGameData", () => {
       endedAt: null,
       isFinished: false,
       winnerId: null,
-      winThreshold: 75,
+      winThreshold,
       organizationId: null,
       players: players.map((player) => ({
         id: `game-player-${player.userId}`,
@@ -258,7 +257,32 @@ describe("transformGameData", () => {
     });
   });
 
-  it("marks guest winners correctly when finishing a game", async () => {
+  it("identifies unfinished custom-threshold games that need finalization", () => {
+    const mockGame = createMockGame(
+      [
+        { userId: "user1", username: "Player 1" },
+        { userId: "user2", username: "Player 2" },
+      ],
+      [
+        {
+          roundNumber: 1,
+          scores: [
+            { userId: "user1", blitzPileRemaining: 0, totalCardsPlayed: 52 },
+            { userId: "user2", blitzPileRemaining: 3, totalCardsPlayed: 20 },
+          ],
+        },
+      ],
+      50
+    );
+
+    expect(getGameCompletion(mockGame)).toEqual({
+      winnerId: "user1",
+      isGuestWinner: false,
+      gameShouldBeFinalized: true,
+    });
+  });
+
+  it("marks guest winners correctly without mutating games", async () => {
     const mockGame: GameWithPlayersAndScores = {
       id: "guest-game-id",
       createdAt: new Date(),
@@ -331,17 +355,15 @@ describe("transformGameData", () => {
     };
 
     const result = await transformGameData(mockGame);
-    const updateGameAsFinished = jest.requireMock("@/server/mutations")
-      .updateGameAsFinished as jest.Mock;
 
     expect(result.find((player) => player.id === "guest-1")?.isWinner).toBe(
       true
     );
-    expect(updateGameAsFinished).toHaveBeenCalledWith(
-      "guest-game-id",
-      "guest-1",
-      true
-    );
+    expect(getGameCompletion(mockGame)).toEqual({
+      winnerId: "guest-1",
+      isGuestWinner: true,
+      gameShouldBeFinalized: true,
+    });
   });
 
 });
