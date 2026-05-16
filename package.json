@@ -2,11 +2,15 @@
   "name": "blitz",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "^20.20.0 || >=22.22.0"
+  },
   "scripts": {
     "dev": "next dev --turbopack --turbo",
     "build": "prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "vercel-build": "prisma generate && prisma migrate deploy && tsx prisma/seed.ts && next build",
     "test": "jest",
     "test:watch": "jest --watch",

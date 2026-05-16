@@ -146,7 +146,7 @@ describe("Slack Integration Utils", () => {
       
       expect(result.response_type).toBe("in_channel");
       expect(result.blocks).toBeDefined();
-      expect(result.blocks[0].text.text).toContain("testuser");
+      expect(JSON.stringify(result.blocks[0])).toContain("testuser");
       
       // Check that stats are included in the response
       const fieldsText = JSON.stringify(result.blocks);

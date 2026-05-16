@@ -29,7 +29,9 @@ describe("transformGameData", () => {
       isFinished: false,
       winnerId: null,
       winThreshold: 75,
+      organizationId: null,
       players: players.map((player) => ({
+        id: `game-player-${player.userId}`,
         userId: player.userId,
         gameId: "test-game-id",
         user: {
@@ -50,6 +52,7 @@ describe("transformGameData", () => {
         scores: round.scores.map((score) => ({
           id: `score-${score.userId}-${round.roundNumber}`,
           userId: score.userId,
+          guestId: null,
           roundId: `round-${index}`,
           blitzPileRemaining: score.blitzPileRemaining,
           totalCardsPlayed: score.totalCardsPlayed,
@@ -263,6 +266,7 @@ describe("transformGameData", () => {
       isFinished: false,
       winnerId: null,
       winThreshold: 75,
+      organizationId: null,
       players: [
         {
           id: "gp-guest",
@@ -271,9 +275,12 @@ describe("transformGameData", () => {
           guestUser: {
             id: "guest-1",
             name: "Guest Winner",
-            ownerId: "owner-1",
+            createdById: "owner-1",
+            invitationSent: false,
+            invitationSentAt: null,
+            emailSent: null,
+            organizationId: null,
             createdAt: new Date(),
-            updatedAt: new Date(),
           },
         },
         {

@@ -8,6 +8,7 @@ import {
   Preview,
   Section,
   Hr,
+  Img,
 } from "@react-email/components";
 import { render } from "@react-email/render";
 import * as React from "react";
@@ -36,7 +37,7 @@ const GameCompleteEmailTemplate = ({
       <Body style={main}>
         <Container style={container}>
           <Section style={contentSection}>
-            <img
+            <Img
               src="https://blitzer.fun/img/blitzer-logo.png"
               alt="Blitzer Logo"
               width="80"
