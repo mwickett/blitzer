@@ -5,10 +5,10 @@ import {
   getPlayerBattingAverage,
   getHighestAndLowestScore,
   getCumulativeScore,
+  getLongestAndShortestGamesByRounds,
 } from "../queries";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
-import { Prisma } from "@/generated/prisma/client";
 
 // Mock dependencies
 jest.mock("../db/db", () => {
@@ -199,9 +199,9 @@ describe("Queries", () => {
 
     describe("getPlayerBattingAverage", () => {
       it("should calculate batting average correctly", async () => {
-        (prisma.score.count as jest.Mock)
-          .mockResolvedValueOnce(10) // totalHandsPlayed
-          .mockResolvedValueOnce(4); // totalHandsWon
+        (prisma.$queryRaw as jest.Mock).mockResolvedValue([
+          { totalHandsPlayed: 10, totalHandsWon: 4 },
+        ]);
 
         const result = await getPlayerBattingAverage();
 
@@ -213,9 +213,9 @@ describe("Queries", () => {
       });
 
       it("should handle zero hands played", async () => {
-        (prisma.score.count as jest.Mock)
-          .mockResolvedValueOnce(0)
-          .mockResolvedValueOnce(0);
+        (prisma.$queryRaw as jest.Mock).mockResolvedValue([
+          { totalHandsPlayed: 0, totalHandsWon: 0 },
+        ]);
 
         const result = await getPlayerBattingAverage();
 
@@ -229,12 +229,22 @@ describe("Queries", () => {
 
     describe("getHighestAndLowestScore", () => {
       it("should return highest and lowest scores", async () => {
-        const mockScores = [
-          { score: 30, totalCardsPlayed: 40, blitzPileRemaining: 5 },
-          { score: 10, totalCardsPlayed: 20, blitzPileRemaining: 5 },
-        ];
+        const highestScore = {
+          id: "score-high",
+          score: 30,
+          totalCardsPlayed: 40,
+          blitzPileRemaining: 5,
+        };
+        const lowestScore = {
+          id: "score-low",
+          score: 10,
+          totalCardsPlayed: 20,
+          blitzPileRemaining: 5,
+        };
 
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue(mockScores);
+        (prisma.$queryRaw as jest.Mock)
+          .mockResolvedValueOnce([highestScore])
+          .mockResolvedValueOnce([lowestScore]);
 
         const result = await getHighestAndLowestScore();
 
@@ -254,11 +264,14 @@ describe("Queries", () => {
 
       it("should handle single score case", async () => {
         const mockScore = {
+          id: "score-only",
           score: 30,
           totalCardsPlayed: 40,
           blitzPileRemaining: 5,
         };
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([mockScore]);
+        (prisma.$queryRaw as jest.Mock)
+          .mockResolvedValueOnce([mockScore])
+          .mockResolvedValueOnce([mockScore]);
 
         const result = await getHighestAndLowestScore();
 
@@ -273,7 +286,9 @@ describe("Queries", () => {
       });
 
       it("should handle no scores", async () => {
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+        (prisma.$queryRaw as jest.Mock)
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]);
 
         const result = await getHighestAndLowestScore();
 
@@ -286,74 +301,87 @@ describe("Queries", () => {
 
     describe("getCumulativeScore", () => {
       it("should calculate cumulative score correctly", async () => {
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: 100,
-            blitzPileRemaining: 20,
-          },
-        });
+        (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ totalScore: 60 }]);
 
         const result = await getCumulativeScore();
 
-        // 100 - (20 * 2) = 60
         expect(result).toBe(60);
       });
 
-      it("should return 0 when either totalCardsPlayed or blitzPileRemaining is null", async () => {
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: 100,
-            blitzPileRemaining: null,
-          },
-        });
-
-        let result = await getCumulativeScore();
-        expect(result).toBe(0);
-
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: null,
-            blitzPileRemaining: 20,
-          },
-        });
-
-        result = await getCumulativeScore();
-        expect(result).toBe(0);
-      });
-
-      it("should handle zero values correctly", async () => {
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: 0,
-            blitzPileRemaining: 20,
-          },
-        });
+      it("should handle zero and negative values correctly", async () => {
+        (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([
+          { totalScore: -40 },
+        ]);
 
         let result = await getCumulativeScore();
         expect(result).toBe(-40);
 
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: 100,
-            blitzPileRemaining: 0,
-          },
-        });
+        (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([
+          { totalScore: 100 },
+        ]);
 
         result = await getCumulativeScore();
         expect(result).toBe(100);
       });
 
       it("should return 0 for no scores", async () => {
-        (prisma.score.aggregate as jest.Mock).mockResolvedValue({
-          _sum: {
-            totalCardsPlayed: null,
-            blitzPileRemaining: null,
-          },
-        });
+        (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ totalScore: 0 }]);
 
         const result = await getCumulativeScore();
 
         expect(result).toBe(0);
+      });
+    });
+
+    describe("getLongestAndShortestGamesByRounds", () => {
+      it("should return longest and shortest completed games", async () => {
+        (prisma.$queryRaw as jest.Mock).mockResolvedValue([
+          {
+            kind: "longest",
+            id: "game-long",
+            roundCount: 7,
+            isFinished: true,
+          },
+          {
+            kind: "shortest",
+            id: "game-short",
+            roundCount: 2,
+            isFinished: true,
+          },
+        ]);
+
+        const result = await getLongestAndShortestGamesByRounds();
+
+        expect(result).toEqual({
+          longest: { id: "game-long", roundCount: 7, isFinished: true },
+          shortest: { id: "game-short", roundCount: 2, isFinished: true },
+        });
+      });
+
+      it("should keep shortest null when completed games have no rounds", async () => {
+        (prisma.$queryRaw as jest.Mock).mockResolvedValue([
+          {
+            kind: "longest",
+            id: "game-empty",
+            roundCount: 0,
+            isFinished: true,
+          },
+        ]);
+
+        const result = await getLongestAndShortestGamesByRounds();
+
+        expect(result).toEqual({
+          longest: { id: "game-empty", roundCount: 0, isFinished: true },
+          shortest: null,
+        });
+      });
+
+      it("should handle no completed games", async () => {
+        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+        const result = await getLongestAndShortestGamesByRounds();
+
+        expect(result).toEqual({ longest: null, shortest: null });
       });
     });
   });

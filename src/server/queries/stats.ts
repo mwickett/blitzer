@@ -1,176 +1,234 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
+import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { getUserIdFromAuth } from "@/server/utils";
 
-// Batting average
-// Fetch players total rounds and rounds won
-// This assumes that only one player blitzed per round (edge case)
-// Maybe move this to some kind of computed property on the user model?
-// https://www.prisma.io/docs/orm/prisma-client/queries/computed-fields
-export async function getPlayerBattingAverage() {
-  const id = await getUserIdFromAuth();
+type StatsDb = Pick<PrismaClient, "$queryRaw">;
 
-  const totalHandsPlayed = await prisma.score.count({
-    where: {
-      userId: id,
-    },
-  });
+type CountRow = {
+  totalHandsPlayed: number | bigint;
+  totalHandsWon: number | bigint;
+};
 
-  const totalHandsWon = await prisma.score.count({
-    where: {
-      userId: id,
-      blitzPileRemaining: 0,
-    },
-  });
+export type BattingAverageStats = {
+  totalHandsPlayed: number;
+  totalHandsWon: number;
+  battingAverage: string;
+};
 
+export type ScoreExtreme = {
+  score: number;
+  totalCardsPlayed: number;
+  blitzPileRemaining: number;
+};
+
+type ScoreExtremeRow = ScoreExtreme & {
+  id: string;
+};
+
+export type ScoreExtremes = {
+  highest: ScoreExtreme | null;
+  lowest: ScoreExtreme | null;
+};
+
+export type GameRoundCount = {
+  id: string;
+  roundCount: number;
+  isFinished: boolean;
+};
+
+type GameRoundCountRow = {
+  kind: "longest" | "shortest";
+  id: string;
+  roundCount: number | bigint;
+  isFinished: boolean;
+};
+
+export type GameRoundExtremes = {
+  longest: GameRoundCount | null;
+  shortest: GameRoundCount | null;
+};
+
+export type DashboardStats = {
+  battingAverage: BattingAverageStats;
+  scoreExtremes: ScoreExtremes;
+  cumulativeScore: number;
+  gameRoundExtremes: GameRoundExtremes;
+};
+
+function scoreFromRow(row: ScoreExtremeRow): ScoreExtreme {
+  return {
+    score: row.score,
+    totalCardsPlayed: row.totalCardsPlayed,
+    blitzPileRemaining: row.blitzPileRemaining,
+  };
+}
+
+function gameRoundCountFromRow(row: GameRoundCountRow): GameRoundCount {
+  return {
+    id: row.id,
+    roundCount: Number(row.roundCount),
+    isFinished: row.isFinished,
+  };
+}
+
+export async function getPlayerBattingAverageForUser(
+  id: string,
+  db: StatsDb = prisma
+): Promise<BattingAverageStats> {
+  const rows = await db.$queryRaw<CountRow[]>(Prisma.sql`
+    SELECT
+      COUNT(*) AS "totalHandsPlayed",
+      COUNT(*) FILTER (WHERE "blitzPileRemaining" = 0) AS "totalHandsWon"
+    FROM "Score"
+    WHERE "userId" = ${id}
+  `);
+  const row = rows[0] ?? { totalHandsPlayed: 0, totalHandsWon: 0 };
+  const totalHandsPlayed = Number(row.totalHandsPlayed);
+  const totalHandsWon = Number(row.totalHandsWon);
   const rawBattingAverage =
     totalHandsPlayed === 0 ? 0 : totalHandsWon / totalHandsPlayed;
-
-  const battingAverage = rawBattingAverage.toFixed(3);
 
   return {
     totalHandsPlayed,
     totalHandsWon,
-    battingAverage,
+    battingAverage: rawBattingAverage.toFixed(3),
   };
 }
 
-// Highest / lowest score
-export async function getHighestAndLowestScore() {
-  const id = await getUserIdFromAuth();
-
-  const scores = await prisma.$queryRaw<
-    Array<{
-      score: number;
-      totalCardsPlayed: number;
-      blitzPileRemaining: number;
-    }>
-  >(
-    Prisma.sql`
+export async function getScoreExtremesForUser(
+  id: string,
+  db: StatsDb = prisma
+): Promise<ScoreExtremes> {
+  const [highestRows, lowestRows] = await Promise.all([
+    db.$queryRaw<ScoreExtremeRow[]>(Prisma.sql`
       SELECT
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) as score,
+        id,
+        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) AS score,
         "totalCardsPlayed",
         "blitzPileRemaining"
       FROM "Score"
       WHERE "userId" = ${id}
-      AND (
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
-          SELECT MAX("totalCardsPlayed" - ("blitzPileRemaining" * 2))
-          FROM "Score"
-          WHERE "userId" = ${id}
-        )
-        OR
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
-          SELECT MIN("totalCardsPlayed" - ("blitzPileRemaining" * 2))
-          FROM "Score"
-          WHERE "userId" = ${id}
-        )
-      )
-    `
-  );
+      ORDER BY ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) DESC, "created_at" DESC, id DESC
+      LIMIT 1
+    `),
+    db.$queryRaw<ScoreExtremeRow[]>(Prisma.sql`
+      SELECT
+        id,
+        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) AS score,
+        "totalCardsPlayed",
+        "blitzPileRemaining"
+      FROM "Score"
+      WHERE "userId" = ${id}
+      ORDER BY ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) ASC, "created_at" DESC, id DESC
+      LIMIT 1
+    `),
+  ]);
 
-  const highestScore = scores.reduce(
-    (max, score) => (max.score > score.score ? max : score),
-    scores[0]
-  );
-  const lowestScore = scores.reduce(
-    (min, score) => (min.score < score.score ? min : score),
-    scores[0]
-  );
+  const highestRow = highestRows[0];
+  const lowestRow = lowestRows[0];
 
-  if (!highestScore) {
+  if (!highestRow) {
     return { highest: null, lowest: null };
   }
 
-  const createScoreObject = (score: typeof highestScore) => ({
-    score: score.score,
-    totalCardsPlayed: score.totalCardsPlayed,
-    blitzPileRemaining: score.blitzPileRemaining,
-  });
-
-  const highest = createScoreObject(highestScore);
-
-  if (!lowestScore || lowestScore === highestScore) {
-    return { highest, lowest: null };
-  }
-
-  const lowest = createScoreObject(lowestScore);
-
-  return { highest, lowest };
+  return {
+    highest: scoreFromRow(highestRow),
+    lowest:
+      lowestRow && lowestRow.id !== highestRow.id ? scoreFromRow(lowestRow) : null,
+  };
 }
 
-// Cumulative score
+export async function getCumulativeScoreForUser(
+  id: string,
+  db: StatsDb = prisma
+): Promise<number> {
+  const rows = await db.$queryRaw<Array<{ totalScore: number | bigint }>>(Prisma.sql`
+    SELECT COALESCE(SUM("totalCardsPlayed" - ("blitzPileRemaining" * 2)), 0) AS "totalScore"
+    FROM "Score"
+    WHERE "userId" = ${id}
+  `);
+
+  return Number(rows[0]?.totalScore ?? 0);
+}
+
+export async function getGameRoundExtremesForUser(
+  id: string,
+  db: StatsDb = prisma
+): Promise<GameRoundExtremes> {
+  const rows = await db.$queryRaw<GameRoundCountRow[]>(Prisma.sql`
+    WITH user_games AS (
+      SELECT
+        g.id,
+        g."is_finished" AS "isFinished",
+        COUNT(r.id) AS "roundCount"
+      FROM "Game" g
+      INNER JOIN "GamePlayers" gp ON gp."gameId" = g.id
+      LEFT JOIN "Round" r ON r."gameId" = g.id
+      WHERE gp."userId" = ${id}
+        AND g."is_finished" = true
+      GROUP BY g.id, g."is_finished"
+    )
+    SELECT * FROM (
+      SELECT 'longest'::text AS kind, id, "roundCount", "isFinished"
+      FROM user_games
+      ORDER BY "roundCount" DESC, id DESC
+      LIMIT 1
+    ) longest
+    UNION ALL
+    SELECT * FROM (
+      SELECT 'shortest'::text AS kind, id, "roundCount", "isFinished"
+      FROM user_games
+      WHERE "roundCount" > 0
+      ORDER BY "roundCount" ASC, id DESC
+      LIMIT 1
+    ) shortest
+  `);
+
+  const longestRow = rows.find((row) => row.kind === "longest");
+  const shortestRow = rows.find((row) => row.kind === "shortest");
+
+  return {
+    longest: longestRow ? gameRoundCountFromRow(longestRow) : null,
+    shortest: shortestRow ? gameRoundCountFromRow(shortestRow) : null,
+  };
+}
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const id = await getUserIdFromAuth();
+  const [battingAverage, scoreExtremes, cumulativeScore, gameRoundExtremes] =
+    await Promise.all([
+      getPlayerBattingAverageForUser(id),
+      getScoreExtremesForUser(id),
+      getCumulativeScoreForUser(id),
+      getGameRoundExtremesForUser(id),
+    ]);
+
+  return {
+    battingAverage,
+    scoreExtremes,
+    cumulativeScore,
+    gameRoundExtremes,
+  };
+}
+
+export async function getPlayerBattingAverage() {
+  const id = await getUserIdFromAuth();
+  return getPlayerBattingAverageForUser(id);
+}
+
+export async function getHighestAndLowestScore() {
+  const id = await getUserIdFromAuth();
+  return getScoreExtremesForUser(id);
+}
+
 export async function getCumulativeScore() {
   const id = await getUserIdFromAuth();
-
-  const cumulativeScore = await prisma.score.aggregate({
-    where: {
-      userId: id,
-    },
-    _sum: {
-      totalCardsPlayed: true,
-      blitzPileRemaining: true,
-    },
-  });
-
-  const totalCardsPlayed = cumulativeScore._sum.totalCardsPlayed;
-  const blitzPileRemaining = cumulativeScore._sum.blitzPileRemaining;
-
-  if (totalCardsPlayed === null || blitzPileRemaining === null) {
-    return 0;
-  }
-
-  const totalScore = totalCardsPlayed - blitzPileRemaining * 2;
-
-  return totalScore;
+  return getCumulativeScoreForUser(id);
 }
 
 export async function getLongestAndShortestGamesByRounds() {
   const id = await getUserIdFromAuth();
-
-  const games = await prisma.game.findMany({
-    where: {
-      players: {
-        some: {
-          userId: id,
-        },
-      },
-      isFinished: true, // Only include completed games
-    },
-    include: {
-      rounds: true,
-    },
-  });
-
-  if (!games.length) {
-    return { longest: null, shortest: null };
-  }
-
-  const gamesWithRoundCount = games.map((game) => ({
-    id: game.id,
-    roundCount: game.rounds.length,
-    isFinished: game.isFinished,
-  }));
-
-  const longestGame = gamesWithRoundCount.reduce(
-    (longest, current) =>
-      current.roundCount > longest.roundCount ? current : longest,
-    gamesWithRoundCount[0]
-  );
-
-  const gamesWithRounds = gamesWithRoundCount.filter(game => game.roundCount > 0);
-
-  if (!gamesWithRounds.length) {
-    return { longest: longestGame, shortest: null };
-  }
-
-  const shortestGame = gamesWithRounds.reduce(
-    (shortest, current) =>
-      current.roundCount < shortest.roundCount ? current : shortest,
-    gamesWithRounds[0]
-  );
-
-  return { longest: longestGame, shortest: shortestGame };
+  return getGameRoundExtremesForUser(id);
 }

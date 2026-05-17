@@ -1,9 +1,4 @@
-import {
-  getPlayerBattingAverage,
-  getHighestAndLowestScore,
-  getCumulativeScore,
-  getLongestAndShortestGamesByRounds,
-} from "@/server/queries";
+import { getDashboardStats } from "@/server/queries";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
 import legacyFriends from "@/data/legacy-friends.json";
@@ -16,10 +11,12 @@ const friendMap = legacyFriends as Record<
 >;
 
 export default async function Dashboard() {
-  const battingAverage = await getPlayerBattingAverage();
-  const { highest, lowest } = await getHighestAndLowestScore();
-  const cumulativeScore = await getCumulativeScore();
-  const { longest, shortest } = await getLongestAndShortestGamesByRounds();
+  const {
+    battingAverage,
+    scoreExtremes: { highest, lowest },
+    cumulativeScore,
+    gameRoundExtremes: { longest, shortest },
+  } = await getDashboardStats();
 
   // Compute uninvited friend count for the banner
   // Paginate Clerk API calls (defaults to 10 per page)

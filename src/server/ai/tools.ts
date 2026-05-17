@@ -3,6 +3,10 @@ import { z } from "zod";
 import prisma from "@/server/db/db-readonly";
 import PostHogClient from "@/app/posthog";
 import { Prisma } from "@/generated/prisma/client";
+import {
+  getCumulativeScoreForUser,
+  getScoreExtremesForUser,
+} from "@/server/queries/stats";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const MAX_RECENT_GAMES = 50;
@@ -224,42 +228,14 @@ const getExtremes = (
     execute: async () => {
       const internalId = await getInternalUserId(clerkUserId);
 
-      const rows = await runWithTracing(
+      return await runWithTracing(
         posthog,
         clerkUserId,
         "getExtremes",
         {},
-        async () => {
-          return await prisma.$queryRaw<Array<{
-            score: number;
-            totalCardsPlayed: number;
-            blitzPileRemaining: number;
-          }>>`
-      SELECT
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) as score,
-        "totalCardsPlayed",
-        "blitzPileRemaining"
-      FROM "Score"
-      WHERE "userId" = ${internalId}
-      AND (
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
-          SELECT MAX("totalCardsPlayed" - ("blitzPileRemaining" * 2))
-          FROM "Score" WHERE "userId" = ${internalId}
-        )
-        OR
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
-          SELECT MIN("totalCardsPlayed" - ("blitzPileRemaining" * 2))
-          FROM "Score" WHERE "userId" = ${internalId}
-        )
-      )`;
-        },
-        (rows) => rows.length
+        async () => getScoreExtremesForUser(internalId, prisma),
+        (result) => Number(Boolean(result.highest)) + Number(Boolean(result.lowest))
       );
-
-      if (!rows.length) return { highest: null, lowest: null };
-      const highest = rows.reduce((a, b) => (a.score > b.score ? a : b));
-      const lowest = rows.reduce((a, b) => (a.score < b.score ? a : b));
-      return { highest, lowest: highest === lowest ? null : lowest };
     },
   });
 
@@ -280,15 +256,9 @@ const getCumulativeScore = (
         clerkUserId,
         "getCumulativeScore",
         {},
-        async () => {
-          const agg = await prisma.score.aggregate({
-            where: { userId: internalId },
-            _sum: { totalCardsPlayed: true, blitzPileRemaining: true },
-          });
-          const totalCardsPlayed = agg._sum.totalCardsPlayed ?? 0;
-          const blitzPileRemaining = agg._sum.blitzPileRemaining ?? 0;
-          return { totalScore: totalCardsPlayed - blitzPileRemaining * 2 };
-        }
+        async () => ({
+          totalScore: await getCumulativeScoreForUser(internalId, prisma),
+        })
       );
     },
   });
