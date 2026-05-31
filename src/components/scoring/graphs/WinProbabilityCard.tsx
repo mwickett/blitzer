@@ -9,20 +9,23 @@ interface WinProbabilityCardProps {
   players: PlayerWithScore[];
   roundsPlayed: number;
   winThreshold: number;
+  deltasByPlayer?: Record<string, number[]>;
 }
 
 export function WinProbabilityCard({
   players,
   roundsPlayed,
   winThreshold,
+  deltasByPlayer,
 }: WinProbabilityCardProps) {
   const probabilities = useMemo(
     () =>
       calcWinProbabilities(
         players.map((p) => ({ id: p.id, score: p.score, roundsPlayed })),
-        winThreshold
+        winThreshold,
+        deltasByPlayer
       ),
-    [players, roundsPlayed, winThreshold]
+    [players, roundsPlayed, winThreshold, deltasByPlayer]
   );
 
   const sorted = useMemo(
@@ -55,7 +58,7 @@ export function WinProbabilityCard({
         Win Probability
       </div>
       <div className="text-[13px] md:text-xs text-[#8b5e3c] mb-3">
-        Based on scoring pace through {roundsPlayed} rounds
+        Simulated over {roundsPlayed} rounds of data
       </div>
 
       <div className="space-y-2">
@@ -117,7 +120,7 @@ export function WinProbabilityCard({
       </div>
 
       <div className="text-[8px] text-[#8b5e3c] text-center mt-2 italic">
-        Based on average scoring pace · updates each round
+        Monte Carlo simulation · accounts for pace &amp; variance
       </div>
     </div>
   );

@@ -83,6 +83,7 @@ export function BetweenRoundsView({
           players={players}
           roundsPlayed={rounds.length}
           winThreshold={winThreshold}
+          deltasByPlayer={deltasByRound}
         />
       </GraphCarousel>
 
