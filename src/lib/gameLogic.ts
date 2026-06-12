@@ -2,15 +2,17 @@ import { Game, User, Score, Round, GuestUser } from "@/generated/prisma/client";
 import { calculateRoundScore, isWinningScore } from "./validation/gameRules";
 import { breakTie } from "./scoring/tiebreak";
 
+// Accepts both the raw Prisma payload (null-able fields) and looser
+// hand-built shapes, so query results flow in without adaptation
 export interface GameWithPlayersAndScores extends Game {
   players: {
     id: string;
     gameId: string;
-    userId?: string;
-    guestId?: string;
+    userId?: string | null;
+    guestId?: string | null;
     accentColor?: string | null;
-    user?: User;
-    guestUser?: GuestUser;
+    user?: User | null;
+    guestUser?: GuestUser | null;
   }[];
   rounds: (Round & { scores: Score[] })[];
 }

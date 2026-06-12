@@ -44,21 +44,13 @@ import {
   differenceInWeeks,
   isThisYear,
 } from "date-fns";
-import { Game, GamePlayers, User } from "@/generated/prisma/client";
+import type { GameSummary } from "@/server/queries/games";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 
-type GameWithPlayersAndUsers = Game & {
-  players: (GamePlayers & {
-    user?: User | null;
-    guestUser?: { id: string; name: string } | null;
-  })[];
-  rounds: { id: string }[];
-};
-
 type GameStatusFilter = "all" | "completed" | "active" | "ended";
 
-function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
+function GameList({ games }: { games: GameSummary[] }) {
   const router = useRouter();
   const { organization } = useOrganization();
   const circleName = organization?.name ?? "the active Circle";
@@ -118,7 +110,7 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
     return format(date, "MMM d, yyyy"); // e.g. "Jul 15, 2023"
   };
 
-  const getGameStatus = (game: GameWithPlayersAndUsers) => {
+  const getGameStatus = (game: GameSummary) => {
     if (game.isFinished) {
       return <Badge variant="success">Completed</Badge>;
     }
@@ -128,7 +120,7 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
     return <Badge variant="default">Ongoing</Badge>;
   };
 
-  const getWinnerName = (game: GameWithPlayersAndUsers) => {
+  const getWinnerName = (game: GameSummary) => {
     if (!game.winnerId) return null;
     const winner = game.players.find(
       (p) =>
@@ -445,7 +437,7 @@ function GameList({ games }: { games: GameWithPlayersAndUsers[] }) {
 
 // Wrap with ErrorBoundary and export
 export default function GameListWithErrorBoundary(props: {
-  games: GameWithPlayersAndUsers[];
+  games: GameSummary[];
 }) {
   return (
     <ErrorBoundary

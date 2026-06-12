@@ -3,41 +3,21 @@
 import prisma from "@/server/db/db";
 import { getAuthenticatedUserWithOrg } from "./common";
 import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
-import {
-  getGameCompletion,
-  type GameWithPlayersAndScores,
-} from "@/lib/gameLogic";
+import { getGameCompletion } from "@/lib/gameLogic";
+import { getGameById } from "@/server/queries/games";
 import { updateGameAsFinished } from "./games";
 
 type AuthenticatedContext = Awaited<ReturnType<typeof getAuthenticatedUserWithOrg>>;
-
-async function loadGameForCompletion(gameId: string) {
-  return prisma.game.findUnique({
-    where: { id: gameId },
-    include: {
-      players: {
-        include: {
-          user: true,
-          guestUser: true,
-        },
-      },
-      rounds: {
-        include: { scores: true },
-        orderBy: { round: "asc" },
-      },
-    },
-  });
-}
 
 async function syncGameCompletionAfterScoreWrite(
   gameId: string,
   userId: string,
   posthog: AuthenticatedContext["posthog"]
 ) {
-  const updatedGame = await loadGameForCompletion(gameId);
+  const updatedGame = await getGameById(gameId);
   if (!updatedGame) return;
 
-  const completion = getGameCompletion(updatedGame as GameWithPlayersAndScores);
+  const completion = getGameCompletion(updatedGame);
 
   if (!completion.winnerId) {
     if (updatedGame.isFinished) {
