@@ -33,13 +33,14 @@ jest.mock("../db/db", () => {
   };
 });
 
-// Mock Prisma.sql template literal tag
+// Mock Prisma.sql template literal tag and Prisma.raw
 jest.mock("@/generated/prisma/client", () => ({
   Prisma: {
     sql: jest.fn((strings, ...values) => ({
       strings,
       values,
     })),
+    raw: jest.fn((value) => ({ raw: value })),
   },
 }));
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/server/db/db";
 import crypto from "crypto";
+import { calculateCumulativeScore } from "@/lib/validation/gameRules";
 
 // Slack slash command payload interface
 interface SlackCommand {
@@ -105,9 +106,12 @@ async function getUserStats(userId: string) {
     },
   });
 
-  const cumulativeScore = scoreAgg._sum.totalCardsPlayed && scoreAgg._sum.blitzPileRemaining
-    ? scoreAgg._sum.totalCardsPlayed - (scoreAgg._sum.blitzPileRemaining * 2)
-    : 0;
+  // ?? instead of && — a user who always blitzed has a legitimate sum of 0
+  // blitz cards remaining, which the old truthiness check scored as 0 total
+  const cumulativeScore = calculateCumulativeScore({
+    totalCardsPlayed: scoreAgg._sum.totalCardsPlayed ?? 0,
+    blitzPileRemaining: scoreAgg._sum.blitzPileRemaining ?? 0,
+  });
 
   // Get last activity date
   const lastGame = await prisma.game.findFirst({

@@ -3,6 +3,7 @@
  */
 
 import { getUserGameSummary, getUserStats } from "./utils";
+import { GAME_RULES } from "@/lib/validation/gameRules";
 
 export async function buildEnhancedSystemPrompt(
   userId: string,
@@ -30,10 +31,10 @@ export async function buildEnhancedSystemPrompt(
     Dutch Blitz is a fast-paced card game where:
     - Players have a "blitz pile" of cards they need to get rid of
     - They play cards during rounds
-    - Score is calculated as: totalCardsPlayed - (blitzPileRemaining * 2)
+    - Score is calculated as: totalCardsPlayed - (blitzPileRemaining * ${GAME_RULES.BLITZ_PENALTY_MULTIPLIER})
     - A player "blitzes" when they have 0 cards remaining in their blitz pile
     - Games usually consist of multiple rounds
-    - The first player to reach 75 points wins the game
+    - The first player to reach ${GAME_RULES.POINTS_TO_WIN} points wins the game
     
     When answering questions, provide specific insights based on the user's statistics shown above.
     For example, if they ask about their win rate, you can calculate it from games won divided by games played.

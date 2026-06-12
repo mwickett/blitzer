@@ -3,6 +3,13 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { getUserIdFromAuth } from "@/server/utils";
+import {
+  calculateCumulativeScore,
+  ROUND_SCORE_SQL,
+} from "@/lib/validation/gameRules";
+
+// Canonical single-round score expression — see ROUND_SCORE_SQL
+const scoreExpr = Prisma.raw(ROUND_SCORE_SQL);
 
 // Batting average
 // Fetch players total rounds and rounds won
@@ -50,20 +57,20 @@ export async function getHighestAndLowestScore() {
   >(
     Prisma.sql`
       SELECT
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) as score,
+        ${scoreExpr} as score,
         "totalCardsPlayed",
         "blitzPileRemaining"
       FROM "Score"
       WHERE "userId" = ${id}
       AND (
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
-          SELECT MAX("totalCardsPlayed" - ("blitzPileRemaining" * 2))
+        ${scoreExpr} = (
+          SELECT MAX(${scoreExpr})
           FROM "Score"
           WHERE "userId" = ${id}
         )
         OR
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
-          SELECT MIN("totalCardsPlayed" - ("blitzPileRemaining" * 2))
+        ${scoreExpr} = (
+          SELECT MIN(${scoreExpr})
           FROM "Score"
           WHERE "userId" = ${id}
         )
@@ -122,9 +129,7 @@ export async function getCumulativeScore() {
     return 0;
   }
 
-  const totalScore = totalCardsPlayed - blitzPileRemaining * 2;
-
-  return totalScore;
+  return calculateCumulativeScore({ totalCardsPlayed, blitzPileRemaining });
 }
 
 export async function getLongestAndShortestGamesByRounds() {
