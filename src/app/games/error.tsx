@@ -51,12 +51,12 @@ export default function GamesListError({
           {process.env.NODE_ENV === "development" && (
             <pre className="p-4 mt-4 overflow-auto text-sm bg-muted rounded-md">
               {error.message}
-              {error.digest && (
-                <div className="mt-2 text-xs text-muted-foreground">
-                  Error ID: {error.digest}
-                </div>
-              )}
             </pre>
+          )}
+          {error.digest && (
+            <p className="mt-4 text-xs text-muted-foreground">
+              Error ID: {error.digest}
+            </p>
           )}
         </CardContent>
         <CardFooter className="flex justify-between">

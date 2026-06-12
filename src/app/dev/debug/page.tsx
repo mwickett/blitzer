@@ -1,8 +1,13 @@
 import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 export default async function DebugPage() {
+  // Debug page — never reachable in production
+  if (process.env.NODE_ENV !== "development") {
+    notFound();
+  }
+
   const { userId } = await auth();
   const cookieStore = await cookies();
 
