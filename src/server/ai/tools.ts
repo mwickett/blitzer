@@ -6,11 +6,11 @@ import { Prisma } from "@/generated/prisma/client";
 import {
   calculateRoundScore,
   calculateCumulativeScore,
-  ROUND_SCORE_SQL,
 } from "@/lib/validation/gameRules";
-
-// Canonical single-round score expression — see ROUND_SCORE_SQL
-const scoreExpr = Prisma.raw(ROUND_SCORE_SQL);
+import {
+  getHighestAndLowestScoreForUser,
+  getCumulativeScoreForUser,
+} from "@/server/queries/stats";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const MAX_RECENT_GAMES = 50;
@@ -232,42 +232,14 @@ const getExtremes = (
     execute: async () => {
       const internalId = await getInternalUserId(clerkUserId);
 
-      const rows = await runWithTracing(
+      // Thin adapter over the stats module, reading from the replica
+      return await runWithTracing(
         posthog,
         clerkUserId,
         "getExtremes",
         {},
-        async () => {
-          return await prisma.$queryRaw<Array<{
-            score: number;
-            totalCardsPlayed: number;
-            blitzPileRemaining: number;
-          }>>`
-      SELECT
-        ${scoreExpr} as score,
-        "totalCardsPlayed",
-        "blitzPileRemaining"
-      FROM "Score"
-      WHERE "userId" = ${internalId}
-      AND (
-        ${scoreExpr} = (
-          SELECT MAX(${scoreExpr})
-          FROM "Score" WHERE "userId" = ${internalId}
-        )
-        OR
-        ${scoreExpr} = (
-          SELECT MIN(${scoreExpr})
-          FROM "Score" WHERE "userId" = ${internalId}
-        )
-      )`;
-        },
-        (rows) => rows.length
+        async () => getHighestAndLowestScoreForUser(internalId, prisma)
       );
-
-      if (!rows.length) return { highest: null, lowest: null };
-      const highest = rows.reduce((a, b) => (a.score > b.score ? a : b));
-      const lowest = rows.reduce((a, b) => (a.score < b.score ? a : b));
-      return { highest, lowest: highest === lowest ? null : lowest };
     },
   });
 
@@ -283,25 +255,15 @@ const getCumulativeScore = (
     execute: async () => {
       const internalId = await getInternalUserId(clerkUserId);
 
+      // Thin adapter over the stats module, reading from the replica
       return await runWithTracing(
         posthog,
         clerkUserId,
         "getCumulativeScore",
         {},
-        async () => {
-          const agg = await prisma.score.aggregate({
-            where: { userId: internalId },
-            _sum: { totalCardsPlayed: true, blitzPileRemaining: true },
-          });
-          const totalCardsPlayed = agg._sum.totalCardsPlayed ?? 0;
-          const blitzPileRemaining = agg._sum.blitzPileRemaining ?? 0;
-          return {
-            totalScore: calculateCumulativeScore({
-              totalCardsPlayed,
-              blitzPileRemaining,
-            }),
-          };
-        }
+        async () => ({
+          totalScore: await getCumulativeScoreForUser(internalId, prisma),
+        })
       );
     },
   });
