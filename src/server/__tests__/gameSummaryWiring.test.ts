@@ -130,4 +130,18 @@ describe("post-game summary wiring", () => {
 
     expect(mockSchedule).toHaveBeenCalledWith("game_1");
   });
+
+  it("does not fail the finish when summary scheduling throws", async () => {
+    mockGameFindUnique.mockResolvedValue({
+      id: "game_1",
+      organizationId: "org_1",
+      isFinished: false,
+      players: [],
+    });
+    mockSchedule.mockRejectedValueOnce(new Error("summary boom"));
+
+    await expect(
+      updateGameAsFinished("game_1", "u1", false)
+    ).resolves.toBeUndefined();
+  });
 });

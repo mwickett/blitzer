@@ -25,16 +25,16 @@ function whereKey(gameId: string) {
   return { gameId_promptVersion: { gameId, promptVersion: PROMPT_VERSION } };
 }
 
-// Enqueue (in-request) owns the pending row via upsert. It resets the retry
-// budget whenever the source hash changes, so new work after a score edit is
-// always sweepable even if the previous hash exhausted its retries.
+// Enqueue (in-request) owns the pending row via upsert. It only runs when the
+// source hash is new (see enqueueGameSummary), so the update path always resets
+// the retry budget — new work after a score edit is sweepable even if the
+// previous hash exhausted its retries.
 async function upsertPending(
   gameId: string,
   organizationId: string | null,
   hash: string,
   sourceUpdatedAt: Date,
-  status: "pending" | "insufficient_data",
-  isNewHash: boolean
+  status: "pending" | "insufficient_data"
 ): Promise<void> {
   await prisma.gameSummary.upsert({
     where: whereKey(gameId),
@@ -51,7 +51,7 @@ async function upsertPending(
       sourceUpdatedAt,
       status,
       error: null,
-      ...(isNewHash ? { retryCount: 0 } : {}),
+      retryCount: 0,
     },
   });
 }
@@ -64,14 +64,21 @@ type RunData =
 // A run only persists its result if the row STILL carries the hash this run
 // generated for. If a newer enqueue (e.g. a mid-generation score edit) changed
 // the hash, this stale result is discarded and the newer pending row survives
-// for its own run / the sweep.
+// for its own run / the sweep. A `failed` write additionally never knocks a
+// `ready` row back — a concurrent run for the same hash may already have
+// succeeded.
 async function writeRunResult(
   gameId: string,
   hash: string,
   data: RunData
 ): Promise<void> {
   await prisma.gameSummary.updateMany({
-    where: { gameId, promptVersion: PROMPT_VERSION, sourceStatsHash: hash },
+    where: {
+      gameId,
+      promptVersion: PROMPT_VERSION,
+      sourceStatsHash: hash,
+      ...(data.status === "failed" ? { status: { not: "ready" as const } } : {}),
+    },
     data,
   });
 }
@@ -90,10 +97,13 @@ export async function enqueueGameSummary(
   const sourceUpdatedAt = latestSourceUpdatedAt(game);
 
   const existing = await prisma.gameSummary.findUnique({ where: whereKey(gameId) });
-  if (existing?.status === "ready" && existing.sourceStatsHash === hash) {
+
+  // The row already reflects the current source state — nothing to schedule.
+  // Whatever its status (ready / pending / failed / insufficient), the sweep
+  // retries any non-ready row, so re-triggering here would only duplicate work.
+  if (existing && existing.sourceStatsHash === hash) {
     return { enqueued: false };
   }
-  const isNewHash = !existing || existing.sourceStatsHash !== hash;
 
   if (
     facts.roundsPlayed < MIN_ROUNDS_FOR_SUMMARY ||
@@ -104,8 +114,7 @@ export async function enqueueGameSummary(
       facts.organizationId,
       hash,
       sourceUpdatedAt,
-      "insufficient_data",
-      isNewHash
+      "insufficient_data"
     );
     return { enqueued: false };
   }
@@ -115,8 +124,7 @@ export async function enqueueGameSummary(
     facts.organizationId,
     hash,
     sourceUpdatedAt,
-    "pending",
-    isNewHash
+    "pending"
   );
   return { enqueued: true };
 }

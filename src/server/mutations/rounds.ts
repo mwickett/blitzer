@@ -63,7 +63,12 @@ async function syncGameCompletionAfterScoreWrite(
   // Reaching here means the game is finished (no-winner and finalize branches
   // returned earlier). A finished game may have been edited, so refresh the
   // recap — hash-gated, so it's a no-op when the scores are unchanged.
-  await scheduleGameSummary(gameId);
+  // Best-effort: a summary failure must never fail the score edit.
+  try {
+    await scheduleGameSummary(gameId);
+  } catch (error) {
+    console.error("[insights] failed to schedule game summary", error);
+  }
 }
 
 // Create new round with scores

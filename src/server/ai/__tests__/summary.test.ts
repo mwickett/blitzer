@@ -145,6 +145,19 @@ describe("enqueueGameSummary", () => {
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 
+  it("does not re-schedule when a pending row already matches the hash", async () => {
+    mockGetGameById.mockResolvedValue(readyGame());
+    mockFindUnique.mockResolvedValue({
+      status: "pending",
+      sourceStatsHash: readyHash,
+    });
+
+    const result = await enqueueGameSummary("game_1");
+
+    expect(result).toEqual({ enqueued: false });
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
   it("resets the retry budget when the hash changes", async () => {
     mockGetGameById.mockResolvedValue(readyGame());
     mockFindUnique.mockResolvedValue({
@@ -203,6 +216,8 @@ describe("runGameSummary", () => {
 
     const call = mockUpdateMany.mock.calls.at(-1)![0];
     expect(call.where.sourceStatsHash).toBe(readyHash);
+    // A failed write must never knock a concurrently-succeeded ready row back.
+    expect(call.where.status).toEqual({ not: "ready" });
     expect(call.data.status).toBe("failed");
     expect(call.data.error).toBe("boom");
   });

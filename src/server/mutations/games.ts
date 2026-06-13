@@ -204,7 +204,12 @@ export async function updateGameAsFinished(
 
   // Generate the post-game recap. Flag-gated; writes a durable pending row now
   // (primary, in-request) and runs the LLM after the response is sent.
-  await scheduleGameSummary(gameId);
+  // Best-effort: a summary failure must never fail the game finish.
+  try {
+    await scheduleGameSummary(gameId);
+  } catch (error) {
+    console.error("[insights] failed to schedule game summary", error);
+  }
 
   // Schedule emails after the response is sent — the platform keeps the
   // runtime alive until the callback resolves (replaces fire-and-forget IIFE).
