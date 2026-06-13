@@ -15,9 +15,8 @@ import {
   cloneGame,
 } from "../mutations";
 import {
-  getAuthenticatedUser,
-  getAuthenticatedUserPrismaId,
-  getAuthenticatedUserWithOrg,
+  requireAuthContext,
+  requireGameInCircle,
 } from "../mutations/common";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
@@ -501,39 +500,95 @@ describe("Game Mutations", () => {
     });
   });
 
-  describe("getAuthenticatedUserWithOrg", () => {
-    it("should return user with orgId when circle is active", async () => {
-      (auth as unknown as jest.Mock).mockResolvedValue({
-        userId: mockUserId,
-        orgId: "org_test123",
-      });
+  describe("requireAuthContext", () => {
+    it("returns org context when a circle is active", async () => {
+      const ctx = await requireAuthContext("org");
 
-      const result = await getAuthenticatedUserWithOrg();
-
-      expect(result.user.userId).toBe(mockUserId);
-      expect(result.orgId).toBe("org_test123");
-      expect(result.posthog).toBeDefined();
+      expect(ctx.user.userId).toBe(mockUserId);
+      expect(ctx.orgId).toBe(mockOrgId);
+      expect(ctx.posthog).toBeDefined();
     });
 
-    it("should throw if user has no active circle", async () => {
+    it("resolves the internal prisma id when required", async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: "prisma-user-id",
+      });
+
+      const ctx = await requireAuthContext("orgWithPrismaId");
+
+      expect(ctx.orgId).toBe(mockOrgId);
+      expect(ctx.prismaUserId).toBe("prisma-user-id");
+    });
+
+    it("does not require a circle for prismaId-only actions", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockUserId,
+        orgId: null,
+      });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: "prisma-user-id",
+      });
+
+      const ctx = await requireAuthContext("prismaId");
+
+      expect(ctx.prismaUserId).toBe("prisma-user-id");
+    });
+
+    it("throws if the prisma user is missing", async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(requireAuthContext("orgWithPrismaId")).rejects.toThrow(
+        "User not found"
+      );
+    });
+
+    it("throws if user has no active circle", async () => {
       (auth as unknown as jest.Mock).mockResolvedValue({
         userId: mockUserId,
         orgId: null,
       });
 
-      await expect(getAuthenticatedUserWithOrg()).rejects.toThrow(
+      await expect(requireAuthContext("org")).rejects.toThrow(
         "No active circle"
       );
     });
 
-    it("should throw if user is not authenticated", async () => {
+    it("throws if user is not authenticated", async () => {
       (auth as unknown as jest.Mock).mockResolvedValue({
         userId: null,
         orgId: null,
       });
 
-      await expect(getAuthenticatedUserWithOrg()).rejects.toThrow(
-        "Unauthorized"
+      await expect(requireAuthContext("user")).rejects.toThrow("Unauthorized");
+    });
+  });
+
+  describe("requireGameInCircle", () => {
+    it("returns the game when it belongs to the active circle", async () => {
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+
+      await expect(
+        requireGameInCircle(mockGameId, mockOrgId)
+      ).resolves.toEqual(mockGame);
+    });
+
+    it("throws when the game does not exist", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(requireGameInCircle(mockGameId, mockOrgId)).rejects.toThrow(
+        "Game not found"
+      );
+    });
+
+    it("throws when the game belongs to another circle", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        id: mockGameId,
+        organizationId: "org_other",
+      });
+
+      await expect(requireGameInCircle(mockGameId, mockOrgId)).rejects.toThrow(
+        "Game does not belong to your active circle"
       );
     });
   });

@@ -3,7 +3,7 @@
 import prisma from "@/server/db/db";
 import { clerkClient } from "@clerk/nextjs/server";
 import { after } from "next/server";
-import { getAuthenticatedUserWithOrg } from "./common";
+import { requireAuthContext, assertGameInCircle } from "./common";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 import { resolvePlayerColor, assignColorsToPlayers } from "@/lib/scoring/colors";
 
@@ -17,13 +17,9 @@ export async function createGame(
   }[],
   winThreshold?: number
 ) {
-  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
-  const currentUser = await prisma.user.findUnique({
-    where: { clerk_user_id: user.userId },
-    select: { id: true },
-  });
-
-  if (!currentUser) throw new Error("User not found");
+  const { user, posthog, orgId, prismaUserId } = await requireAuthContext(
+    "orgWithPrismaId"
+  );
 
   // Validate that non-guest players are members of the active circle
   const regularPlayerIds = users
@@ -72,7 +68,7 @@ export async function createGame(
         const guestUser = await prisma.guestUser.create({
           data: {
             name: player.username,
-            createdById: currentUser.id,
+            createdById: prismaUserId,
             organizationId: orgId,
           },
         });
@@ -153,7 +149,7 @@ export async function updateGameAsFinished(
   winnerId: string,
   isGuestWinner: boolean = false
 ) {
-  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
+  const { user, posthog, orgId } = await requireAuthContext("org");
 
   // Fetch game with all player details
   const game = await prisma.game.findUnique({
@@ -182,11 +178,7 @@ export async function updateGameAsFinished(
     },
   });
 
-  if (!game) throw new Error("Game not found");
-
-  if (game.organizationId !== orgId) {
-    throw new Error("Game does not belong to your active circle");
-  }
+  assertGameInCircle(game, orgId);
 
   // Get winner's details
   let winnerName = "";
@@ -301,14 +293,12 @@ export async function updateGameAsFinished(
 
 // Save user's default accent color preference
 export async function saveUserAccentColor(color: string) {
-  const { user, posthog } = await getAuthenticatedUserWithOrg();
-  const currentUser = await prisma.user.findUnique({
-    where: { clerk_user_id: user.userId },
-  });
-  if (!currentUser) throw new Error("User not found");
+  const { user, posthog, prismaUserId } = await requireAuthContext(
+    "orgWithPrismaId"
+  );
 
   await prisma.user.update({
-    where: { id: currentUser.id },
+    where: { id: prismaUserId },
     data: { accentColor: color },
   });
 
@@ -321,7 +311,7 @@ export async function saveUserAccentColor(color: string) {
 
 // Clone an existing game
 export async function cloneGame(originalGameId: string) {
-  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
+  const { user, posthog, orgId } = await requireAuthContext("org");
 
   // Fetch the original game with its players
   const originalGame = await prisma.game.findUnique({
@@ -337,10 +327,7 @@ export async function cloneGame(originalGameId: string) {
   });
 
   if (!originalGame) throw new Error("Original game not found");
-
-  if (originalGame.organizationId !== orgId) {
-    throw new Error("Game does not belong to your active circle");
-  }
+  assertGameInCircle(originalGame, orgId);
 
   // Start a transaction to ensure consistency
   const newGameId = await prisma.$transaction(async (tx) => {
