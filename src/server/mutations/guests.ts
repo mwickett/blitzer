@@ -1,24 +1,19 @@
 "use server";
 
 import prisma from "@/server/db/db";
-import { getAuthenticatedUserPrismaId, getAuthenticatedUserWithOrg } from "./common";
+import { requireAuthContext } from "./common";
 import { sendGuestInvitationEmail } from "@/server/email";
 
 // Create a guest user
 export async function createGuestUser(name: string) {
-  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
-
-  const prismaUser = await prisma.user.findUnique({
-    where: { clerk_user_id: user.userId },
-    select: { id: true },
-  });
-
-  if (!prismaUser) throw new Error("User not found");
+  const { user, posthog, orgId, prismaUserId } = await requireAuthContext(
+    "orgWithPrismaId"
+  );
 
   const guestUser = await prisma.guestUser.create({
     data: {
       name,
-      createdById: prismaUser.id,
+      createdById: prismaUserId,
       organizationId: orgId,
     },
   });
@@ -34,7 +29,7 @@ export async function createGuestUser(name: string) {
 
 // Get guest users in the active circle
 export async function getCircleGuestUsers() {
-  const { orgId } = await getAuthenticatedUserWithOrg();
+  const { orgId } = await requireAuthContext("org");
 
   const guestUsers = await prisma.guestUser.findMany({
     where: { organizationId: orgId },
@@ -48,9 +43,9 @@ export async function getCircleGuestUsers() {
 export async function inviteGuestUser(guestId: string, email: string) {
   const {
     userId: clerkUserId,
-    id,
+    prismaUserId,
     posthog,
-  } = await getAuthenticatedUserPrismaId();
+  } = await requireAuthContext("prismaId");
 
   // Check if user owns this guest
   const guestUser = await prisma.guestUser.findUnique({
@@ -67,7 +62,7 @@ export async function inviteGuestUser(guestId: string, email: string) {
   });
 
   if (!guestUser) throw new Error("Guest user not found");
-  if (guestUser.createdById !== id)
+  if (guestUser.createdById !== prismaUserId)
     throw new Error("Unauthorized - not the creator of this guest");
 
   const emailResult = await sendGuestInvitationEmail({
