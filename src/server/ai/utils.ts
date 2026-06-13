@@ -1,4 +1,5 @@
 import prisma from "@/server/db/db";
+import { calculateRoundScore } from "@/lib/validation/gameRules";
 
 /**
  * Get game summary for a user
@@ -121,11 +122,10 @@ export async function getUserStats(userId: string) {
   let totalCardsPlayed = 0;
   let totalBlitzRemaining = 0;
 
-  // Calculate total score for each record (totalCardsPlayed - (blitzPileRemaining * 2))
   const calculatedScores = scores.map((score) => {
     return {
       ...score,
-      calculatedScore: score.totalCardsPlayed - score.blitzPileRemaining * 2,
+      calculatedScore: calculateRoundScore(score),
     };
   });
 

@@ -3,6 +3,14 @@ import { z } from "zod";
 import prisma from "@/server/db/db-readonly";
 import PostHogClient from "@/app/posthog";
 import { Prisma } from "@/generated/prisma/client";
+import {
+  calculateRoundScore,
+  calculateCumulativeScore,
+  ROUND_SCORE_SQL,
+} from "@/lib/validation/gameRules";
+
+// Canonical single-round score expression — see ROUND_SCORE_SQL
+const scoreExpr = Prisma.raw(ROUND_SCORE_SQL);
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const MAX_RECENT_GAMES = 50;
@@ -137,7 +145,7 @@ const getUserOverview = (
             totalCardsPlayed += s.totalCardsPlayed;
             totalBlitzRemaining += s.blitzPileRemaining;
             if (s.blitzPileRemaining === 0) totalBlitzes += 1;
-            const calc = s.totalCardsPlayed - s.blitzPileRemaining * 2;
+            const calc = calculateRoundScore(s);
             if (calc > highestScore) highestScore = calc;
             if (calc < lowestScore) lowestScore = calc;
           }
@@ -236,19 +244,19 @@ const getExtremes = (
             blitzPileRemaining: number;
           }>>`
       SELECT
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) as score,
+        ${scoreExpr} as score,
         "totalCardsPlayed",
         "blitzPileRemaining"
       FROM "Score"
       WHERE "userId" = ${internalId}
       AND (
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
-          SELECT MAX("totalCardsPlayed" - ("blitzPileRemaining" * 2))
+        ${scoreExpr} = (
+          SELECT MAX(${scoreExpr})
           FROM "Score" WHERE "userId" = ${internalId}
         )
         OR
-        ("totalCardsPlayed" - ("blitzPileRemaining" * 2)) = (
-          SELECT MIN("totalCardsPlayed" - ("blitzPileRemaining" * 2))
+        ${scoreExpr} = (
+          SELECT MIN(${scoreExpr})
           FROM "Score" WHERE "userId" = ${internalId}
         )
       )`;
@@ -287,7 +295,12 @@ const getCumulativeScore = (
           });
           const totalCardsPlayed = agg._sum.totalCardsPlayed ?? 0;
           const blitzPileRemaining = agg._sum.blitzPileRemaining ?? 0;
-          return { totalScore: totalCardsPlayed - blitzPileRemaining * 2 };
+          return {
+            totalScore: calculateCumulativeScore({
+              totalCardsPlayed,
+              blitzPileRemaining,
+            }),
+          };
         }
       );
     },
@@ -341,7 +354,10 @@ const getTrends = (clerkUserId: string, posthog: ReturnType<typeof PostHogClient
           return {
             periodStart: new Date(r.period).toISOString(),
             rounds,
-            totalScore: totalCards - 2 * totalBlitz,
+            totalScore: calculateCumulativeScore({
+              totalCardsPlayed: totalCards,
+              blitzPileRemaining: totalBlitz,
+            }),
           };
         })
         .reverse();

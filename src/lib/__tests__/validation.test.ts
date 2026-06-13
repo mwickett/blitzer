@@ -5,8 +5,10 @@ import {
   isValidBlitz,
   hasBlitz,
   calculateRoundScore,
+  calculateCumulativeScore,
   isWinningScore,
   GAME_RULES,
+  ROUND_SCORE_SQL,
 } from "../validation/gameRules";
 import { type Score, type ScoreValidation } from "../validation/schema";
 
@@ -129,6 +131,54 @@ describe("Game Rules", () => {
 
       expect(hasBlitz(scoresWithBlitz)).toBe(true);
       expect(hasBlitz(scoresWithoutBlitz)).toBe(false);
+    });
+  });
+
+  describe("Cumulative Scores", () => {
+    it("should compute the cumulative score from summed totals", () => {
+      expect(
+        calculateCumulativeScore({
+          totalCardsPlayed: 100,
+          blitzPileRemaining: 20,
+        })
+      ).toBe(60); // 100 - (20 * 2)
+    });
+
+    it("should equal the sum of per-round scores (the formula is linear)", () => {
+      const rounds = [
+        { blitzPileRemaining: 0, totalCardsPlayed: 12 },
+        { blitzPileRemaining: 3, totalCardsPlayed: 20 },
+        { blitzPileRemaining: 10, totalCardsPlayed: 0 },
+      ];
+
+      const summedPerRound = rounds.reduce(
+        (total, round) => total + calculateRoundScore(round),
+        0
+      );
+      const totals = rounds.reduce(
+        (acc, round) => ({
+          totalCardsPlayed: acc.totalCardsPlayed + round.totalCardsPlayed,
+          blitzPileRemaining:
+            acc.blitzPileRemaining + round.blitzPileRemaining,
+        }),
+        { totalCardsPlayed: 0, blitzPileRemaining: 0 }
+      );
+
+      expect(calculateCumulativeScore(totals)).toBe(summedPerRound);
+    });
+
+    it("should score a perfect blitz run as total cards played", () => {
+      expect(
+        calculateCumulativeScore({ totalCardsPlayed: 42, blitzPileRemaining: 0 })
+      ).toBe(42);
+    });
+  });
+
+  describe("Canonical SQL fragment", () => {
+    it("embeds the blitz penalty multiplier from GAME_RULES", () => {
+      expect(ROUND_SCORE_SQL).toBe(
+        `("totalCardsPlayed" - ("blitzPileRemaining" * ${GAME_RULES.BLITZ_PENALTY_MULTIPLIER}))`
+      );
     });
   });
 });
