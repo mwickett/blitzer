@@ -71,11 +71,11 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
-          <div className="mr-4 flex items-center md:hidden">
+        <div className="container flex h-14 min-w-0 items-center gap-2 sm:gap-3">
+          <div className="flex flex-shrink-0 items-center md:hidden">
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="mr-2">
+                <Button variant="ghost" size="icon">
                   <Menu className="h-5 w-5" />
                   <span className="sr-only">Toggle Menu</span>
                 </Button>
@@ -110,7 +110,10 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
               </SheetContent>
             </Sheet>
           </div>
-          <Link href="/" className="flex items-center mr-6">
+          <Link
+            href="/"
+            className="flex flex-shrink-0 items-center md:mr-4 lg:mr-6"
+          >
             <span className="text-xl font-bold">Blitzer</span>
           </Link>
           <nav className="hidden md:flex items-center space-x-6">
@@ -128,9 +131,9 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
               </Link>
             ))}
           </nav>
-          <div className="flex w-full justify-end items-center gap-4 md:gap-2 lg:gap-4">
+          <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 md:gap-2 lg:gap-4">
             <Show when="signed-in">
-              <div className="max-w-[200px] overflow-hidden md:max-w-none">
+              <div className="min-w-0 max-w-[120px] flex-shrink overflow-hidden sm:max-w-[180px] md:max-w-[220px] lg:max-w-none">
                 <OrganizationSwitcher
                   hidePersonal
                   afterSelectOrganizationUrl="/dashboard"

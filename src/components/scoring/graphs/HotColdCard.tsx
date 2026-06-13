@@ -29,15 +29,18 @@ export function HotColdCard({ players, deltasByRound }: HotColdCardProps) {
       </div>
 
       {/* Round headers */}
-      <div className="flex gap-1 mb-1.5" style={{ marginLeft: 44 }}>
-        {Array.from({ length: roundCount }, (_, i) => (
-          <div
-            key={i}
-            className="flex-1 text-center text-[8px] text-[#8b5e3c] font-medium"
-          >
-            R{i + 1}
-          </div>
-        ))}
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="w-14 md:w-10 flex-shrink-0" aria-hidden="true" />
+        <div className="flex flex-1 gap-1">
+          {Array.from({ length: roundCount }, (_, i) => (
+            <div
+              key={i}
+              className="flex-1 text-center text-xs md:text-[11px] text-[#8b5e3c] font-medium"
+            >
+              R{i + 1}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Player rows */}
@@ -47,7 +50,7 @@ export function HotColdCard({ players, deltasByRound }: HotColdCardProps) {
           return (
             <div key={player.id} className="flex items-center gap-1.5">
               <div
-                className="w-10 text-[10px] font-semibold text-right flex-shrink-0 truncate"
+                className="w-14 md:w-10 text-[13px] md:text-[11px] font-semibold text-right flex-shrink-0 truncate leading-tight"
                 style={{ color: player.color }}
               >
                 {player.name}
@@ -61,7 +64,7 @@ export function HotColdCard({ players, deltasByRound }: HotColdCardProps) {
                   return (
                     <div
                       key={ri}
-                      className="flex-1 h-9 rounded-md flex items-center justify-center text-[10px] font-bold relative"
+                      className="flex-1 h-10 md:h-9 rounded-md flex items-center justify-center text-[13px] md:text-[11px] font-bold relative tabular-nums leading-none"
                       style={{
                         backgroundColor: isNeg
                           ? "#b91c1c"
@@ -75,7 +78,7 @@ export function HotColdCard({ players, deltasByRound }: HotColdCardProps) {
                     >
                       {d > 0 ? `+${d}` : d}
                       {isBest && (
-                        <span className="absolute -top-1 -right-0.5 text-[7px]">
+                        <span className="absolute -top-1 -right-0.5 text-[10px] md:text-[8px]">
                           🔥
                         </span>
                       )}
