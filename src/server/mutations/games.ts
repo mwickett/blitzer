@@ -1,9 +1,10 @@
 "use server";
 
 import prisma from "@/server/db/db";
-import { clerkClient } from "@clerk/nextjs/server";
+import { Prisma } from "@/generated/prisma/client";
 import { after } from "next/server";
 import { getAuthenticatedUserWithOrg } from "./common";
+import { getOrgMemberClerkIds } from "../clerkOrgs";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 import { resolvePlayerColor, assignColorsToPlayers } from "@/lib/scoring/colors";
 
@@ -25,106 +26,85 @@ export async function createGame(
 
   if (!currentUser) throw new Error("User not found");
 
-  // Validate that non-guest players are members of the active circle
   const regularPlayerIds = users
     .filter((u) => !u.isGuest)
     .map((u) => u.id);
 
+  // One lookup serves both membership validation and accent-color defaults
+  const regularPlayers =
+    regularPlayerIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: regularPlayerIds } },
+          select: { id: true, clerk_user_id: true, accentColor: true },
+        })
+      : [];
+
+  // Validate that non-guest players are members of the active circle
   if (regularPlayerIds.length > 0) {
-    const client = await clerkClient();
-    const memberships =
-      await client.organizations.getOrganizationMembershipList({
-        organizationId: orgId,
-      });
+    const memberClerkIds = await getOrgMemberClerkIds(orgId);
 
-    const memberClerkIds = new Set(
-      memberships.data
-        .map((m) => m.publicUserData?.userId)
-        .filter(Boolean)
-    );
-
-    // Look up clerk_user_ids for the submitted player Prisma IDs
-    const players = await prisma.user.findMany({
-      where: { id: { in: regularPlayerIds } },
-      select: { id: true, clerk_user_id: true },
-    });
-
-    for (const player of players) {
+    for (const player of regularPlayers) {
       if (!memberClerkIds.has(player.clerk_user_id)) {
         throw new Error("All players must be members of the active circle");
       }
     }
   }
 
+  // Resolve colors: game override (none at creation) > user default > auto-assign
+  const colorInputs = users.map((u) => {
+    const userDefault = regularPlayers.find((p) => p.id === u.id);
+    return {
+      id: u.id,
+      resolvedColor: u.accentColor ?? resolvePlayerColor({
+        gameColor: null,
+        userDefault: userDefault?.accentColor ?? null,
+      }),
+    };
+  });
+  const playerColors = assignColorsToPlayers(colorInputs);
+
   try {
-    // Step 1: First create a game (with optional custom win threshold)
-    const newGame = await prisma.game.create({
-      data: {
-        organizationId: orgId,
-        ...(winThreshold && winThreshold !== 75 ? { winThreshold } : {}),
-      },
-    });
+    // Game, guests, and players are created atomically so a failure part-way
+    // through can't leave an orphaned game behind
+    const newGame = await prisma.$transaction(async (tx) => {
+      const game = await tx.game.create({
+        data: {
+          organizationId: orgId,
+          ...(winThreshold && winThreshold !== 75 ? { winThreshold } : {}),
+        },
+      });
 
-    // Step 2: Create guest users if needed
-    const guestUserIds = new Map();
-    for (const player of users) {
-      if (player.isGuest && player.username) {
-        const guestUser = await prisma.guestUser.create({
-          data: {
-            name: player.username,
-            createdById: currentUser.id,
-            organizationId: orgId,
-          },
-        });
-        guestUserIds.set(player.id, guestUser.id);
-      }
-    }
-
-    // Step 3: Resolve accent colors for all players
-    // Look up accent color defaults for regular players
-    const playerDefaults = await prisma.user.findMany({
-      where: { id: { in: regularPlayerIds } },
-      select: { id: true, accentColor: true },
-    });
-
-    // Resolve colors: game override (none at creation) > user default > auto-assign
-    const colorInputs = users.map((u) => {
-      const userDefault = playerDefaults.find((p) => p.id === u.id);
-      return {
-        id: u.id,
-        resolvedColor: u.accentColor ?? resolvePlayerColor({
-          gameColor: null,
-          userDefault: userDefault?.accentColor ?? null,
-        }),
-      };
-    });
-    const playerColors = assignColorsToPlayers(colorInputs);
-
-    // Step 4: Add players to the game one by one
-    for (const player of users) {
-      if (player.isGuest) {
-        const dbGuestId = guestUserIds.get(player.id);
-        if (dbGuestId) {
-          // For guest players, omit userId entirely
-          await prisma.gamePlayers.create({
+      // Guests need individual creates to map their temporary client-side
+      // IDs to real rows (createMany does not return rows)
+      const guestDbIds = new Map<string, string>();
+      for (const player of users) {
+        if (player.isGuest && player.username) {
+          const guestUser = await tx.guestUser.create({
             data: {
-              gameId: newGame.id,
-              guestId: dbGuestId,
-              accentColor: playerColors[player.id] ?? null,
+              name: player.username,
+              createdById: currentUser.id,
+              organizationId: orgId,
             },
           });
+          guestDbIds.set(player.id, guestUser.id);
         }
-      } else {
-        // For regular players, omit guestId entirely
-        await prisma.gamePlayers.create({
-          data: {
-            gameId: newGame.id,
-            userId: player.id,
-            accentColor: playerColors[player.id] ?? null,
-          },
-        });
       }
-    }
+
+      const playerRows = users.flatMap(
+        (player): Prisma.GamePlayersCreateManyInput[] => {
+          const accentColor = playerColors[player.id] ?? null;
+          if (player.isGuest) {
+            const guestId = guestDbIds.get(player.id);
+            return guestId ? [{ gameId: game.id, guestId, accentColor }] : [];
+          }
+          return [{ gameId: game.id, userId: player.id, accentColor }];
+        }
+      );
+
+      await tx.gamePlayers.createMany({ data: playerRows });
+
+      return game;
+    });
 
     // Track event in PostHog
     posthog.capture({
