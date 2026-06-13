@@ -26,6 +26,12 @@ interface ScoringShellProps {
   winnerId?: string;
   endedAt?: string;
   rounds: RoundData[];
+  /**
+   * When false, render as a read-only spectator view — for people viewing a
+   * game outside their circle, or via a public shared link. No score entry,
+   * round editing, or rematch.
+   */
+  canEdit?: boolean;
 }
 
 export function ScoringShell({
@@ -37,6 +43,7 @@ export function ScoringShell({
   winnerId,
   endedAt,
   rounds,
+  canEdit = true,
 }: ScoringShellProps) {
   const router = useRouter();
   const posthog = usePostHog();
@@ -96,10 +103,11 @@ export function ScoringShell({
     [router, gameId, startTransition]
   );
 
-  // Derive mode from props + client override
+  // Derive mode from props + client override. Spectators (!canEdit) never see
+  // the score-entry form — they only ever observe betweenRounds / gameOver.
   const mode: ScoringMode = isFinished
     ? "gameOver"
-    : (rounds.length === 0 && !optimisticRound) || showEntry
+    : canEdit && ((rounds.length === 0 && !optimisticRound) || showEntry)
       ? "entry"
       : "betweenRounds";
 
@@ -139,6 +147,16 @@ export function ScoringShell({
     router.push("/games");
   };
 
+  // A spectator on a game that hasn't started yet has nothing to observe —
+  // the graph/standings views assume at least one round of data.
+  if (!canEdit && !isFinished && effectiveRounds.length === 0) {
+    return (
+      <div className="px-4 py-16 text-center text-sm text-[#8b5e3c]">
+        This game hasn&rsquo;t started yet.
+      </div>
+    );
+  }
+
   if (mode === "gameOver") {
     return (
       <>
@@ -157,8 +175,8 @@ export function ScoringShell({
           </div>
         )}
 
-        {/* Inline round editor for finished games */}
-        {editingRoundIndex !== null && editingRoundIndex < effectiveRounds.length && (
+        {/* Inline round editor for finished games — members only */}
+        {canEdit && editingRoundIndex !== null && editingRoundIndex < effectiveRounds.length && (
           <RoundEditor
             roundIndex={editingRoundIndex}
             players={players}
@@ -188,9 +206,10 @@ export function ScoringShell({
             players={effectivePlayers}
             stats={gameStats}
             rounds={effectiveRounds}
-            onEditRound={handleEditRound}
+            onEditRound={canEdit ? handleEditRound : undefined}
             onRematch={handleRematch}
             onBackToCircle={handleBackToCircle}
+            canEdit={canEdit}
           />
         )}
       </>
@@ -206,6 +225,7 @@ export function ScoringShell({
         winThreshold={winThreshold}
         nextRoundNumber={optimisticRound ? currentRoundNumber + 1 : currentRoundNumber}
         onEnterScores={() => setShowEntry(true)}
+        canEdit={canEdit}
       />
     );
   }

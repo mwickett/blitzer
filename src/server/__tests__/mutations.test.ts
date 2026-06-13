@@ -15,9 +15,8 @@ import {
   cloneGame,
 } from "../mutations";
 import {
-  getAuthenticatedUser,
-  getAuthenticatedUserPrismaId,
-  getAuthenticatedUserWithOrg,
+  requireAuthContext,
+  requireGameInCircle,
 } from "../mutations/common";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
@@ -48,9 +47,11 @@ jest.mock("../db/db", () => ({
     },
     guestUser: {
       findUnique: jest.fn(),
+      create: jest.fn(),
     },
     gamePlayers: {
       create: jest.fn(),
+      createMany: jest.fn(),
     },
     $transaction: jest.fn((callback) => Promise.all(callback)),
   },
@@ -453,14 +454,26 @@ describe("Game Mutations", () => {
   });
 
   describe("createGame", () => {
-    it("should create a game with organizationId from active circle", async () => {
+    beforeEach(() => {
+      // Interactive transaction: invoke the callback with the prisma mock as tx
+      (prisma.$transaction as jest.Mock).mockImplementation(
+        async (callback: (tx: typeof prisma) => Promise<unknown>) =>
+          callback(prisma)
+      );
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: "prisma-user-id",
       });
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.game.create as jest.Mock).mockResolvedValue({
         id: "new-game-id",
       });
       (prisma.gamePlayers.create as jest.Mock).mockResolvedValue({});
+      (prisma.gamePlayers.createMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+    });
+
+    it("should create a game with organizationId from active circle", async () => {
       // Mock Clerk membership check — player-2 has clerk ID "clerk-player-2"
       mockGetOrganizationMembershipList.mockResolvedValue({
         data: [
@@ -470,8 +483,8 @@ describe("Game Mutations", () => {
       });
       // Mock Prisma lookup of clerk_user_ids for submitted player IDs
       (prisma.user.findMany as jest.Mock).mockResolvedValue([
-        { id: "prisma-user-id", clerk_user_id: mockUserId },
-        { id: "player-2", clerk_user_id: "clerk-player-2" },
+        { id: "prisma-user-id", clerk_user_id: mockUserId, accentColor: null },
+        { id: "player-2", clerk_user_id: "clerk-player-2", accentColor: null },
       ]);
 
       const players = [
@@ -489,6 +502,89 @@ describe("Game Mutations", () => {
       expect(result).toEqual({ gameId: "new-game-id" });
     });
 
+    it("should add all players in a single batched write", async () => {
+      mockGetOrganizationMembershipList.mockResolvedValue({
+        data: [
+          { publicUserData: { userId: mockUserId } },
+          { publicUserData: { userId: "clerk-player-2" } },
+        ],
+      });
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([
+        { id: "prisma-user-id", clerk_user_id: mockUserId, accentColor: null },
+        { id: "player-2", clerk_user_id: "clerk-player-2", accentColor: null },
+      ]);
+
+      await createGame([
+        { id: "prisma-user-id", username: "TestUser" },
+        { id: "player-2", username: "Player2" },
+      ]);
+
+      expect(prisma.gamePlayers.createMany).toHaveBeenCalledTimes(1);
+      const { data: rows } = (prisma.gamePlayers.createMany as jest.Mock).mock
+        .calls[0][0];
+      expect(rows).toEqual([
+        expect.objectContaining({
+          gameId: "new-game-id",
+          userId: "prisma-user-id",
+        }),
+        expect.objectContaining({ gameId: "new-game-id", userId: "player-2" }),
+      ]);
+      expect(prisma.gamePlayers.create).not.toHaveBeenCalled();
+    });
+
+    it("should create guest players and map them into the batched write", async () => {
+      (prisma.guestUser.create as jest.Mock).mockResolvedValue({
+        id: "guest-db-1",
+      });
+
+      await createGame([
+        { id: "temp-guest-1", username: "Guest Bob", isGuest: true },
+      ]);
+
+      expect(prisma.guestUser.create).toHaveBeenCalledWith({
+        data: {
+          name: "Guest Bob",
+          createdById: "prisma-user-id",
+          organizationId: mockOrgId,
+        },
+      });
+      expect(prisma.gamePlayers.createMany).toHaveBeenCalledTimes(1);
+      const { data: rows } = (prisma.gamePlayers.createMany as jest.Mock).mock
+        .calls[0][0];
+      expect(rows).toEqual([
+        expect.objectContaining({
+          gameId: "new-game-id",
+          guestId: "guest-db-1",
+        }),
+      ]);
+    });
+
+    it("should accept members beyond Clerk's default membership page size (#246)", async () => {
+      // 12-member circle; the selected player is the 12th member. Clerk's
+      // API returns only 10 memberships when no limit is passed.
+      const memberships = Array.from({ length: 12 }, (_, i) => ({
+        publicUserData: { userId: `clerk-member-${i + 1}` },
+      }));
+      mockGetOrganizationMembershipList.mockImplementation(
+        (params?: { limit?: number; offset?: number }) => {
+          const limit = params?.limit ?? 10;
+          const offset = params?.offset ?? 0;
+          return Promise.resolve({
+            data: memberships.slice(offset, offset + limit),
+          });
+        }
+      );
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([
+        { id: "player-12", clerk_user_id: "clerk-member-12", accentColor: null },
+      ]);
+
+      const result = await createGame([
+        { id: "player-12", username: "TwelfthMember" },
+      ]);
+
+      expect(result).toEqual({ gameId: "new-game-id" });
+    });
+
     it("should throw if no active circle", async () => {
       (auth as unknown as jest.Mock).mockResolvedValue({
         userId: mockUserId,
@@ -501,39 +597,95 @@ describe("Game Mutations", () => {
     });
   });
 
-  describe("getAuthenticatedUserWithOrg", () => {
-    it("should return user with orgId when circle is active", async () => {
-      (auth as unknown as jest.Mock).mockResolvedValue({
-        userId: mockUserId,
-        orgId: "org_test123",
-      });
+  describe("requireAuthContext", () => {
+    it("returns org context when a circle is active", async () => {
+      const ctx = await requireAuthContext("org");
 
-      const result = await getAuthenticatedUserWithOrg();
-
-      expect(result.user.userId).toBe(mockUserId);
-      expect(result.orgId).toBe("org_test123");
-      expect(result.posthog).toBeDefined();
+      expect(ctx.user.userId).toBe(mockUserId);
+      expect(ctx.orgId).toBe(mockOrgId);
+      expect(ctx.posthog).toBeDefined();
     });
 
-    it("should throw if user has no active circle", async () => {
+    it("resolves the internal prisma id when required", async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: "prisma-user-id",
+      });
+
+      const ctx = await requireAuthContext("orgWithPrismaId");
+
+      expect(ctx.orgId).toBe(mockOrgId);
+      expect(ctx.prismaUserId).toBe("prisma-user-id");
+    });
+
+    it("does not require a circle for prismaId-only actions", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockUserId,
+        orgId: null,
+      });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: "prisma-user-id",
+      });
+
+      const ctx = await requireAuthContext("prismaId");
+
+      expect(ctx.prismaUserId).toBe("prisma-user-id");
+    });
+
+    it("throws if the prisma user is missing", async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(requireAuthContext("orgWithPrismaId")).rejects.toThrow(
+        "User not found"
+      );
+    });
+
+    it("throws if user has no active circle", async () => {
       (auth as unknown as jest.Mock).mockResolvedValue({
         userId: mockUserId,
         orgId: null,
       });
 
-      await expect(getAuthenticatedUserWithOrg()).rejects.toThrow(
+      await expect(requireAuthContext("org")).rejects.toThrow(
         "No active circle"
       );
     });
 
-    it("should throw if user is not authenticated", async () => {
+    it("throws if user is not authenticated", async () => {
       (auth as unknown as jest.Mock).mockResolvedValue({
         userId: null,
         orgId: null,
       });
 
-      await expect(getAuthenticatedUserWithOrg()).rejects.toThrow(
-        "Unauthorized"
+      await expect(requireAuthContext("user")).rejects.toThrow("Unauthorized");
+    });
+  });
+
+  describe("requireGameInCircle", () => {
+    it("returns the game when it belongs to the active circle", async () => {
+      const mockGame = { id: mockGameId, organizationId: mockOrgId };
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+
+      await expect(
+        requireGameInCircle(mockGameId, mockOrgId)
+      ).resolves.toEqual(mockGame);
+    });
+
+    it("throws when the game does not exist", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(requireGameInCircle(mockGameId, mockOrgId)).rejects.toThrow(
+        "Game not found"
+      );
+    });
+
+    it("throws when the game belongs to another circle", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        id: mockGameId,
+        organizationId: "org_other",
+      });
+
+      await expect(requireGameInCircle(mockGameId, mockOrgId)).rejects.toThrow(
+        "Game does not belong to your active circle"
       );
     });
   });

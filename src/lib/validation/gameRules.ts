@@ -68,6 +68,22 @@ export function calculateRoundScore(score: Score | ScoreValidation): number {
   );
 }
 
+// Cumulative score across many rounds, from pre-summed totals. The formula
+// is linear, so the aggregate form is the per-round form applied to sums —
+// delegating makes that explicit and keeps one owner for the arithmetic.
+export function calculateCumulativeScore(totals: {
+  totalCardsPlayed: number;
+  blitzPileRemaining: number;
+}): number {
+  return calculateRoundScore(totals);
+}
+
+// Canonical SQL expression for a single-round score. Server queries
+// interpolate this with Prisma.raw() instead of re-inlining the formula;
+// it is derived from GAME_RULES so the SQL and TS forms cannot drift.
+// (Plain string on purpose — this module is also imported client-side.)
+export const ROUND_SCORE_SQL = `("totalCardsPlayed" - ("blitzPileRemaining" * ${GAME_RULES.BLITZ_PENALTY_MULTIPLIER}))`;
+
 // Check if score meets winning threshold
 export function isWinningScore(total: number, threshold: number = GAME_RULES.POINTS_TO_WIN): boolean {
   return total >= threshold;

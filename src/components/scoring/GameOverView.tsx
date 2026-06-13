@@ -13,6 +13,8 @@ interface GameOverViewProps {
   onEditRound?: (roundIndex: number) => void;
   onRematch: () => void;
   onBackToCircle: () => void;
+  /** When false, render as a read-only spectator view (no member actions) */
+  canEdit?: boolean;
 }
 
 export function GameOverView({
@@ -23,6 +25,7 @@ export function GameOverView({
   onEditRound,
   onRematch,
   onBackToCircle,
+  canEdit = true,
 }: GameOverViewProps) {
   const posthog = usePostHog();
   const sorted = [...players].sort((a, b) => b.score - a.score);
@@ -157,29 +160,31 @@ export function GameOverView({
         />
       </div>
 
-      {/* Actions */}
-      <div className="px-4 pt-5 pb-6 space-y-2">
-        <button
-          onClick={() => {
-            posthog.capture("game_over_rematch", {
-              player_count: players.length,
-            });
-            onRematch();
-          }}
-          className="w-full py-3.5 rounded-xl text-[15px] font-bold bg-[#290806] text-white hover:bg-[#3d1a0a] transition-colors cursor-pointer"
-        >
-          New Game with Same Players
-        </button>
-        <button
-          onClick={() => {
-            posthog.capture("game_over_back_to_circle");
-            onBackToCircle();
-          }}
-          className="w-full py-3 rounded-xl text-[13px] font-semibold border-[1.5px] border-[#e6d7c3] bg-white text-[#8b5e3c] hover:bg-[#faf5ed] transition-colors cursor-pointer"
-        >
-          Back to Circle
-        </button>
-      </div>
+      {/* Actions — circle members only; spectators get a read-only result */}
+      {canEdit && (
+        <div className="px-4 pt-5 pb-6 space-y-2">
+          <button
+            onClick={() => {
+              posthog.capture("game_over_rematch", {
+                player_count: players.length,
+              });
+              onRematch();
+            }}
+            className="w-full py-3.5 rounded-xl text-[15px] font-bold bg-[#290806] text-white hover:bg-[#3d1a0a] transition-colors cursor-pointer"
+          >
+            New Game with Same Players
+          </button>
+          <button
+            onClick={() => {
+              posthog.capture("game_over_back_to_circle");
+              onBackToCircle();
+            }}
+            className="w-full py-3 rounded-xl text-[13px] font-semibold border-[1.5px] border-[#e6d7c3] bg-white text-[#8b5e3c] hover:bg-[#faf5ed] transition-colors cursor-pointer"
+          >
+            Back to Circle
+          </button>
+        </div>
+      )}
     </div>
   );
 }

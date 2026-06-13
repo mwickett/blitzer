@@ -1,6 +1,12 @@
 import ErrorTestTrigger from "@/components/ErrorTestTrigger";
+import { notFound } from "next/navigation";
 
 export default function ErrorTestPage() {
+  // Error-testing page — never reachable in production
+  if (process.env.NODE_ENV !== "development") {
+    notFound();
+  }
+
   return (
     <div className="container py-8 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Error Tracking Test Page</h1>

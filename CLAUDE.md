@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Blitzer is a companion web app for Dutch Blitz card game players to track scores and analyze gameplay statistics. Built with Next.js, it features user authentication, friend connections, score tracking, and statistical analysis.
+Blitzer is a companion web app for Dutch Blitz card game players to track scores and analyze gameplay statistics. Built with Next.js, it features user authentication, Circles (player groups built on Clerk organizations), score tracking, and statistical analysis.
 
 ## Essential Commands
 
@@ -34,10 +34,10 @@ npm run lint                # Run ESLint
 
 - **User**: Authenticated users (via Clerk)
 - **GuestUser**: Non-authenticated players created by registered users
-- **Game**: A complete Dutch Blitz game session
+- **Game**: A complete Dutch Blitz game session, scoped to a Circle via `organizationId`
 - **Round**: Individual rounds within a game
 - **Score**: Player scores for each round (totalCardsPlayed, blitzPileRemaining)
-- **Friend/FriendRequest**: Social connections between users
+- **OrganizationMembership**: Synced Clerk organization memberships — Circles are Clerk organizations and are the social container for games (the old Friend/FriendRequest system was removed in March 2026)
 
 ### Key Patterns
 
@@ -45,7 +45,7 @@ npm run lint                # Run ESLint
 
 - `games.ts` - Game creation, updates, completion
 - `rounds.ts` - Score entry and round management
-- `friends.ts` - Friend requests and connections
+- `circles.ts` - Circle (Clerk organization) setup and invitations
 - `guests.ts` - Guest user management
 
 **Authentication Flow**: All server actions start with `getAuthenticatedUser()` or `getAuthenticatedUserPrismaId()` from `src/server/mutations/common.ts`

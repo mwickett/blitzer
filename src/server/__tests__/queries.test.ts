@@ -5,6 +5,7 @@ import {
   getPlayerBattingAverage,
   getHighestAndLowestScore,
   getCumulativeScore,
+  getLongestAndShortestGamesByRounds,
 } from "../queries";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
@@ -25,6 +26,9 @@ jest.mock("../db/db", () => {
       count: jest.fn(),
       aggregate: jest.fn(),
     },
+    round: {
+      groupBy: jest.fn(),
+    },
     $queryRaw: jest.fn(),
   };
   return {
@@ -33,13 +37,14 @@ jest.mock("../db/db", () => {
   };
 });
 
-// Mock Prisma.sql template literal tag
+// Mock Prisma.sql template literal tag and Prisma.raw
 jest.mock("@/generated/prisma/client", () => ({
   Prisma: {
     sql: jest.fn((strings, ...values) => ({
       strings,
       values,
     })),
+    raw: jest.fn((value) => ({ raw: value })),
   },
 }));
 
@@ -116,6 +121,9 @@ describe("Queries", () => {
           rounds: {
             include: {
               scores: true,
+            },
+            orderBy: {
+              round: "asc",
             },
           },
         },
@@ -228,16 +236,18 @@ describe("Queries", () => {
     });
 
     describe("getHighestAndLowestScore", () => {
-      it("should return highest and lowest scores", async () => {
-        const mockScores = [
-          { score: 30, totalCardsPlayed: 40, blitzPileRemaining: 5 },
-          { score: 10, totalCardsPlayed: 20, blitzPileRemaining: 5 },
-        ];
-
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue(mockScores);
+      it("should fetch highest and lowest with one LIMIT 1 query each", async () => {
+        (prisma.$queryRaw as jest.Mock)
+          .mockResolvedValueOnce([
+            { score: 30, totalCardsPlayed: 40, blitzPileRemaining: 5 },
+          ])
+          .mockResolvedValueOnce([
+            { score: 10, totalCardsPlayed: 20, blitzPileRemaining: 5 },
+          ]);
 
         const result = await getHighestAndLowestScore();
 
+        expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
         expect(result).toEqual({
           highest: {
             score: 30,
@@ -252,13 +262,15 @@ describe("Queries", () => {
         });
       });
 
-      it("should handle single score case", async () => {
+      it("should report lowest as null when it equals the highest", async () => {
         const mockScore = {
           score: 30,
           totalCardsPlayed: 40,
           blitzPileRemaining: 5,
         };
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([mockScore]);
+        (prisma.$queryRaw as jest.Mock)
+          .mockResolvedValueOnce([mockScore])
+          .mockResolvedValueOnce([mockScore]);
 
         const result = await getHighestAndLowestScore();
 
@@ -273,7 +285,9 @@ describe("Queries", () => {
       });
 
       it("should handle no scores", async () => {
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+        (prisma.$queryRaw as jest.Mock)
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]);
 
         const result = await getHighestAndLowestScore();
 
@@ -281,6 +295,44 @@ describe("Queries", () => {
           highest: null,
           lowest: null,
         });
+      });
+    });
+
+    describe("getLongestAndShortestGamesByRounds", () => {
+      it("should aggregate round counts in the database, not JS", async () => {
+        (prisma.round.groupBy as jest.Mock)
+          .mockResolvedValueOnce([{ gameId: "game-long", _count: { _all: 9 } }])
+          .mockResolvedValueOnce([
+            { gameId: "game-short", _count: { _all: 2 } },
+          ]);
+
+        const result = await getLongestAndShortestGamesByRounds();
+
+        expect(result).toEqual({
+          longest: { id: "game-long", roundCount: 9 },
+          shortest: { id: "game-short", roundCount: 2 },
+        });
+        // Only the user's finished games count
+        expect(prisma.round.groupBy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: {
+              game: {
+                isFinished: true,
+                players: { some: { userId: mockUserId } },
+              },
+            },
+          })
+        );
+      });
+
+      it("should return nulls when the user has no finished games with rounds", async () => {
+        (prisma.round.groupBy as jest.Mock)
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]);
+
+        const result = await getLongestAndShortestGamesByRounds();
+
+        expect(result).toEqual({ longest: null, shortest: null });
       });
     });
 

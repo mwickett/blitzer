@@ -1,43 +1,25 @@
 "use server";
 
 import prisma from "@/server/db/db";
-import { getAuthenticatedUserWithOrg } from "./common";
-import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 import {
-  getGameCompletion,
-  type GameWithPlayersAndScores,
-} from "@/lib/gameLogic";
+  requireAuthContext,
+  requireGameInCircle,
+  type AuthedOrgContext,
+} from "./common";
+import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
+import { getGameCompletion } from "@/lib/gameLogic";
+import { getGameById } from "@/server/queries/games";
 import { updateGameAsFinished } from "./games";
-
-type AuthenticatedContext = Awaited<ReturnType<typeof getAuthenticatedUserWithOrg>>;
-
-async function loadGameForCompletion(gameId: string) {
-  return prisma.game.findUnique({
-    where: { id: gameId },
-    include: {
-      players: {
-        include: {
-          user: true,
-          guestUser: true,
-        },
-      },
-      rounds: {
-        include: { scores: true },
-        orderBy: { round: "asc" },
-      },
-    },
-  });
-}
 
 async function syncGameCompletionAfterScoreWrite(
   gameId: string,
   userId: string,
-  posthog: AuthenticatedContext["posthog"]
+  posthog: AuthedOrgContext["posthog"]
 ) {
-  const updatedGame = await loadGameForCompletion(gameId);
+  const updatedGame = await getGameById(gameId);
   if (!updatedGame) return;
 
-  const completion = getGameCompletion(updatedGame as GameWithPlayersAndScores);
+  const completion = getGameCompletion(updatedGame);
 
   if (!completion.winnerId) {
     if (updatedGame.isFinished) {
@@ -89,20 +71,9 @@ export async function createRoundForGame(
     totalCardsPlayed: number;
   }[]
 ) {
-  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
+  const { user, posthog, orgId } = await requireAuthContext("org");
 
-  const game = await prisma.game.findUnique({
-    where: { id: gameId },
-  });
-
-  if (!game) {
-    throw new Error("Game not found");
-  }
-
-  // Verify game belongs to the active circle
-  if (game.organizationId !== orgId) {
-    throw new Error("Game does not belong to your active circle");
-  }
+  const game = await requireGameInCircle(gameId, orgId);
 
   // Validate scores using centralized validation
   try {
@@ -189,20 +160,9 @@ export async function updateRoundScores(
     totalCardsPlayed: number;
   }[]
 ) {
-  const { user, posthog, orgId } = await getAuthenticatedUserWithOrg();
+  const { user, posthog, orgId } = await requireAuthContext("org");
 
-  // Check if game exists and is not finished
-  const game = await prisma.game.findUnique({
-    where: { id: gameId },
-  });
-
-  if (!game) {
-    throw new Error("Game not found");
-  }
-
-  if (game.organizationId !== orgId) {
-    throw new Error("Game does not belong to your active circle");
-  }
+  await requireGameInCircle(gameId, orgId);
 
   // Finished games are still editable — if an edit drops all players
   // below the threshold, the game will be reopened (see below).

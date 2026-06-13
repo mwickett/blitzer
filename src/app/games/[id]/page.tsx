@@ -1,10 +1,7 @@
-import ScoreEntry from "./scoreEntry";
-import ScoreDisplay from "./scoreDisplay";
 import { ScoringShell } from "@/components/scoring/ScoringShell";
 import { getGameById } from "@/server/queries";
 import { notFound } from "next/navigation";
 import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
-import { isFeatureEnabled } from "@/featureFlags";
 import {
   resolvePlayerColor,
   assignColorsToPlayers,
@@ -17,61 +14,23 @@ export default async function GameView(props: {
   const params = await props.params;
 
   // Parallelize independent async calls — they don't depend on each other
-  const [gameData, { userId, orgId }, useScoringRevamp] = await Promise.all([
+  const [gameData, { userId, orgId }] = await Promise.all([
     getGameById(params.id),
     auth(),
-    isFeatureEnabled("scoring-revamp"),
   ]);
 
   if (!gameData) {
     notFound();
   }
 
-  // Validate that game data is properly formed
-  if (!gameData.players || !Array.isArray(gameData.players)) {
-    throw new Error("Game data is malformed: players array is missing");
-  }
+  // The query layer guarantees this shape — no per-request adaptation needed
+  const game: GameWithPlayersAndScores = gameData;
 
-  // Check for any null/undefined players
-  const validPlayers = gameData.players.filter(
-    (player) => player !== null && player !== undefined
-  );
-  if (validPlayers.length !== gameData.players.length) {
-    console.warn(
-      "Some players in the game are null or undefined, filtering them out"
-    );
-    gameData.players = validPlayers;
-  }
+  const displayScores = transformGameData(game);
 
-  // Adapt the database model to match our application interface
-  // This converts 'null' values to 'undefined' for optional properties
-  const game: GameWithPlayersAndScores = {
-    ...gameData,
-    players: gameData.players.map((player) => ({
-      ...player,
-      id: player.id || "",
-      gameId: player.gameId,
-      userId: player.userId || undefined,
-      guestId: player.guestId || undefined,
-      accentColor: player.accentColor ?? undefined,
-      user: player.user || undefined,
-      guestUser: player.guestUser || undefined,
-    })),
-  };
-
-  // Ensure each player has a valid ID
-  for (const player of game.players) {
-    if (!player.id && !player.userId && !player.guestId) {
-      console.warn("Player is missing an ID, assigning a temporary one");
-      player.id = `temp-${crypto.randomUUID()}`;
-    }
-  }
-
-  const displayScores = await transformGameData(game);
-
-  // Derive isFinished from transformGameData result: it may have just
-  // detected a winner and updated the DB, but game.isFinished was read
-  // before that update, so use the display scores as source of truth.
+  // Completion is synced when scores are written, but a winner can still be
+  // derived from the loaded rounds before the snapshot reflects it — trust
+  // the computed scores over the isFinished flag we read.
   const isFinished = game.isFinished || displayScores.some((s) => s.isWinner);
 
   // calculate the current round number
@@ -103,20 +62,11 @@ export default async function GameView(props: {
       score: ds.total,
     };
   });
-  const isAuthenticated = !!userId;
-
-  // ScoreEntry is only visible to circle members for non-finished games
-  const canEnterScores =
-    isAuthenticated &&
-    !isFinished &&
-    !!game.organizationId &&
-    game.organizationId === orgId;
-
-  // Circle members can view the scoring shell (including game over state)
-  const canViewScoringShell =
-    isAuthenticated &&
-    !!game.organizationId &&
-    game.organizationId === orgId;
+  // Circle members (authenticated + same active circle) can enter scores and
+  // edit rounds. Everyone else — non-members, public shared links — gets a
+  // read-only spectator view of the same scoring UI.
+  const isCircleMember =
+    !!userId && !!game.organizationId && game.organizationId === orgId;
 
   return (
     <section className="py-6">
@@ -125,46 +75,25 @@ export default async function GameView(props: {
           Playing to {game.winThreshold} points
         </p>
       )}
-      {!(useScoringRevamp && canViewScoringShell) && (
-        <ScoreDisplay
-          displayScores={displayScores}
-          numRounds={game.rounds.length}
-          gameId={game.id}
-          isFinished={isFinished}
-        />
-      )}
-      {useScoringRevamp ? (
-        <>
-          {canViewScoringShell && (
-            <ScoringShell
-              gameId={game.id}
-              currentRoundNumber={currentRoundNumber}
-              players={scoringPlayers}
-              winThreshold={game.winThreshold}
-              isFinished={isFinished}
-              winnerId={displayScores.find((s) => s.isWinner)?.id}
-              endedAt={game.endedAt?.toISOString()}
-              rounds={game.rounds.map((r) => ({
-                id: r.id,
-                scores: r.scores.map((s) => ({
-                  userId: s.userId,
-                  guestId: s.guestId,
-                  blitzPileRemaining: s.blitzPileRemaining,
-                  totalCardsPlayed: s.totalCardsPlayed,
-                })),
-              }))}
-            />
-          )}
-        </>
-      ) : (
-        canEnterScores && (
-          <ScoreEntry
-            game={game}
-            currentRoundNumber={currentRoundNumber}
-            displayScores={displayScores}
-          />
-        )
-      )}
+      <ScoringShell
+        gameId={game.id}
+        currentRoundNumber={currentRoundNumber}
+        players={scoringPlayers}
+        winThreshold={game.winThreshold}
+        isFinished={isFinished}
+        winnerId={displayScores.find((s) => s.isWinner)?.id}
+        endedAt={game.endedAt?.toISOString()}
+        canEdit={isCircleMember}
+        rounds={game.rounds.map((r) => ({
+          id: r.id,
+          scores: r.scores.map((s) => ({
+            userId: s.userId,
+            guestId: s.guestId,
+            blitzPileRemaining: s.blitzPileRemaining,
+            totalCardsPlayed: s.totalCardsPlayed,
+          })),
+        }))}
+      />
     </section>
   );
 }
