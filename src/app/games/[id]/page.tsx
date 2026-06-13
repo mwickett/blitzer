@@ -27,51 +27,14 @@ export default async function GameView(props: {
     notFound();
   }
 
-  // Validate that game data is properly formed
-  if (!gameData.players || !Array.isArray(gameData.players)) {
-    throw new Error("Game data is malformed: players array is missing");
-  }
+  // The query layer guarantees this shape — no per-request adaptation needed
+  const game: GameWithPlayersAndScores = gameData;
 
-  // Check for any null/undefined players
-  const validPlayers = gameData.players.filter(
-    (player) => player !== null && player !== undefined
-  );
-  if (validPlayers.length !== gameData.players.length) {
-    console.warn(
-      "Some players in the game are null or undefined, filtering them out"
-    );
-    gameData.players = validPlayers;
-  }
+  const displayScores = transformGameData(game);
 
-  // Adapt the database model to match our application interface
-  // This converts 'null' values to 'undefined' for optional properties
-  const game: GameWithPlayersAndScores = {
-    ...gameData,
-    players: gameData.players.map((player) => ({
-      ...player,
-      id: player.id || "",
-      gameId: player.gameId,
-      userId: player.userId || undefined,
-      guestId: player.guestId || undefined,
-      accentColor: player.accentColor ?? undefined,
-      user: player.user || undefined,
-      guestUser: player.guestUser || undefined,
-    })),
-  };
-
-  // Ensure each player has a valid ID
-  for (const player of game.players) {
-    if (!player.id && !player.userId && !player.guestId) {
-      console.warn("Player is missing an ID, assigning a temporary one");
-      player.id = `temp-${crypto.randomUUID()}`;
-    }
-  }
-
-  const displayScores = await transformGameData(game);
-
-  // Derive isFinished from transformGameData result: it may have just
-  // detected a winner and updated the DB, but game.isFinished was read
-  // before that update, so use the display scores as source of truth.
+  // Completion is synced when scores are written, but a winner can still be
+  // derived from the loaded rounds before the snapshot reflects it — trust
+  // the computed scores over the isFinished flag we read.
   const isFinished = game.isFinished || displayScores.some((s) => s.isWinner);
 
   // calculate the current round number

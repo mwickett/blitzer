@@ -122,6 +122,9 @@ describe("Queries", () => {
             include: {
               scores: true,
             },
+            orderBy: {
+              round: "asc",
+            },
           },
         },
       });
