@@ -67,14 +67,14 @@ export function WinProbabilityCard({
           return (
             <div key={player.id} className="flex items-center gap-2">
               <div
-                className="w-10 text-[10px] font-semibold text-right flex-shrink-0"
+                className="w-14 md:w-10 text-[13px] md:text-[11px] font-semibold text-right flex-shrink-0 truncate leading-tight"
                 style={{ color: player.color }}
               >
                 {player.name}
               </div>
-              <div className="flex-1 h-6 bg-[#f0e6d2] rounded-full overflow-hidden">
+              <div className="flex-1 h-7 md:h-6 bg-[#f0e6d2] rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full flex items-center justify-end pr-2 text-[10px] font-bold text-white min-w-[28px]"
+                  className="h-full rounded-full flex items-center justify-end pr-2 text-[13px] md:text-[11px] font-bold text-white min-w-[34px] md:min-w-[28px] tabular-nums"
                   style={{
                     width: `${Math.max(pct, 8)}%`,
                     backgroundColor: player.color,
@@ -90,10 +90,10 @@ export function WinProbabilityCard({
 
       {/* Projected finish */}
       <div className="mt-3 pt-3 border-t border-[#f0e6d2]">
-        <div className="text-[9px] font-semibold text-[#8b5e3c] mb-2">
+        <div className="text-xs md:text-[11px] font-semibold text-[#8b5e3c] mb-2">
           Projected finish
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 md:gap-3">
           {sorted
             .filter((p) => (probabilities[p.id] ?? 0) > 0)
             .map((player) => {
@@ -105,12 +105,14 @@ export function WinProbabilityCard({
               return (
                 <div key={player.id} className="text-center">
                   <div
-                    className="text-lg font-extrabold"
+                    className="text-xl md:text-lg font-extrabold"
                     style={{ color: player.color }}
                   >
                     ~R{round === Infinity ? "∞" : round}
                   </div>
-                  <div className="text-[8px] text-[#8b5e3c]">
+                  <div
+                    className="text-[13px] md:text-[11px] text-[#8b5e3c] max-w-16 truncate"
+                  >
                     {player.name}
                   </div>
                 </div>
@@ -119,7 +121,7 @@ export function WinProbabilityCard({
         </div>
       </div>
 
-      <div className="text-[8px] text-[#8b5e3c] text-center mt-2 italic">
+      <div className="text-xs md:text-[11px] text-[#8b5e3c] text-center mt-2 italic">
         Monte Carlo simulation · accounts for pace &amp; variance
       </div>
     </div>
