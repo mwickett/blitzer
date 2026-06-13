@@ -100,11 +100,8 @@ export default async function GameView(props: {
           })),
         }))}
       />
-      {isFinished && showInsights && (
-        <GameSummaryCard
-          status={summary?.status ?? "pending"}
-          content={summary?.content ?? null}
-        />
+      {isFinished && showInsights && summary && (
+        <GameSummaryCard status={summary.status} content={summary.content} />
       )}
     </section>
   );

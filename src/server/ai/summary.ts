@@ -21,25 +21,20 @@ import { generateSummaryText, CLAUDE_SUMMARY_MODEL } from "./claude";
 
 const MAX_RETRIES = 5;
 
-type SummaryStatus = "pending" | "ready" | "failed" | "insufficient_data";
-
 function whereKey(gameId: string) {
   return { gameId_promptVersion: { gameId, promptVersion: PROMPT_VERSION } };
 }
 
-type UpsertExtra = {
-  status: SummaryStatus;
-  content?: string;
-  model?: string;
-  tokensUsed?: number;
-};
-
-async function upsertSummary(
+// Enqueue (in-request) owns the pending row via upsert. It resets the retry
+// budget whenever the source hash changes, so new work after a score edit is
+// always sweepable even if the previous hash exhausted its retries.
+async function upsertPending(
   gameId: string,
   organizationId: string | null,
   hash: string,
   sourceUpdatedAt: Date,
-  extra: UpsertExtra
+  status: "pending" | "insufficient_data",
+  isNewHash: boolean
 ): Promise<void> {
   await prisma.gameSummary.upsert({
     where: whereKey(gameId),
@@ -49,15 +44,41 @@ async function upsertSummary(
       promptVersion: PROMPT_VERSION,
       sourceStatsHash: hash,
       sourceUpdatedAt,
-      ...extra,
+      status,
     },
-    update: { sourceStatsHash: hash, sourceUpdatedAt, error: null, ...extra },
+    update: {
+      sourceStatsHash: hash,
+      sourceUpdatedAt,
+      status,
+      error: null,
+      ...(isNewHash ? { retryCount: 0 } : {}),
+    },
+  });
+}
+
+type RunData =
+  | { status: "ready"; content: string; model: string; tokensUsed: number; error: null }
+  | { status: "failed"; error: string; retryCount: { increment: number } }
+  | { status: "insufficient_data"; error: null };
+
+// A run only persists its result if the row STILL carries the hash this run
+// generated for. If a newer enqueue (e.g. a mid-generation score edit) changed
+// the hash, this stale result is discarded and the newer pending row survives
+// for its own run / the sweep.
+async function writeRunResult(
+  gameId: string,
+  hash: string,
+  data: RunData
+): Promise<void> {
+  await prisma.gameSummary.updateMany({
+    where: { gameId, promptVersion: PROMPT_VERSION, sourceStatsHash: hash },
+    data,
   });
 }
 
 // Synchronous, in-request, primary DB. Guarantees a durable row exists before
-// the response returns, so the sweep can always find work. Returns
-// { enqueued: true } only when an LLM run is actually needed.
+// the response returns. Returns { enqueued: true } only when an LLM run is
+// actually needed.
 export async function enqueueGameSummary(
   gameId: string
 ): Promise<{ enqueued: boolean }> {
@@ -72,32 +93,43 @@ export async function enqueueGameSummary(
   if (existing?.status === "ready" && existing.sourceStatsHash === hash) {
     return { enqueued: false };
   }
+  const isNewHash = !existing || existing.sourceStatsHash !== hash;
 
   if (
     facts.roundsPlayed < MIN_ROUNDS_FOR_SUMMARY ||
     facts.playerCount < MIN_PLAYERS_FOR_SUMMARY
   ) {
-    await upsertSummary(gameId, facts.organizationId, hash, sourceUpdatedAt, {
-      status: "insufficient_data",
-    });
+    await upsertPending(
+      gameId,
+      facts.organizationId,
+      hash,
+      sourceUpdatedAt,
+      "insufficient_data",
+      isNewHash
+    );
     return { enqueued: false };
   }
 
-  await upsertSummary(gameId, facts.organizationId, hash, sourceUpdatedAt, {
-    status: "pending",
-  });
+  await upsertPending(
+    gameId,
+    facts.organizationId,
+    hash,
+    sourceUpdatedAt,
+    "pending",
+    isNewHash
+  );
   return { enqueued: true };
 }
 
-// The LLM call. Idempotent (re-checks ready + hash before spending tokens) so
-// it is safe to call from both the after() hook and the retry sweep.
+// The LLM call. Idempotent (skips when a ready summary already matches the
+// hash) and race-safe (terminal writes are conditional on the hash). Safe to
+// call from both the after() hook and the retry sweep.
 export async function runGameSummary(gameId: string): Promise<void> {
   const game = (await getGameById(gameId)) as GameWithPlayersAndScores | null;
   if (!game) return;
 
   const { facts, playerNames } = buildGameRecap(game);
   const hash = hashRecapFacts(facts);
-  const sourceUpdatedAt = latestSourceUpdatedAt(game);
 
   const existing = await prisma.gameSummary.findUnique({ where: whereKey(gameId) });
   if (existing?.status === "ready" && existing.sourceStatsHash === hash) return;
@@ -106,8 +138,9 @@ export async function runGameSummary(gameId: string): Promise<void> {
     facts.roundsPlayed < MIN_ROUNDS_FOR_SUMMARY ||
     facts.playerCount < MIN_PLAYERS_FOR_SUMMARY
   ) {
-    await upsertSummary(gameId, facts.organizationId, hash, sourceUpdatedAt, {
+    await writeRunResult(gameId, hash, {
       status: "insufficient_data",
+      error: null,
     });
     return;
   }
@@ -128,20 +161,18 @@ export async function runGameSummary(gameId: string): Promise<void> {
       );
     }
 
-    await upsertSummary(gameId, facts.organizationId, hash, sourceUpdatedAt, {
+    await writeRunResult(gameId, hash, {
       status: "ready",
       content: rehydrateNames(text, nameMap),
       model: CLAUDE_SUMMARY_MODEL,
       tokensUsed,
+      error: null,
     });
   } catch (err) {
-    await prisma.gameSummary.update({
-      where: whereKey(gameId),
-      data: {
-        status: "failed",
-        error: err instanceof Error ? err.message : String(err),
-        retryCount: { increment: 1 },
-      },
+    await writeRunResult(gameId, hash, {
+      status: "failed",
+      error: err instanceof Error ? err.message : String(err),
+      retryCount: { increment: 1 },
     });
   }
 }

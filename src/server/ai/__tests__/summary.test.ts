@@ -1,6 +1,6 @@
 const mockFindUnique = jest.fn();
 const mockUpsert = jest.fn();
-const mockUpdate = jest.fn();
+const mockUpdateMany = jest.fn();
 const mockFindMany = jest.fn();
 jest.mock("@/server/db/db", () => ({
   __esModule: true,
@@ -8,7 +8,7 @@ jest.mock("@/server/db/db", () => ({
     gameSummary: {
       findUnique: (...a: unknown[]) => mockFindUnique(...a),
       upsert: (...a: unknown[]) => mockUpsert(...a),
-      update: (...a: unknown[]) => mockUpdate(...a),
+      updateMany: (...a: unknown[]) => mockUpdateMany(...a),
       findMany: (...a: unknown[]) => mockFindMany(...a),
     },
   },
@@ -111,7 +111,7 @@ const readyHash = hashRecapFacts(buildGameRecap(readyGame()).facts);
 beforeEach(() => {
   mockFindUnique.mockReset();
   mockUpsert.mockReset().mockResolvedValue({});
-  mockUpdate.mockReset().mockResolvedValue({});
+  mockUpdateMany.mockReset().mockResolvedValue({ count: 1 });
   mockFindMany.mockReset();
   mockGetGameById.mockReset();
   mockGenerate.mockReset();
@@ -145,6 +145,19 @@ describe("enqueueGameSummary", () => {
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 
+  it("resets the retry budget when the hash changes", async () => {
+    mockGetGameById.mockResolvedValue(readyGame());
+    mockFindUnique.mockResolvedValue({
+      status: "failed",
+      sourceStatsHash: "OLD_HASH",
+      retryCount: 5,
+    });
+
+    await enqueueGameSummary("game_1");
+
+    expect(mockUpsert.mock.calls.at(-1)![0].update.retryCount).toBe(0);
+  });
+
   it("marks insufficient_data for a 1-round game", async () => {
     const g = readyGame();
     g.rounds = [g.rounds[0]];
@@ -161,7 +174,7 @@ describe("enqueueGameSummary", () => {
 });
 
 describe("runGameSummary", () => {
-  it("writes a ready summary with rehydrated real names", async () => {
+  it("writes ready via a hash-conditional update with rehydrated names", async () => {
     mockGetGameById.mockResolvedValue(readyGame());
     mockFindUnique.mockResolvedValue({ status: "pending", sourceStatsHash: readyHash });
     mockGenerate.mockResolvedValue({
@@ -171,25 +184,27 @@ describe("runGameSummary", () => {
 
     await runGameSummary("game_1");
 
-    const ready = mockUpsert.mock.calls.find((c) => c[0].update.status === "ready");
-    expect(ready).toBeDefined();
-    expect(ready![0].update.content).toBe("Mike edged Sarah.");
-    expect(ready![0].update.model).toBe("claude-opus-4-8");
-    expect(ready![0].update.tokensUsed).toBe(42);
+    const call = mockUpdateMany.mock.calls.at(-1)![0];
+    // Conditional on the hash this run generated for — guards against a stale
+    // run overwriting newer work.
+    expect(call.where.sourceStatsHash).toBe(readyHash);
+    expect(call.data.status).toBe("ready");
+    expect(call.data.content).toBe("Mike edged Sarah.");
+    expect(call.data.model).toBe("claude-opus-4-8");
+    expect(call.data.tokensUsed).toBe(42);
   });
 
-  it("records failed status when the LLM throws", async () => {
+  it("records failed status (hash-conditional) when the LLM throws", async () => {
     mockGetGameById.mockResolvedValue(readyGame());
     mockFindUnique.mockResolvedValue({ status: "pending", sourceStatsHash: readyHash });
     mockGenerate.mockRejectedValue(new Error("boom"));
 
     await runGameSummary("game_1");
 
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ status: "failed", error: "boom" }),
-      })
-    );
+    const call = mockUpdateMany.mock.calls.at(-1)![0];
+    expect(call.where.sourceStatsHash).toBe(readyHash);
+    expect(call.data.status).toBe("failed");
+    expect(call.data.error).toBe("boom");
   });
 });
 

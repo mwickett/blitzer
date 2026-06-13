@@ -35,8 +35,10 @@ export function pseudonymizeRecap(
   facts.standings.forEach((s, i) => {
     keyToPseudo[s.playerKey] = `Player ${ALPHABET[i] ?? String(i)}`;
   });
+  // Never fall back to a raw playerKey — if a fact somehow references a player
+  // outside standings, emit a neutral label instead of leaking an internal id.
   const px = (key: string | null): string | null =>
-    key == null ? null : keyToPseudo[key] ?? key;
+    key == null ? null : keyToPseudo[key] ?? "another player";
 
   const promptFacts: PromptFacts = {
     winThreshold: facts.winThreshold,

@@ -2,6 +2,7 @@ import {
   buildGameRecap,
   latestSourceUpdatedAt,
 } from "@/lib/insights/gameRecap";
+import { hashRecapFacts } from "@/lib/insights/recapHash";
 import type { GameWithPlayersAndScores } from "@/lib/gameLogic";
 
 type ScoreInput = { key: string; cards: number; blitz: number };
@@ -109,6 +110,35 @@ describe("buildGameRecap", () => {
     expect(facts.winnerKey).toBe("u2");
     expect(facts.standings[0].playerKey).toBe("u2");
     expect(facts.tiebreakUsed).toBe(true);
+  });
+
+  it("produces an order-independent hash and tied biggest round", () => {
+    // Round 1 is a tie (both 12); the biggest round must resolve to the lowest
+    // playerKey (u1) no matter what order the DB returns players/scores in.
+    const r1: { key: string; cards: number; blitz: number }[] = [
+      { key: "u1", cards: 12, blitz: 0 },
+      { key: "u2", cards: 14, blitz: 1 },
+    ];
+    const r2: { key: string; cards: number; blitz: number }[] = [
+      { key: "u1", cards: 10, blitz: 1 },
+      { key: "u2", cards: 8, blitz: 0 },
+    ];
+    const forward = buildGameRecap(
+      makeGame(75, { u1: "Mike", u2: "Sarah" }, [r1, r2])
+    ).facts;
+    const reversed = buildGameRecap(
+      makeGame(75, { u2: "Sarah", u1: "Mike" }, [
+        [...r1].reverse(),
+        [...r2].reverse(),
+      ])
+    ).facts;
+
+    expect(forward.biggestRound).toEqual({
+      delta: 12,
+      playerKey: "u1",
+      roundNumber: 1,
+    });
+    expect(hashRecapFacts(forward)).toBe(hashRecapFacts(reversed));
   });
 });
 

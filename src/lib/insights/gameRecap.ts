@@ -41,18 +41,23 @@ export interface BuiltRecap {
 export function buildGameRecap(game: GameWithPlayersAndScores): BuiltRecap {
   const display = transformGameData(game);
 
+  // Insert keys in sorted order so calcGameStats — which keeps the first of any
+  // tied biggest/worst round — is deterministic regardless of the DB's player
+  // ordering, keeping the recap hash stable.
+  const sortedKeys = display.map((d) => d.id).sort();
+  const nameByKey = new Map(display.map((d) => [d.id, d.username]));
   const playerNames: Record<string, string> = {};
   const identityNames: Record<string, string> = {};
-  for (const d of display) {
-    playerNames[d.id] = d.username;
-    identityNames[d.id] = d.id; // feed playerKeys as "names" so stats are keyed
+  for (const key of sortedKeys) {
+    playerNames[key] = nameByKey.get(key) ?? key;
+    identityNames[key] = key; // feed playerKeys as "names" so stats are keyed
   }
 
   // Per-round deltas + blitz counts, keyed by playerKey.
   const rounds: RoundResult[] = game.rounds.map((round) => {
     const deltas: Record<string, number> = {};
     const blitzCounts: Record<string, number> = {};
-    for (const id of Object.keys(identityNames)) {
+    for (const id of sortedKeys) {
       deltas[id] = 0;
       blitzCounts[id] = 0;
     }
