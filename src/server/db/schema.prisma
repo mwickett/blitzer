@@ -80,6 +80,7 @@ model Score {
 
   @@index([userId])
   @@index([guestId])
+  @@index([roundId])
 }
 
 model GamePlayers {
