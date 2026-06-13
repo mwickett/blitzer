@@ -44,7 +44,7 @@ describe("isFeatureEnabled (#200 — server-side flag caching)", () => {
 
     await isFeatureEnabled("llm-features");
     await isFeatureEnabled("llm-features");
-    await isFeatureEnabled("scoring-revamp");
+    await isFeatureEnabled("another-flag");
 
     expect(mockGetAllFlags).toHaveBeenCalledTimes(1);
     expect(mockCurrentUser).toHaveBeenCalledTimes(1);

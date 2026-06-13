@@ -73,7 +73,7 @@ npm run lint                # Run ESLint
 
 - Server: `isFeatureEnabled()` from `src/featureFlags.ts`
 - Client: `useFeatureFlag()` from `src/hooks/useFeatureFlag.ts`
-- Active flags: `llm-features` (controls Insights nav link visibility), `scoring-revamp` (new scoring shell on the game page)
+- Active flag: `llm-features` (controls Insights nav link visibility)
 
 **Analytics & Error Tracking**:
 
