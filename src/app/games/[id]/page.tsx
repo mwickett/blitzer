@@ -1,5 +1,5 @@
 import { ScoringShell } from "@/components/scoring/ScoringShell";
-import { getGameById } from "@/server/queries";
+import { getGameById, getGameSummary } from "@/server/queries";
 import { notFound } from "next/navigation";
 import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
 import {
@@ -7,6 +7,8 @@ import {
   assignColorsToPlayers,
 } from "@/lib/scoring/colors";
 import { auth } from "@clerk/nextjs/server";
+import { isLlmFeaturesEnabled } from "@/featureFlags";
+import { GameSummaryCard } from "@/components/insights/GameSummaryCard";
 
 export default async function GameView(props: {
   params: Promise<{ id: string }>;
@@ -14,10 +16,14 @@ export default async function GameView(props: {
   const params = await props.params;
 
   // Parallelize independent async calls — they don't depend on each other
-  const [gameData, { userId, orgId }] = await Promise.all([
-    getGameById(params.id),
-    auth(),
-  ]);
+  const [gameData, { userId, orgId }, summary, showInsights] = await Promise.all(
+    [
+      getGameById(params.id),
+      auth(),
+      getGameSummary(params.id),
+      isLlmFeaturesEnabled(),
+    ]
+  );
 
   if (!gameData) {
     notFound();
@@ -94,6 +100,12 @@ export default async function GameView(props: {
           })),
         }))}
       />
+      {isFinished && showInsights && (
+        <GameSummaryCard
+          status={summary?.status ?? "pending"}
+          content={summary?.content ?? null}
+        />
+      )}
     </section>
   );
 }
