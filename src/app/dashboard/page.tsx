@@ -1,26 +1,15 @@
 import { Suspense } from "react";
-import {
-  getPlayerBattingAverage,
-  getHighestAndLowestScore,
-  getCumulativeScore,
-  getLongestAndShortestGamesByRounds,
-} from "@/server/queries";
+import { getDashboardStats } from "@/server/queries";
 import BasicStatBlock from "@/components/BasicStatBlock";
 import InviteBannerSection from "./_components/InviteBannerSection";
 
 export default async function Dashboard() {
-  // The four stats are independent — fetch them in parallel
-  const [
+  const {
     battingAverage,
-    { highest, lowest },
+    scoreExtremes: { highest, lowest },
     cumulativeScore,
-    { longest, shortest },
-  ] = await Promise.all([
-    getPlayerBattingAverage(),
-    getHighestAndLowestScore(),
-    getCumulativeScore(),
-    getLongestAndShortestGamesByRounds(),
-  ]);
+    gameRoundExtremes: { longest, shortest },
+  } = await getDashboardStats();
 
   return (
     <section className="border-zinc-500 p-5">
