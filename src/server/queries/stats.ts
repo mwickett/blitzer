@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
+import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { getUserIdFromAuth } from "@/server/utils";
 import {
@@ -11,26 +11,39 @@ import {
 // Canonical single-round score expression — see ROUND_SCORE_SQL
 const scoreExpr = Prisma.raw(ROUND_SCORE_SQL);
 
+// The ...ForUser variants take an explicit internal user id and an optional
+// Prisma client, so callers that already resolved the user — or that read
+// from the replica, like the AI tool layer — don't repeat the lookup. The
+// zero-arg exports resolve the authenticated user and delegate.
+
+type Db = PrismaClient | typeof prisma;
+
+type ScoreExtreme = {
+  score: number;
+  totalCardsPlayed: number;
+  blitzPileRemaining: number;
+};
+
 // Batting average
 // Fetch players total rounds and rounds won
 // This assumes that only one player blitzed per round (edge case)
-// Maybe move this to some kind of computed property on the user model?
-// https://www.prisma.io/docs/orm/prisma-client/queries/computed-fields
-export async function getPlayerBattingAverage() {
-  const id = await getUserIdFromAuth();
-
-  const totalHandsPlayed = await prisma.score.count({
-    where: {
-      userId: id,
-    },
-  });
-
-  const totalHandsWon = await prisma.score.count({
-    where: {
-      userId: id,
-      blitzPileRemaining: 0,
-    },
-  });
+export async function getPlayerBattingAverageForUser(
+  userId: string,
+  db: Db = prisma
+) {
+  const [totalHandsPlayed, totalHandsWon] = await Promise.all([
+    db.score.count({
+      where: {
+        userId,
+      },
+    }),
+    db.score.count({
+      where: {
+        userId,
+        blitzPileRemaining: 0,
+      },
+    }),
+  ]);
 
   const rawBattingAverage =
     totalHandsPlayed === 0 ? 0 : totalHandsWon / totalHandsPlayed;
@@ -44,77 +57,70 @@ export async function getPlayerBattingAverage() {
   };
 }
 
-// Highest / lowest score
-export async function getHighestAndLowestScore() {
-  const id = await getUserIdFromAuth();
+export async function getPlayerBattingAverage() {
+  return getPlayerBattingAverageForUser(await getUserIdFromAuth());
+}
 
-  const scores = await prisma.$queryRaw<
-    Array<{
-      score: number;
-      totalCardsPlayed: number;
-      blitzPileRemaining: number;
-    }>
-  >(
-    Prisma.sql`
-      SELECT
-        ${scoreExpr} as score,
-        "totalCardsPlayed",
-        "blitzPileRemaining"
-      FROM "Score"
-      WHERE "userId" = ${id}
-      AND (
-        ${scoreExpr} = (
-          SELECT MAX(${scoreExpr})
-          FROM "Score"
-          WHERE "userId" = ${id}
-        )
-        OR
-        ${scoreExpr} = (
-          SELECT MIN(${scoreExpr})
-          FROM "Score"
-          WHERE "userId" = ${id}
-        )
-      )
-    `
-  );
+// Highest / lowest single-round score, each fetched with ORDER BY + LIMIT 1
+// so the database does the aggregation instead of JS reducing every row
+export async function getHighestAndLowestScoreForUser(
+  userId: string,
+  db: Db = prisma
+) {
+  const [highestRows, lowestRows] = await Promise.all([
+    db.$queryRaw<ScoreExtreme[]>(
+      Prisma.sql`
+        SELECT
+          ${scoreExpr} as score,
+          "totalCardsPlayed",
+          "blitzPileRemaining"
+        FROM "Score"
+        WHERE "userId" = ${userId}
+        ORDER BY ${scoreExpr} DESC
+        LIMIT 1
+      `
+    ),
+    db.$queryRaw<ScoreExtreme[]>(
+      Prisma.sql`
+        SELECT
+          ${scoreExpr} as score,
+          "totalCardsPlayed",
+          "blitzPileRemaining"
+        FROM "Score"
+        WHERE "userId" = ${userId}
+        ORDER BY ${scoreExpr} ASC
+        LIMIT 1
+      `
+    ),
+  ]);
 
-  const highestScore = scores.reduce(
-    (max, score) => (max.score > score.score ? max : score),
-    scores[0]
-  );
-  const lowestScore = scores.reduce(
-    (min, score) => (min.score < score.score ? min : score),
-    scores[0]
-  );
+  const highest = highestRows[0] ?? null;
+  const lowest = lowestRows[0] ?? null;
 
-  if (!highestScore) {
+  if (!highest) {
     return { highest: null, lowest: null };
   }
 
-  const createScoreObject = (score: typeof highestScore) => ({
-    score: score.score,
-    totalCardsPlayed: score.totalCardsPlayed,
-    blitzPileRemaining: score.blitzPileRemaining,
-  });
-
-  const highest = createScoreObject(highestScore);
-
-  if (!lowestScore || lowestScore === highestScore) {
+  // A lone score (or an all-equal history) has no distinct lowest
+  if (!lowest || lowest.score === highest.score) {
     return { highest, lowest: null };
   }
-
-  const lowest = createScoreObject(lowestScore);
 
   return { highest, lowest };
 }
 
-// Cumulative score
-export async function getCumulativeScore() {
-  const id = await getUserIdFromAuth();
+export async function getHighestAndLowestScore() {
+  return getHighestAndLowestScoreForUser(await getUserIdFromAuth());
+}
 
-  const cumulativeScore = await prisma.score.aggregate({
+// Cumulative score
+export async function getCumulativeScoreForUser(
+  userId: string,
+  db: Db = prisma
+) {
+  const cumulativeScore = await db.score.aggregate({
     where: {
-      userId: id,
+      userId,
     },
     _sum: {
       totalCardsPlayed: true,
@@ -132,50 +138,44 @@ export async function getCumulativeScore() {
   return calculateCumulativeScore({ totalCardsPlayed, blitzPileRemaining });
 }
 
-export async function getLongestAndShortestGamesByRounds() {
-  const id = await getUserIdFromAuth();
+export async function getCumulativeScore() {
+  return getCumulativeScoreForUser(await getUserIdFromAuth());
+}
 
-  const games = await prisma.game.findMany({
-    where: {
-      players: {
-        some: {
-          userId: id,
+// Longest / shortest finished game by round count, aggregated with GROUP BY
+// instead of loading every game and its rounds into memory
+export async function getLongestAndShortestGamesByRoundsForUser(
+  userId: string,
+  db: Db = prisma
+) {
+  const roundCountExtreme = (order: "asc" | "desc") =>
+    db.round.groupBy({
+      by: ["gameId"],
+      where: {
+        game: {
+          isFinished: true,
+          players: { some: { userId } },
         },
       },
-      isFinished: true, // Only include completed games
-    },
-    include: {
-      rounds: true,
-    },
-  });
+      _count: { _all: true },
+      orderBy: { _count: { gameId: order } },
+      take: 1,
+    });
 
-  if (!games.length) {
-    return { longest: null, shortest: null };
-  }
+  const [longestRows, shortestRows] = await Promise.all([
+    roundCountExtreme("desc"),
+    roundCountExtreme("asc"),
+  ]);
 
-  const gamesWithRoundCount = games.map((game) => ({
-    id: game.id,
-    roundCount: game.rounds.length,
-    isFinished: game.isFinished,
-  }));
+  const toGame = (row?: { gameId: string; _count: { _all: number } }) =>
+    row ? { id: row.gameId, roundCount: row._count._all } : null;
 
-  const longestGame = gamesWithRoundCount.reduce(
-    (longest, current) =>
-      current.roundCount > longest.roundCount ? current : longest,
-    gamesWithRoundCount[0]
-  );
+  return {
+    longest: toGame(longestRows[0]),
+    shortest: toGame(shortestRows[0]),
+  };
+}
 
-  const gamesWithRounds = gamesWithRoundCount.filter(game => game.roundCount > 0);
-
-  if (!gamesWithRounds.length) {
-    return { longest: longestGame, shortest: null };
-  }
-
-  const shortestGame = gamesWithRounds.reduce(
-    (shortest, current) =>
-      current.roundCount < shortest.roundCount ? current : shortest,
-    gamesWithRounds[0]
-  );
-
-  return { longest: longestGame, shortest: shortestGame };
+export async function getLongestAndShortestGamesByRounds() {
+  return getLongestAndShortestGamesByRoundsForUser(await getUserIdFromAuth());
 }
