@@ -1484,3 +1484,48 @@ Plan complete and saved to `docs/superpowers/plans/2026-06-13-llm-insights-phase
 2. **Inline Execution** — execute tasks in this session with batch checkpoints.
 
 Which approach?
+
+---
+
+## Codex Review Revisions (applied 2026-06-13)
+
+Codex reviewed this plan against the codebase: 3 blockers + 9 should-fix + 2 nice-to-have, all accepted. The changes below **override the task bodies above where they conflict** — the implementation follows these.
+
+### Durability & triggers (blockers #1, #2, #3)
+
+`after()` is post-response best-effort, not a queue, and the original plan created the `GameSummary` row *inside* the async callback — so a dropped `after()` left nothing for the sweep to retry. Also, this app lets users **edit finished games** (`src/server/mutations/rounds.ts:167`), and that path never called the trigger.
+
+- **Split generation into a synchronous enqueue + an async run** in `src/server/ai/summary.ts`:
+  - `enqueueGameSummary(gameId): Promise<{ enqueued: boolean }>` — runs **in-request** (primary DB). Loads the game via `getGameById` (primary), builds facts, hashes. Writes nothing and returns `{enqueued:false}` if there's no game or an existing `ready` row already matches the hash; upserts `insufficient_data` (returns false) for `<2` rounds / `<2` players; otherwise upserts a `pending` row with the new hash and returns `{enqueued:true}`. A durable row therefore exists before the response returns.
+  - `runGameSummary(gameId): Promise<void>` — the LLM call; idempotent (re-checks `ready`+hash); writes `ready` or `failed` (+`retryCount`).
+  - `scheduleGameSummary(gameId): Promise<void>` — `if (!(await isLlmFeaturesEnabled())) return; const { enqueued } = await enqueueGameSummary(gameId); if (enqueued) after(() => runGameSummary(gameId));`
+  - `regeneratePendingSummaries(limit=20)` — sweeps `pending`/`failed` (retryCount<5) → `runGameSummary`.
+- **Trigger from both finish paths:** `updateGameAsFinished` calls `await scheduleGameSummary(gameId)` (covers the direct "Finish" button and the finalize-via-score-write branch, which routes through `updateGameAsFinished`). ADD a trailing `await scheduleGameSummary(gameId)` at the end of `syncGameCompletionAfterScoreWrite` in `rounds.ts` so edits that keep a game finished regenerate when the hash changes (hash-gating ⇒ no-op when nothing changed; a reopened game falls out because the page renders only when finished). This replaces Task 9's single `after(() => generateGameSummary(...))`.
+- **Sweep route:** add `src/app/api/insights/sweep/route.ts` (GET, guarded by a `CRON_SECRET` request header) calling `regeneratePendingSummaries()`. Vercel cron schedule + `CRON_SECRET` env = human step.
+- **Read status from primary:** `getGameSummary` reads from `@/server/db/db` (primary; one indexed row) to dodge replica lag on a just-finished game, and the page renders the pending state when `isFinished && !summary`.
+- **Flag-gated:** `scheduleGameSummary` early-returns unless `isLlmFeaturesEnabled()`; the page only renders the card when the flag is on. Phase 1 ships dark.
+
+### Recap correctness (#5, #6, #7, #8) — build in pseudonym-ready, playerKey space
+
+`buildGameRecap(game)` now returns `{ facts: GameRecapFacts; playerNames: Record<playerKey, realName> }`:
+- Feeds `calcGameStats` an **identity** name map (`{key: key}`) so `biggestRound`/`worstRound` carry the **playerKey**, not a display name.
+- `GameRecapFacts` identifiers are all `playerKey`; it contains **no real names and no raw score arrays** — only aggregates — so the hash is order-stable.
+- `standings` sorted by **(isWinner first, total desc, playerKey asc)** ⇒ `standings[0]` is the real winner even under the final-round blitz-pile tiebreak; `rank` follows that order. `winnerKey` replaces `winnerName`.
+- `blitzLeader` ties broken by lowest `playerKey` (deterministic).
+- `pseudonymizeRecap(facts, playerNames)` assigns `keyToPseudo` ("Player A/B"…) by standings order, replaces every `playerKey` in the facts with its pseudonym, and returns `{ promptFacts, nameMap: { "Player A": realName } }`. Real names never enter `calcGameStats` or the prompt; internal UUIDs never reach the LLM; duplicate guest names no longer collapse (keyed by playerKey). `rehydrateNames(text, nameMap)` maps pseudonym→real for storage.
+- `hashRecapFacts` hashes `facts` (no timestamps). `sourceUpdatedAt` is computed separately (below), not hashed.
+
+### Claude client (#9, #10, #11)
+
+- Use `satisfies Anthropic.MessageCreateParamsNonStreaming` (Codex confirmed the installed SDK 0.104.x types support `claude-opus-4-8`, `thinking:{type:"adaptive"}`, `output_config.effort`); fall back to a typed cast only if `tsc` rejects it.
+- `generateSummaryText` **throws** when the text is empty or `res.stop_reason === "refusal"` ⇒ the row becomes `failed`, never `ready` with empty content.
+- `tokensUsed = input_tokens + output_tokens + (cache_creation_input_tokens ?? 0) + (cache_read_input_tokens ?? 0)`.
+- `sourceUpdatedAt` = `max(score.updatedAt across loaded rounds)`, falling back to `game.endedAt ?? new Date()` — computed in the orchestration from the loaded game, **not** `new Date()`.
+
+### Tests (#12)
+
+- Add `jest.mock("@/server/ai/summary", () => ({ scheduleGameSummary: jest.fn() }))` to `src/server/__tests__/mutations.test.ts` so existing finalization tests don't run real summary work. The Task 9 wiring test asserts `scheduleGameSummary` was called.
+
+### Kept as-is (#13)
+
+- `@updatedAt` on `GameSummary` is intentional (status-machine timing); it knowingly diverges from the repo's manual `updated_at` convention.
