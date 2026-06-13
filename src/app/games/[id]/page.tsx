@@ -1,10 +1,7 @@
-import ScoreEntry from "./scoreEntry";
-import ScoreDisplay from "./scoreDisplay";
 import { ScoringShell } from "@/components/scoring/ScoringShell";
 import { getGameById } from "@/server/queries";
 import { notFound } from "next/navigation";
 import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
-import { isFeatureEnabled } from "@/featureFlags";
 import {
   resolvePlayerColor,
   assignColorsToPlayers,
@@ -17,10 +14,9 @@ export default async function GameView(props: {
   const params = await props.params;
 
   // Parallelize independent async calls — they don't depend on each other
-  const [gameData, { userId, orgId }, useScoringRevamp] = await Promise.all([
+  const [gameData, { userId, orgId }] = await Promise.all([
     getGameById(params.id),
     auth(),
-    isFeatureEnabled("scoring-revamp"),
   ]);
 
   if (!gameData) {
@@ -103,20 +99,11 @@ export default async function GameView(props: {
       score: ds.total,
     };
   });
-  const isAuthenticated = !!userId;
-
-  // ScoreEntry is only visible to circle members for non-finished games
-  const canEnterScores =
-    isAuthenticated &&
-    !isFinished &&
-    !!game.organizationId &&
-    game.organizationId === orgId;
-
-  // Circle members can view the scoring shell (including game over state)
-  const canViewScoringShell =
-    isAuthenticated &&
-    !!game.organizationId &&
-    game.organizationId === orgId;
+  // Circle members (authenticated + same active circle) can enter scores and
+  // edit rounds. Everyone else — non-members, public shared links — gets a
+  // read-only spectator view of the same scoring UI.
+  const isCircleMember =
+    !!userId && !!game.organizationId && game.organizationId === orgId;
 
   return (
     <section className="py-6">
@@ -125,46 +112,25 @@ export default async function GameView(props: {
           Playing to {game.winThreshold} points
         </p>
       )}
-      {!(useScoringRevamp && canViewScoringShell) && (
-        <ScoreDisplay
-          displayScores={displayScores}
-          numRounds={game.rounds.length}
-          gameId={game.id}
-          isFinished={isFinished}
-        />
-      )}
-      {useScoringRevamp ? (
-        <>
-          {canViewScoringShell && (
-            <ScoringShell
-              gameId={game.id}
-              currentRoundNumber={currentRoundNumber}
-              players={scoringPlayers}
-              winThreshold={game.winThreshold}
-              isFinished={isFinished}
-              winnerId={displayScores.find((s) => s.isWinner)?.id}
-              endedAt={game.endedAt?.toISOString()}
-              rounds={game.rounds.map((r) => ({
-                id: r.id,
-                scores: r.scores.map((s) => ({
-                  userId: s.userId,
-                  guestId: s.guestId,
-                  blitzPileRemaining: s.blitzPileRemaining,
-                  totalCardsPlayed: s.totalCardsPlayed,
-                })),
-              }))}
-            />
-          )}
-        </>
-      ) : (
-        canEnterScores && (
-          <ScoreEntry
-            game={game}
-            currentRoundNumber={currentRoundNumber}
-            displayScores={displayScores}
-          />
-        )
-      )}
+      <ScoringShell
+        gameId={game.id}
+        currentRoundNumber={currentRoundNumber}
+        players={scoringPlayers}
+        winThreshold={game.winThreshold}
+        isFinished={isFinished}
+        winnerId={displayScores.find((s) => s.isWinner)?.id}
+        endedAt={game.endedAt?.toISOString()}
+        canEdit={isCircleMember}
+        rounds={game.rounds.map((r) => ({
+          id: r.id,
+          scores: r.scores.map((s) => ({
+            userId: s.userId,
+            guestId: s.guestId,
+            blitzPileRemaining: s.blitzPileRemaining,
+            totalCardsPlayed: s.totalCardsPlayed,
+          })),
+        }))}
+      />
     </section>
   );
 }

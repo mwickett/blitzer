@@ -23,6 +23,8 @@ interface BetweenRoundsViewProps {
   winThreshold: number;
   nextRoundNumber: number;
   onEnterScores: () => void;
+  /** When false, render as a read-only spectator view (no entry/edit actions) */
+  canEdit?: boolean;
 }
 
 export function BetweenRoundsView({
@@ -32,6 +34,7 @@ export function BetweenRoundsView({
   winThreshold,
   nextRoundNumber,
   onEnterScores,
+  canEdit = true,
 }: BetweenRoundsViewProps) {
   const posthog = usePostHog();
   const { editingRoundIndex, editError, handleEditRound, handleSaveEdit, cancelEdit } =
@@ -98,8 +101,8 @@ export function BetweenRoundsView({
         </div>
       )}
 
-      {/* Round editor (inline) */}
-      {editingRoundIndex !== null && editingRoundIndex < rounds.length && (
+      {/* Round editor (inline) — members only */}
+      {canEdit && editingRoundIndex !== null && editingRoundIndex < rounds.length && (
         <RoundEditor
           roundIndex={editingRoundIndex}
           players={players}
@@ -120,23 +123,25 @@ export function BetweenRoundsView({
         />
       )}
 
-      {/* Round history table */}
+      {/* Round history table — edit affordance is members only */}
       <div className="pt-2 pb-2">
         <RoundHistoryTable
           players={players}
           rounds={rounds}
-          onEditRound={handleEditRound}
+          onEditRound={canEdit ? handleEditRound : undefined}
         />
       </div>
 
-      {/* Bottom spacer for floating CTA */}
-      <div className="h-28" />
-
-      {/* Floating CTA */}
-      <FloatingCTA
-        state={{ mode: "nextRound", roundNumber: nextRoundNumber }}
-        onAction={handleEnterScores}
-      />
+      {/* Floating CTA + its spacer — members only */}
+      {canEdit && (
+        <>
+          <div className="h-28" />
+          <FloatingCTA
+            state={{ mode: "nextRound", roundNumber: nextRoundNumber }}
+            onAction={handleEnterScores}
+          />
+        </>
+      )}
     </>
   );
 }
