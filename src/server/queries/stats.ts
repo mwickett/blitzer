@@ -3,10 +3,7 @@ import "server-only";
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { getUserIdFromAuth } from "@/server/utils";
-import {
-  calculateCumulativeScore,
-  ROUND_SCORE_SQL,
-} from "@/lib/validation/gameRules";
+import { ROUND_SCORE_SQL } from "@/lib/validation/gameRules";
 
 // Canonical single-round score expression — see ROUND_SCORE_SQL
 const scoreExpr = Prisma.raw(ROUND_SCORE_SQL);
@@ -18,32 +15,69 @@ const scoreExpr = Prisma.raw(ROUND_SCORE_SQL);
 
 type Db = PrismaClient | typeof prisma;
 
-type ScoreExtreme = {
+type CountRow = {
+  totalHandsPlayed: number | bigint;
+  totalHandsWon: number | bigint;
+};
+
+type TotalScoreRow = {
+  totalScore: number | bigint | null;
+};
+
+export type BattingAverageStats = {
+  totalHandsPlayed: number;
+  totalHandsWon: number;
+  battingAverage: string;
+};
+
+export type ScoreExtreme = {
   score: number;
   totalCardsPlayed: number;
   blitzPileRemaining: number;
 };
 
+export type ScoreExtremes = {
+  highest: ScoreExtreme | null;
+  lowest: ScoreExtreme | null;
+};
+
+export type GameRoundCount = {
+  id: string;
+  roundCount: number;
+};
+
+export type GameRoundExtremes = {
+  longest: GameRoundCount | null;
+  shortest: GameRoundCount | null;
+};
+
+export type DashboardStats = {
+  battingAverage: BattingAverageStats;
+  scoreExtremes: ScoreExtremes;
+  cumulativeScore: number;
+  gameRoundExtremes: GameRoundExtremes;
+};
+
 // Batting average
-// Fetch players total rounds and rounds won
+// Fetch player's total rounds and rounds won in one aggregate query.
 // This assumes that only one player blitzed per round (edge case)
 export async function getPlayerBattingAverageForUser(
   userId: string,
   db: Db = prisma
-) {
-  const [totalHandsPlayed, totalHandsWon] = await Promise.all([
-    db.score.count({
-      where: {
-        userId,
-      },
-    }),
-    db.score.count({
-      where: {
-        userId,
-        blitzPileRemaining: 0,
-      },
-    }),
-  ]);
+): Promise<BattingAverageStats> {
+  const rows = await db.$queryRaw<CountRow[]>(
+    Prisma.sql`
+      SELECT
+        COUNT(*) AS "totalHandsPlayed",
+        COUNT(*) FILTER (WHERE "blitzPileRemaining" = 0) AS "totalHandsWon"
+      FROM "Score"
+      WHERE "userId" = ${userId}
+    `
+  );
+
+  const row = rows[0] ?? { totalHandsPlayed: 0, totalHandsWon: 0 };
+  const totalHandsPlayed = Number(row.totalHandsPlayed);
+  const totalHandsWon = Number(row.totalHandsWon);
 
   const rawBattingAverage =
     totalHandsPlayed === 0 ? 0 : totalHandsWon / totalHandsPlayed;
@@ -66,7 +100,7 @@ export async function getPlayerBattingAverage() {
 export async function getHighestAndLowestScoreForUser(
   userId: string,
   db: Db = prisma
-) {
+): Promise<ScoreExtremes> {
   const [highestRows, lowestRows] = await Promise.all([
     db.$queryRaw<ScoreExtreme[]>(
       Prisma.sql`
@@ -76,7 +110,7 @@ export async function getHighestAndLowestScoreForUser(
           "blitzPileRemaining"
         FROM "Score"
         WHERE "userId" = ${userId}
-        ORDER BY ${scoreExpr} DESC
+        ORDER BY ${scoreExpr} DESC, "created_at" DESC, id DESC
         LIMIT 1
       `
     ),
@@ -88,7 +122,7 @@ export async function getHighestAndLowestScoreForUser(
           "blitzPileRemaining"
         FROM "Score"
         WHERE "userId" = ${userId}
-        ORDER BY ${scoreExpr} ASC
+        ORDER BY ${scoreExpr} ASC, "created_at" DESC, id DESC
         LIMIT 1
       `
     ),
@@ -117,25 +151,16 @@ export async function getHighestAndLowestScore() {
 export async function getCumulativeScoreForUser(
   userId: string,
   db: Db = prisma
-) {
-  const cumulativeScore = await db.score.aggregate({
-    where: {
-      userId,
-    },
-    _sum: {
-      totalCardsPlayed: true,
-      blitzPileRemaining: true,
-    },
-  });
+): Promise<number> {
+  const rows = await db.$queryRaw<TotalScoreRow[]>(
+    Prisma.sql`
+      SELECT COALESCE(SUM(${scoreExpr}), 0) AS "totalScore"
+      FROM "Score"
+      WHERE "userId" = ${userId}
+    `
+  );
 
-  const totalCardsPlayed = cumulativeScore._sum.totalCardsPlayed;
-  const blitzPileRemaining = cumulativeScore._sum.blitzPileRemaining;
-
-  if (totalCardsPlayed === null || blitzPileRemaining === null) {
-    return 0;
-  }
-
-  return calculateCumulativeScore({ totalCardsPlayed, blitzPileRemaining });
+  return Number(rows[0]?.totalScore ?? 0);
 }
 
 export async function getCumulativeScore() {
@@ -147,7 +172,7 @@ export async function getCumulativeScore() {
 export async function getLongestAndShortestGamesByRoundsForUser(
   userId: string,
   db: Db = prisma
-) {
+): Promise<GameRoundExtremes> {
   const roundCountExtreme = (order: "asc" | "desc") =>
     db.round.groupBy({
       by: ["gameId"],
@@ -178,4 +203,28 @@ export async function getLongestAndShortestGamesByRoundsForUser(
 
 export async function getLongestAndShortestGamesByRounds() {
   return getLongestAndShortestGamesByRoundsForUser(await getUserIdFromAuth());
+}
+
+export async function getDashboardStatsForUser(
+  userId: string,
+  db: Db = prisma
+): Promise<DashboardStats> {
+  const [battingAverage, scoreExtremes, cumulativeScore, gameRoundExtremes] =
+    await Promise.all([
+      getPlayerBattingAverageForUser(userId, db),
+      getHighestAndLowestScoreForUser(userId, db),
+      getCumulativeScoreForUser(userId, db),
+      getLongestAndShortestGamesByRoundsForUser(userId, db),
+    ]);
+
+  return {
+    battingAverage,
+    scoreExtremes,
+    cumulativeScore,
+    gameRoundExtremes,
+  };
+}
+
+export async function getDashboardStats() {
+  return getDashboardStatsForUser(await getUserIdFromAuth());
 }

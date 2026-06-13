@@ -238,7 +238,9 @@ const getExtremes = (
         clerkUserId,
         "getExtremes",
         {},
-        async () => getHighestAndLowestScoreForUser(internalId, prisma)
+        async () => getHighestAndLowestScoreForUser(internalId, prisma),
+        (result) =>
+          Number(Boolean(result.highest)) + Number(Boolean(result.lowest))
       );
     },
   });
