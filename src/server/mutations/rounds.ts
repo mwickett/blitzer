@@ -10,6 +10,7 @@ import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 import { getGameCompletion } from "@/lib/gameLogic";
 import { getGameById } from "@/server/queries/games";
 import { updateGameAsFinished } from "./games";
+import { scheduleGameSummary } from "@/server/ai/summary";
 
 async function syncGameCompletionAfterScoreWrite(
   gameId: string,
@@ -57,6 +58,16 @@ async function syncGameCompletionAfterScoreWrite(
       event: "game_winner_updated_after_edit",
       properties: { game_id: gameId, new_winner_id: completion.winnerId },
     });
+  }
+
+  // Reaching here means the game is finished (no-winner and finalize branches
+  // returned earlier). A finished game may have been edited, so refresh the
+  // recap — hash-gated, so it's a no-op when the scores are unchanged.
+  // Best-effort: a summary failure must never fail the score edit.
+  try {
+    await scheduleGameSummary(gameId);
+  } catch (error) {
+    console.error("[insights] failed to schedule game summary", error);
   }
 }
 

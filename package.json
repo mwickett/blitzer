@@ -21,6 +21,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.64",
     "@ai-sdk/react": "^3.0.186",
+    "@anthropic-ai/sdk": "^0.104.1",
     "@clerk/nextjs": "^7.3.5",
     "@eslint/compat": "^2.1.0",
     "@posthog/ai": "^7.18.7",

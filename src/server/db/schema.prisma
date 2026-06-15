@@ -49,6 +49,7 @@ model Game {
   organizationId String?       @map("organization_id")
   players        GamePlayers[]
   rounds         Round[]
+  summaries      GameSummary[]
 
   @@index([organizationId])
 }
@@ -109,5 +110,39 @@ model OrganizationMembership {
   @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
+}
+
+enum GameSummaryStatus {
+  pending
+  ready
+  failed
+  insufficient_data
+}
+
+// LLM-generated post-game recap. One current row per game per prompt version
+// (audienceUserId is null in MVP — neutral recap). The row is also the durable
+// job unit: status + retryCount drive enqueue/run/sweep. sourceStatsHash is
+// stored (not in the unique key) so score edits after finish are detected.
+model GameSummary {
+  id              String            @id @default(uuid())
+  gameId          String            @map("game_id")
+  organizationId  String?           @map("organization_id")
+  audienceUserId  String?           @map("audience_user_id")
+  status          GameSummaryStatus @default(pending)
+  content         String?
+  model           String?
+  promptVersion   String            @map("prompt_version")
+  sourceStatsHash String            @map("source_stats_hash")
+  sourceUpdatedAt DateTime          @map("source_updated_at")
+  tokensUsed      Int?              @map("tokens_used")
+  error           String?
+  retryCount      Int               @default(0) @map("retry_count")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  game            Game              @relation(fields: [gameId], references: [id])
+
+  @@unique([gameId, promptVersion])
+  @@index([status])
+  @@index([gameId])
 }
 

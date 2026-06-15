@@ -89,6 +89,12 @@ jest.mock("next/server", () => ({
   after: jest.fn((cb: () => Promise<void>) => void cb()),
 }));
 
+// Post-game summary generation is wired into the finish paths; stub it so
+// finalization tests don't trigger real LLM/DB work.
+jest.mock("@/server/ai/summary", () => ({
+  scheduleGameSummary: jest.fn().mockResolvedValue(undefined),
+}));
+
 describe("Game Mutations", () => {
   const mockUserId = "test-user-id";
   const mockGameId = "test-game-id";

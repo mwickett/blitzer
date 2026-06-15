@@ -7,6 +7,7 @@ import { requireAuthContext, assertGameInCircle } from "./common";
 import { getOrgMemberClerkIds } from "../clerkOrgs";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 import { resolvePlayerColor, assignColorsToPlayers } from "@/lib/scoring/colors";
+import { scheduleGameSummary } from "@/server/ai/summary";
 
 // Create a new game with support for guest players
 export async function createGame(
@@ -200,6 +201,15 @@ export async function updateGameAsFinished(
       isGuestWinner: isGuestWinner,
     },
   });
+
+  // Generate the post-game recap. Flag-gated; writes a durable pending row now
+  // (primary, in-request) and runs the LLM after the response is sent.
+  // Best-effort: a summary failure must never fail the game finish.
+  try {
+    await scheduleGameSummary(gameId);
+  } catch (error) {
+    console.error("[insights] failed to schedule game summary", error);
+  }
 
   // Schedule emails after the response is sent — the platform keeps the
   // runtime alive until the callback resolves (replaces fire-and-forget IIFE).

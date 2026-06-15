@@ -3,6 +3,7 @@ export {
   getGames,
   getGameById,
   getLegacyGames,
+  getGameSummary,
   getDashboardStats,
   getPlayerBattingAverage,
   getHighestAndLowestScore,
