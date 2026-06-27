@@ -15,7 +15,10 @@ import { calculateRoundScore } from "@/lib/validation/gameRules";
 import { useRoundEditing } from "./useRoundEditing";
 import { findPlayerScore } from "./utils";
 import { type PlayerWithScore, type RoundData } from "./types";
-import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
+import {
+  type ForecastRoundSample,
+  type PredictionProfilesByPlayer,
+} from "@/lib/scoring/probability";
 
 interface BetweenRoundsViewProps {
   gameId: string;
@@ -49,13 +52,15 @@ export function BetweenRoundsView({
   };
 
   // Compute derived graph data from rounds
-  const { scoresByRound, deltasByRound } = useMemo(() => {
+  const { scoresByRound, deltasByRound, roundSamplesByPlayer } = useMemo(() => {
     const scores: Record<string, number[]> = {};
     const deltas: Record<string, number[]> = {};
+    const samples: Record<string, ForecastRoundSample[]> = {};
 
     for (const player of players) {
       scores[player.id] = [];
       deltas[player.id] = [];
+      samples[player.id] = [];
       let cumulative = 0;
 
       for (const round of rounds) {
@@ -64,10 +69,20 @@ export function BetweenRoundsView({
         cumulative += delta;
         scores[player.id].push(cumulative);
         deltas[player.id].push(delta);
+        if (s) {
+          samples[player.id].push({
+            totalCardsPlayed: s.totalCardsPlayed,
+            blitzPileRemaining: s.blitzPileRemaining,
+          });
+        }
       }
     }
 
-    return { scoresByRound: scores, deltasByRound: deltas };
+    return {
+      scoresByRound: scores,
+      deltasByRound: deltas,
+      roundSamplesByPlayer: samples,
+    };
   }, [players, rounds]);
 
   return (
@@ -91,6 +106,7 @@ export function BetweenRoundsView({
           winThreshold={winThreshold}
           deltasByPlayer={deltasByRound}
           predictionProfiles={predictionProfiles}
+          roundSamplesByPlayer={roundSamplesByPlayer}
         />
       </GraphCarousel>
 

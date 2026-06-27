@@ -44,6 +44,22 @@ describe("WinProbabilityCard", () => {
             close: [12, 14, 16, 14, 14],
             far: [4, 8, 6, 6, 6],
           }}
+          roundSamplesByPlayer={{
+            close: [
+              { totalCardsPlayed: 22, blitzPileRemaining: 5 },
+              { totalCardsPlayed: 24, blitzPileRemaining: 5 },
+              { totalCardsPlayed: 26, blitzPileRemaining: 5 },
+              { totalCardsPlayed: 24, blitzPileRemaining: 5 },
+              { totalCardsPlayed: 24, blitzPileRemaining: 5 },
+            ],
+            far: [
+              { totalCardsPlayed: 14, blitzPileRemaining: 5 },
+              { totalCardsPlayed: 18, blitzPileRemaining: 5 },
+              { totalCardsPlayed: 16, blitzPileRemaining: 5 },
+              { totalCardsPlayed: 16, blitzPileRemaining: 5 },
+              { totalCardsPlayed: 16, blitzPileRemaining: 5 },
+            ],
+          }}
           predictionProfiles={{
             close: {
               playerId: "close",
@@ -72,7 +88,9 @@ describe("WinProbabilityCard", () => {
     expect(screen.getByText("Race Outlook")).toBeInTheDocument();
     expect(screen.getByText("Likely ending")).toBeInTheDocument();
     expect(screen.getByText("Next-round danger")).toBeInTheDocument();
-    expect(screen.getByText(/Can close now/)).toBeInTheDocument();
+    expect(screen.getByText("Blitz-out path")).toBeInTheDocument();
+    expect(screen.getByText("20+ pt swing")).toBeInTheDocument();
+    expect(screen.getByText(/Blitz-out threat/)).toBeInTheDocument();
     expect(
       screen.getByText("History-backed from 24 prior player scores")
     ).toBeInTheDocument();
