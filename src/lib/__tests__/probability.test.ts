@@ -183,6 +183,121 @@ describe("calcRaceForecast", () => {
     ).toBeNull();
   });
 
+  it("can use historical profiles for an early low-confidence forecast", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "fast", score: 10, roundsPlayed: 1 },
+        { id: "steady", score: 10, roundsPlayed: 1 },
+      ],
+      75,
+      {
+        fast: [10],
+        steady: [10],
+      },
+      {
+        predictionProfiles: {
+          fast: {
+            playerId: "fast",
+            roundsPlayed: 20,
+            meanDelta: 18,
+            stdDelta: 4,
+            blitzRate: 0.6,
+            meanCardsPlayed: 24,
+            meanBlitzPileRemaining: 3,
+            recentDeltas: [20, 18, 16],
+          },
+          steady: {
+            playerId: "steady",
+            roundsPlayed: 20,
+            meanDelta: 8,
+            stdDelta: 3,
+            blitzRate: 0.2,
+            meanCardsPlayed: 18,
+            meanBlitzPileRemaining: 5,
+            recentDeltas: [8, 9, 7],
+          },
+        },
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.usesHistoricalData).toBe(true);
+    expect(forecast!.historicalSampleCount).toBe(40);
+    expect(forecast!.confidence).toBe("low");
+    expect(forecast!.players.fast.winProbability).toBeGreaterThan(
+      forecast!.players.steady.winProbability
+    );
+  });
+
+  it("ignores profiles without enough history for an early forecast", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "fast", score: 10, roundsPlayed: 1 },
+        { id: "steady", score: 10, roundsPlayed: 1 },
+      ],
+      75,
+      {
+        fast: [10],
+        steady: [10],
+      },
+      {
+        predictionProfiles: {
+          fast: {
+            playerId: "fast",
+            roundsPlayed: 4,
+            meanDelta: 18,
+            stdDelta: 4,
+            blitzRate: 0.6,
+            meanCardsPlayed: 24,
+            meanBlitzPileRemaining: 3,
+            recentDeltas: [20, 18, 16],
+          },
+        },
+      }
+    );
+
+    expect(forecast).toBeNull();
+  });
+
+  it("does not mark shallow per-player history as high confidence", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "a", score: 50, roundsPlayed: 5 },
+        { id: "b", score: 45, roundsPlayed: 5 },
+        { id: "c", score: 40, roundsPlayed: 5 },
+        { id: "d", score: 35, roundsPlayed: 5 },
+      ],
+      75,
+      {
+        a: [10, 10, 10, 10, 10],
+        b: [9, 9, 9, 9, 9],
+        c: [8, 8, 8, 8, 8],
+        d: [7, 7, 7, 7, 7],
+      },
+      {
+        predictionProfiles: Object.fromEntries(
+          ["a", "b", "c", "d"].map((id, index) => [
+            id,
+            {
+              playerId: id,
+              roundsPlayed: 5,
+              meanDelta: 10 - index,
+              stdDelta: 1,
+              blitzRate: 0.4,
+              meanCardsPlayed: 20,
+              meanBlitzPileRemaining: 4,
+              recentDeltas: [10 - index],
+            },
+          ])
+        ),
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.historicalSampleCount).toBe(20);
+    expect(forecast!.confidence).not.toBe("high");
+  });
+
   it("keeps unresolved simulations explicit instead of crediting the leader", () => {
     const forecast = calcRaceForecast(
       [

@@ -1,5 +1,5 @@
 import { ScoringShell } from "@/components/scoring/ScoringShell";
-import { getGameById } from "@/server/queries";
+import { getGameById, getPredictionProfilesForGame } from "@/server/queries";
 import { notFound } from "next/navigation";
 import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
 import {
@@ -67,6 +67,9 @@ export default async function GameView(props: {
   // read-only spectator view of the same scoring UI.
   const isCircleMember =
     !!userId && !!game.organizationId && game.organizationId === orgId;
+  const predictionProfiles = isCircleMember
+    ? await getPredictionProfilesForGame(params.id)
+    : {};
 
   return (
     <section className="py-6">
@@ -84,6 +87,7 @@ export default async function GameView(props: {
         winnerId={displayScores.find((s) => s.isWinner)?.id}
         endedAt={game.endedAt?.toISOString()}
         canEdit={isCircleMember}
+        predictionProfiles={predictionProfiles}
         rounds={game.rounds.map((r) => ({
           id: r.id,
           scores: r.scores.map((s) => ({

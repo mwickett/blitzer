@@ -1,6 +1,8 @@
 const SIMULATION_COUNT = 10_000;
 const MAX_FUTURE_ROUNDS = 50;
 const UNRESOLVED_OUTCOME_ID = "__unresolved";
+const MIN_HISTORICAL_ROUNDS = 5;
+const HISTORY_BLEND_ROUND_CAP = 8;
 export const MIN_SIMULATED_ROUND_SCORE = -20;
 export const MAX_SIMULATED_ROUND_SCORE = 40;
 
@@ -58,7 +60,21 @@ interface PlayerStats {
   currentScore: number;
   mean: number;
   std: number;
+  historicalSampleCount: number;
 }
+
+export interface PredictionProfile {
+  playerId: string;
+  roundsPlayed: number;
+  meanDelta: number;
+  stdDelta: number;
+  blitzRate: number;
+  meanCardsPlayed: number;
+  meanBlitzPileRemaining: number;
+  recentDeltas: number[];
+}
+
+export type PredictionProfilesByPlayer = Record<string, PredictionProfile>;
 
 export interface ForecastRange {
   p25: number;
@@ -81,6 +97,12 @@ export interface RaceForecast {
   unresolvedProbability: number;
   confidence: ForecastConfidence;
   simulationCount: number;
+  usesHistoricalData: boolean;
+  historicalSampleCount: number;
+}
+
+interface RaceForecastOptions {
+  predictionProfiles?: PredictionProfilesByPlayer;
 }
 
 function percentile(sortedValues: number[], percentileValue: number): number {
@@ -144,22 +166,130 @@ export function allocateOutcomePercents(
 
 function calcConfidence(
   roundsPlayed: number,
-  unresolvedProbability: number
+  unresolvedProbability: number,
+  minimumHistoricalDepth: number
 ): ForecastConfidence {
   if (roundsPlayed < 5 || unresolvedProbability >= 25) return "low";
+  if (minimumHistoricalDepth >= 12 && unresolvedProbability < 10) return "high";
   if (roundsPlayed < 8 || unresolvedProbability >= 10) return "medium";
   return "high";
+}
+
+function hasUsableHistory(
+  profile: PredictionProfile | undefined
+): profile is PredictionProfile {
+  return Boolean(profile && profile.roundsPlayed >= MIN_HISTORICAL_ROUNDS);
+}
+
+function calcCurrentWeight(
+  currentRounds: number,
+  historicalSampleCount: number
+): number {
+  if (currentRounds <= 0) return 0;
+  const cappedHistoryRounds = Math.min(
+    historicalSampleCount,
+    HISTORY_BLEND_ROUND_CAP
+  );
+  const raw = currentRounds / (currentRounds + cappedHistoryRounds);
+  return Math.min(0.85, Math.max(0.35, raw));
+}
+
+function blendStd(
+  currentMean: number,
+  currentStd: number,
+  historicalMean: number,
+  historicalStd: number,
+  currentWeight: number
+): number {
+  const blendedMean =
+    currentMean * currentWeight + historicalMean * (1 - currentWeight);
+  const variance =
+    currentWeight * (currentStd ** 2 + (currentMean - blendedMean) ** 2) +
+    (1 - currentWeight) *
+      (historicalStd ** 2 + (historicalMean - blendedMean) ** 2);
+  return Math.sqrt(variance);
+}
+
+function buildPlayerStats(
+  player: { id: string; score: number; roundsPlayed: number },
+  deltas: number[] | undefined,
+  profile: PredictionProfile | undefined
+): PlayerStats {
+  const currentDeltas = deltas ?? [];
+  const currentMean =
+    currentDeltas.length > 0
+      ? mean(currentDeltas)
+      : player.roundsPlayed > 0
+        ? player.score / player.roundsPlayed
+        : 0;
+  const currentStd =
+    currentDeltas.length >= 2
+      ? stddev(currentDeltas, currentMean)
+      : Math.abs(currentMean) * 0.5;
+
+  if (hasUsableHistory(profile)) {
+    const currentWeight = calcCurrentWeight(
+      currentDeltas.length,
+      profile.roundsPlayed
+    );
+    const blendedMean =
+      currentMean * currentWeight + profile.meanDelta * (1 - currentWeight);
+    const blendedStd = blendStd(
+      currentMean,
+      currentStd,
+      profile.meanDelta,
+      profile.stdDelta,
+      currentWeight
+    );
+
+    return {
+      id: player.id,
+      currentScore: player.score,
+      mean: blendedMean,
+      std: blendedStd,
+      historicalSampleCount: profile.roundsPlayed,
+    };
+  }
+
+  if (currentDeltas.length >= 2) {
+    return {
+      id: player.id,
+      currentScore: player.score,
+      mean: currentMean,
+      std: currentStd,
+      historicalSampleCount: 0,
+    };
+  }
+
+  return {
+    id: player.id,
+    currentScore: player.score,
+    mean: currentMean,
+    std: Math.abs(currentMean) * 0.5,
+    historicalSampleCount: 0,
+  };
 }
 
 function buildSeed(
   players: { id: string; score: number; roundsPlayed: number }[],
   winThreshold: number,
-  deltasByPlayer?: Record<string, number[]>
+  deltasByPlayer?: Record<string, number[]>,
+  predictionProfiles?: PredictionProfilesByPlayer
 ): number {
   const seedText = players
     .map((p) => {
       const deltas = deltasByPlayer?.[p.id] ?? [];
-      return `${p.id}:${p.score}:${p.roundsPlayed}:${deltas.join(",")}`;
+      const profile = predictionProfiles?.[p.id];
+      const profileText = profile
+        ? `${profile.roundsPlayed}:${profile.meanDelta.toFixed(
+            3
+          )}:${profile.stdDelta.toFixed(3)}:${profile.recentDeltas
+            .slice(0, 10)
+            .join(",")}`
+        : "";
+      return `${p.id}:${p.score}:${p.roundsPlayed}:${deltas.join(
+        ","
+      )}:${profileText}`;
     })
     .sort()
     .join("|");
@@ -187,26 +317,31 @@ function buildSeed(
 export function calcRaceForecast(
   players: { id: string; score: number; roundsPlayed: number }[],
   winThreshold: number,
-  deltasByPlayer?: Record<string, number[]>
+  deltasByPlayer?: Record<string, number[]>,
+  options: RaceForecastOptions = {}
 ): RaceForecast | null {
   if (players.length === 0) return null;
   const roundsPlayed = players[0].roundsPlayed;
-  if (roundsPlayed < 3) return null;
+  const hasHistoricalEvidence = players.some((p) =>
+    hasUsableHistory(options.predictionProfiles?.[p.id])
+  );
+  if (roundsPlayed < 3 && !hasHistoricalEvidence) return null;
 
   const orderedPlayers = [...players].sort((a, b) => a.id.localeCompare(b.id));
 
-  // Build per-player stats from deltas when available
-  const stats: PlayerStats[] = orderedPlayers.map((p) => {
-    const deltas = deltasByPlayer?.[p.id];
-    if (deltas && deltas.length >= 2) {
-      const m = mean(deltas);
-      const s = stddev(deltas, m);
-      return { id: p.id, currentScore: p.score, mean: m, std: s };
-    }
-    // Fallback: infer mean from aggregate, assume moderate variance
-    const m = p.roundsPlayed > 0 ? p.score / p.roundsPlayed : 0;
-    return { id: p.id, currentScore: p.score, mean: m, std: Math.abs(m) * 0.5 };
-  });
+  const stats: PlayerStats[] = orderedPlayers.map((p) =>
+    buildPlayerStats(p, deltasByPlayer?.[p.id], options.predictionProfiles?.[p.id])
+  );
+  const historicalSampleCount = stats.reduce(
+    (sum, stat) => sum + stat.historicalSampleCount,
+    0
+  );
+  const usesHistoricalData = historicalSampleCount > 0;
+  const historicalDepths = stats
+    .map((stat) => stat.historicalSampleCount)
+    .filter((count) => count > 0);
+  const minimumHistoricalDepth =
+    historicalDepths.length === stats.length ? Math.min(...historicalDepths) : 0;
 
   // If every player has non-positive mean, no one is progressing
   if (stats.every((s) => s.mean <= 0)) {
@@ -226,10 +361,14 @@ export function calcRaceForecast(
       unresolvedProbability: 100,
       confidence: "low",
       simulationCount: SIMULATION_COUNT,
+      usesHistoricalData,
+      historicalSampleCount,
     };
   }
 
-  const rng = makeRng(buildSeed(players, winThreshold, deltasByPlayer));
+  const rng = makeRng(
+    buildSeed(players, winThreshold, deltasByPlayer, options.predictionProfiles)
+  );
 
   const wins: Record<string, number> = {};
   const nextRoundWins: Record<string, number> = {};
@@ -302,17 +441,29 @@ export function calcRaceForecast(
     players: forecastPlayers,
     gameEndRound: buildRange(gameEndRounds),
     unresolvedProbability,
-    confidence: calcConfidence(roundsPlayed, unresolvedProbability),
+    confidence: calcConfidence(
+      roundsPlayed,
+      unresolvedProbability,
+      minimumHistoricalDepth
+    ),
     simulationCount: SIMULATION_COUNT,
+    usesHistoricalData,
+    historicalSampleCount,
   };
 }
 
 export function calcWinProbabilities(
   players: { id: string; score: number; roundsPlayed: number }[],
   winThreshold: number,
-  deltasByPlayer?: Record<string, number[]>
+  deltasByPlayer?: Record<string, number[]>,
+  options: RaceForecastOptions = {}
 ): Record<string, number> | null {
-  const forecast = calcRaceForecast(players, winThreshold, deltasByPlayer);
+  const forecast = calcRaceForecast(
+    players,
+    winThreshold,
+    deltasByPlayer,
+    options
+  );
   if (!forecast) return null;
   return Object.fromEntries(
     Object.values(forecast.players).map((player) => [

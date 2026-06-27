@@ -40,17 +40,42 @@ describe("WinProbabilityCard", () => {
         players={players}
         roundsPlayed={5}
         winThreshold={75}
-        deltasByPlayer={{
-          close: [12, 14, 16, 14, 14],
-          far: [4, 8, 6, 6, 6],
-        }}
-      />
-    );
+          deltasByPlayer={{
+            close: [12, 14, 16, 14, 14],
+            far: [4, 8, 6, 6, 6],
+          }}
+          predictionProfiles={{
+            close: {
+              playerId: "close",
+              roundsPlayed: 12,
+              meanDelta: 14,
+              stdDelta: 2,
+              blitzRate: 0.5,
+              meanCardsPlayed: 24,
+              meanBlitzPileRemaining: 5,
+              recentDeltas: [12, 14, 16],
+            },
+            far: {
+              playerId: "far",
+              roundsPlayed: 12,
+              meanDelta: 6,
+              stdDelta: 2,
+              blitzRate: 0.2,
+              meanCardsPlayed: 18,
+              meanBlitzPileRemaining: 6,
+              recentDeltas: [4, 8, 6],
+            },
+          }}
+        />
+      );
 
     expect(screen.getByText("Race Outlook")).toBeInTheDocument();
     expect(screen.getByText("Likely ending")).toBeInTheDocument();
     expect(screen.getByText("Next-round danger")).toBeInTheDocument();
     expect(screen.getByText(/Can close now/)).toBeInTheDocument();
+    expect(
+      screen.getByText("History-backed from 24 prior player scores")
+    ).toBeInTheDocument();
     expect(screen.queryByText("Projected finish")).not.toBeInTheDocument();
   });
 });

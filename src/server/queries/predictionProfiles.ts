@@ -4,6 +4,12 @@ import { auth } from "@clerk/nextjs/server";
 import { type Prisma } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
+import {
+  type PredictionProfile,
+  type PredictionProfilesByPlayer,
+} from "@/lib/scoring/probability";
+
+export type { PredictionProfile, PredictionProfilesByPlayer };
 
 export const HISTORY_SAMPLE_LIMIT_PER_PLAYER = 120;
 export const RECENT_DELTA_LIMIT = 40;
@@ -14,19 +20,6 @@ export interface PredictionScoreSample {
   totalCardsPlayed: number;
   blitzPileRemaining: number;
 }
-
-export interface PredictionProfile {
-  playerId: string;
-  roundsPlayed: number;
-  meanDelta: number;
-  stdDelta: number;
-  blitzRate: number;
-  meanCardsPlayed: number;
-  meanBlitzPileRemaining: number;
-  recentDeltas: number[];
-}
-
-export type PredictionProfilesByPlayer = Record<string, PredictionProfile>;
 
 function mean(values: number[]): number {
   if (values.length === 0) return 0;
