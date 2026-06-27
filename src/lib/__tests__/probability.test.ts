@@ -340,6 +340,73 @@ describe("calcRaceForecast", () => {
     expect(forecast!.gameEndRound?.median).toBe(6);
   });
 
+  it("tracks next-round blitz-out wins and swing potential from score mechanics", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "close", score: 55, roundsPlayed: 3 },
+        { id: "steady", score: 30, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        close: [25, 25, 25],
+        steady: [10, 10, 10],
+      },
+      {
+        roundSamplesByPlayer: {
+          close: [
+            { totalCardsPlayed: 25, blitzPileRemaining: 0 },
+            { totalCardsPlayed: 25, blitzPileRemaining: 0 },
+            { totalCardsPlayed: 25, blitzPileRemaining: 0 },
+          ],
+          steady: [
+            { totalCardsPlayed: 20, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 20, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 20, blitzPileRemaining: 5 },
+          ],
+        },
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.usesMechanicsModel).toBe(true);
+    expect(forecast!.players.close.nextRoundWinProbability).toBe(100);
+    expect(forecast!.players.close.nextRoundBlitzWinProbability).toBe(100);
+    expect(forecast!.players.close.nextRoundSwingProbability).toBe(100);
+    expect(forecast!.players.steady.nextRoundSwingProbability).toBe(0);
+  });
+
+  it("keeps swing probability separate from next-round win probability", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "leader", score: 70, roundsPlayed: 3 },
+        { id: "trailer", score: 10, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        leader: [5, 5, 5],
+        trailer: [30, 30, 30],
+      },
+      {
+        roundSamplesByPlayer: {
+          leader: [
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+          ],
+          trailer: [
+            { totalCardsPlayed: 30, blitzPileRemaining: 0 },
+            { totalCardsPlayed: 30, blitzPileRemaining: 0 },
+            { totalCardsPlayed: 30, blitzPileRemaining: 0 },
+          ],
+        },
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.trailer.nextRoundWinProbability).toBe(0);
+    expect(forecast!.players.trailer.nextRoundSwingProbability).toBe(100);
+  });
+
   it("returns player outcomes plus unresolved outcomes that sum to 100", () => {
     const forecast = calcRaceForecast(
       [

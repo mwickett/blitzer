@@ -5,6 +5,7 @@ import {
   type ForecastRange,
   type PlayerForecast,
   type RaceForecast,
+  type ForecastRoundSample,
   type PredictionProfilesByPlayer,
 } from "@/lib/scoring/probability";
 
@@ -14,6 +15,7 @@ interface WinProbabilityCardProps {
   winThreshold: number;
   deltasByPlayer?: Record<string, number[]>;
   predictionProfiles?: PredictionProfilesByPlayer;
+  roundSamplesByPlayer?: Record<string, ForecastRoundSample[]>;
 }
 
 export function WinProbabilityCard({
@@ -22,6 +24,7 @@ export function WinProbabilityCard({
   winThreshold,
   deltasByPlayer,
   predictionProfiles,
+  roundSamplesByPlayer,
 }: WinProbabilityCardProps) {
   const forecast = useMemo(
     () =>
@@ -29,9 +32,16 @@ export function WinProbabilityCard({
         players.map((p) => ({ id: p.id, score: p.score, roundsPlayed })),
         winThreshold,
         deltasByPlayer,
-        { predictionProfiles }
+        { predictionProfiles, roundSamplesByPlayer }
       ),
-    [players, roundsPlayed, winThreshold, deltasByPlayer, predictionProfiles]
+    [
+      players,
+      roundsPlayed,
+      winThreshold,
+      deltasByPlayer,
+      predictionProfiles,
+      roundSamplesByPlayer,
+    ]
   );
 
   const sorted = useMemo(
@@ -61,6 +71,8 @@ export function WinProbabilityCard({
 
   const topPlayerId = sorted[0]?.id;
   const topNextThreat = getTopNextThreat(sorted, forecast);
+  const topBlitzThreat = getTopBlitzThreat(sorted, forecast);
+  const topSwingThreat = getTopSwingThreat(sorted, forecast);
 
   return (
     <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-4">
@@ -120,6 +132,18 @@ export function WinProbabilityCard({
             detail={topNextThreat?.player.name}
             color={topNextThreat?.player.color}
           />
+          <OutlookStat
+            label="Blitz-out path"
+            value={topBlitzThreat ? `${topBlitzThreat.pct}%` : "None"}
+            detail={topBlitzThreat?.player.name}
+            color={topBlitzThreat?.player.color}
+          />
+          <OutlookStat
+            label="20+ pt swing"
+            value={topSwingThreat ? `${topSwingThreat.pct}%` : "Quiet"}
+            detail={topSwingThreat?.player.name}
+            color={topSwingThreat?.player.color}
+          />
         </div>
         {forecast.unresolvedProbability > 0 && (
           <div className="mt-2 text-[12px] md:text-[11px] text-[#8b5e3c]">
@@ -163,8 +187,12 @@ function getPlayerLabel(
   isTopPlayer: boolean
 ): string {
   if (!playerForecast || playerForecast.winProbability === 0) return "Long shot";
+  if (playerForecast.nextRoundBlitzWinProbability >= 10) {
+    return "Blitz-out threat";
+  }
   if (playerForecast.nextRoundWinProbability >= 25) return "Can close now";
   if (playerForecast.nextRoundWinProbability >= 10) return "Next-round threat";
+  if (playerForecast.nextRoundSwingProbability >= 35) return "Swing threat";
   if (isTopPlayer && playerForecast.winProbability >= 45) return "Steady favorite";
   if (playerForecast.winProbability >= 25) return "In the mix";
   if (playerForecast.winProbability >= 10) return "Needs a swing round";
@@ -187,6 +215,11 @@ function getSubtitle(roundsPlayed: number, forecast: RaceForecast): string {
 }
 
 function getModelNote(forecast: RaceForecast): string {
+  if (forecast.usesMechanicsModel) {
+    return forecast.usesHistoricalData
+      ? "models cards, blitz pile & player history"
+      : "models cards, blitz pile & variance";
+  }
   return forecast.usesHistoricalData
     ? "blends pace, variance & player history"
     : "accounts for pace & variance";
@@ -203,6 +236,34 @@ function getTopNextThreat(
   let top: { player: PlayerWithScore; pct: number } | null = null;
   for (const player of players) {
     const pct = forecast.players[player.id]?.nextRoundWinProbability ?? 0;
+    if (pct > (top?.pct ?? 0)) {
+      top = { player, pct };
+    }
+  }
+  return top && top.pct > 0 ? top : null;
+}
+
+function getTopBlitzThreat(
+  players: PlayerWithScore[],
+  forecast: RaceForecast
+): { player: PlayerWithScore; pct: number } | null {
+  let top: { player: PlayerWithScore; pct: number } | null = null;
+  for (const player of players) {
+    const pct = forecast.players[player.id]?.nextRoundBlitzWinProbability ?? 0;
+    if (pct > (top?.pct ?? 0)) {
+      top = { player, pct };
+    }
+  }
+  return top && top.pct > 0 ? top : null;
+}
+
+function getTopSwingThreat(
+  players: PlayerWithScore[],
+  forecast: RaceForecast
+): { player: PlayerWithScore; pct: number } | null {
+  let top: { player: PlayerWithScore; pct: number } | null = null;
+  for (const player of players) {
+    const pct = forecast.players[player.id]?.nextRoundSwingProbability ?? 0;
     if (pct > (top?.pct ?? 0)) {
       top = { player, pct };
     }

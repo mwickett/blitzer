@@ -1,10 +1,17 @@
+import { GAME_RULES } from "@/lib/validation/gameRules";
+
 const SIMULATION_COUNT = 10_000;
 const MAX_FUTURE_ROUNDS = 50;
 const UNRESOLVED_OUTCOME_ID = "__unresolved";
 const MIN_HISTORICAL_ROUNDS = 5;
 const HISTORY_BLEND_ROUND_CAP = 8;
+const SWING_ROUND_SCORE = 20;
 export const MIN_SIMULATED_ROUND_SCORE = -20;
 export const MAX_SIMULATED_ROUND_SCORE = 40;
+export const MIN_SIMULATED_CARDS_PLAYED = 0;
+export const MAX_SIMULATED_CARDS_PLAYED = GAME_RULES.MAX_CARDS_PLAYED;
+export const MIN_SIMULATED_BLITZ_PILE_REMAINING = 1;
+export const MAX_SIMULATED_BLITZ_PILE_REMAINING = GAME_RULES.MAX_BLITZ_PILE;
 
 // Seeded PRNG (xoshiro128**) for deterministic Monte Carlo results.
 // Ensures identical inputs always produce identical probabilities,
@@ -44,6 +51,20 @@ export function clampRoundScore(score: number): number {
   );
 }
 
+function clampCardsPlayed(cardsPlayed: number): number {
+  return Math.max(
+    MIN_SIMULATED_CARDS_PLAYED,
+    Math.min(MAX_SIMULATED_CARDS_PLAYED, Math.round(cardsPlayed))
+  );
+}
+
+function clampActiveBlitzPile(blitzPileRemaining: number): number {
+  return Math.max(
+    MIN_SIMULATED_BLITZ_PILE_REMAINING,
+    Math.min(MAX_SIMULATED_BLITZ_PILE_REMAINING, Math.round(blitzPileRemaining))
+  );
+}
+
 function mean(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
@@ -61,6 +82,25 @@ interface PlayerStats {
   mean: number;
   std: number;
   historicalSampleCount: number;
+  mechanics?: PlayerMechanicsStats;
+}
+
+interface PlayerMechanicsStats {
+  blitzRate: number;
+  meanCardsPlayed: number;
+  stdCardsPlayed: number;
+  meanActiveBlitzPileRemaining: number;
+  stdActiveBlitzPileRemaining: number;
+}
+
+interface RoundOutcome {
+  delta: number;
+  blitzed: boolean;
+}
+
+export interface ForecastRoundSample {
+  totalCardsPlayed: number;
+  blitzPileRemaining: number;
 }
 
 export interface PredictionProfile {
@@ -88,6 +128,8 @@ export interface PlayerForecast {
   id: string;
   winProbability: number;
   nextRoundWinProbability: number;
+  nextRoundBlitzWinProbability: number;
+  nextRoundSwingProbability: number;
   winningRound: ForecastRange | null;
 }
 
@@ -99,10 +141,12 @@ export interface RaceForecast {
   simulationCount: number;
   usesHistoricalData: boolean;
   historicalSampleCount: number;
+  usesMechanicsModel: boolean;
 }
 
 interface RaceForecastOptions {
   predictionProfiles?: PredictionProfilesByPlayer;
+  roundSamplesByPlayer?: Record<string, ForecastRoundSample[]>;
 }
 
 function percentile(sortedValues: number[], percentileValue: number): number {
@@ -210,10 +254,101 @@ function blendStd(
   return Math.sqrt(variance);
 }
 
+function calcActiveBlitzPileMean(
+  meanBlitzPileRemaining: number,
+  blitzRate: number
+): number {
+  if (blitzRate >= 0.95) return MIN_SIMULATED_BLITZ_PILE_REMAINING;
+  return clampActiveBlitzPile(meanBlitzPileRemaining / (1 - blitzRate));
+}
+
+function buildCurrentMechanics(
+  samples: ForecastRoundSample[] | undefined
+): PlayerMechanicsStats | undefined {
+  if (!samples || samples.length === 0) return undefined;
+
+  const cardsPlayed = samples.map((sample) => sample.totalCardsPlayed);
+  const activeBlitzPiles = samples
+    .map((sample) => sample.blitzPileRemaining)
+    .filter((pile) => pile > 0);
+  const meanCardsPlayed = mean(cardsPlayed);
+  const meanActiveBlitzPileRemaining =
+    activeBlitzPiles.length > 0
+      ? mean(activeBlitzPiles)
+      : MIN_SIMULATED_BLITZ_PILE_REMAINING;
+
+  return {
+    blitzRate:
+      samples.filter((sample) => sample.blitzPileRemaining === 0).length /
+      samples.length,
+    meanCardsPlayed,
+    stdCardsPlayed: stddev(cardsPlayed, meanCardsPlayed),
+    meanActiveBlitzPileRemaining,
+    stdActiveBlitzPileRemaining: stddev(
+      activeBlitzPiles,
+      meanActiveBlitzPileRemaining
+    ),
+  };
+}
+
+function buildHistoricalMechanics(
+  profile: PredictionProfile | undefined
+): PlayerMechanicsStats | undefined {
+  if (!hasUsableHistory(profile)) return undefined;
+
+  return {
+    blitzRate: profile.blitzRate,
+    meanCardsPlayed: profile.meanCardsPlayed,
+    stdCardsPlayed: Math.max(4, profile.stdDelta * 0.7),
+    meanActiveBlitzPileRemaining: calcActiveBlitzPileMean(
+      profile.meanBlitzPileRemaining,
+      profile.blitzRate
+    ),
+    stdActiveBlitzPileRemaining: Math.max(1.5, profile.stdDelta * 0.2),
+  };
+}
+
+function blendMechanics(
+  current: PlayerMechanicsStats | undefined,
+  historical: PlayerMechanicsStats | undefined,
+  currentWeight: number
+): PlayerMechanicsStats | undefined {
+  if (current && !historical) return current;
+  if (!current && historical) return historical;
+  if (!current || !historical) return undefined;
+
+  return {
+    blitzRate:
+      current.blitzRate * currentWeight +
+      historical.blitzRate * (1 - currentWeight),
+    meanCardsPlayed:
+      current.meanCardsPlayed * currentWeight +
+      historical.meanCardsPlayed * (1 - currentWeight),
+    stdCardsPlayed: blendStd(
+      current.meanCardsPlayed,
+      current.stdCardsPlayed,
+      historical.meanCardsPlayed,
+      historical.stdCardsPlayed,
+      currentWeight
+    ),
+    meanActiveBlitzPileRemaining:
+      current.meanActiveBlitzPileRemaining * currentWeight +
+      historical.meanActiveBlitzPileRemaining * (1 - currentWeight),
+    stdActiveBlitzPileRemaining: blendStd(
+      current.meanActiveBlitzPileRemaining,
+      current.stdActiveBlitzPileRemaining,
+      historical.meanActiveBlitzPileRemaining,
+      historical.stdActiveBlitzPileRemaining,
+      currentWeight
+    ),
+  };
+}
+
 function buildPlayerStats(
   player: { id: string; score: number; roundsPlayed: number },
   deltas: number[] | undefined,
-  profile: PredictionProfile | undefined
+  profile: PredictionProfile | undefined,
+  roundSamples: ForecastRoundSample[] | undefined
 ): PlayerStats {
   const currentDeltas = deltas ?? [];
   const currentMean =
@@ -226,19 +361,25 @@ function buildPlayerStats(
     currentDeltas.length >= 2
       ? stddev(currentDeltas, currentMean)
       : Math.abs(currentMean) * 0.5;
+  const historicalProfile = hasUsableHistory(profile) ? profile : undefined;
+  const currentWeight = historicalProfile
+    ? calcCurrentWeight(currentDeltas.length, historicalProfile.roundsPlayed)
+    : 1;
+  const mechanics = blendMechanics(
+    buildCurrentMechanics(roundSamples),
+    buildHistoricalMechanics(historicalProfile),
+    currentWeight
+  );
 
-  if (hasUsableHistory(profile)) {
-    const currentWeight = calcCurrentWeight(
-      currentDeltas.length,
-      profile.roundsPlayed
-    );
+  if (historicalProfile) {
     const blendedMean =
-      currentMean * currentWeight + profile.meanDelta * (1 - currentWeight);
+      currentMean * currentWeight +
+      historicalProfile.meanDelta * (1 - currentWeight);
     const blendedStd = blendStd(
       currentMean,
       currentStd,
-      profile.meanDelta,
-      profile.stdDelta,
+      historicalProfile.meanDelta,
+      historicalProfile.stdDelta,
       currentWeight
     );
 
@@ -247,7 +388,8 @@ function buildPlayerStats(
       currentScore: player.score,
       mean: blendedMean,
       std: blendedStd,
-      historicalSampleCount: profile.roundsPlayed,
+      historicalSampleCount: historicalProfile.roundsPlayed,
+      mechanics,
     };
   }
 
@@ -258,6 +400,7 @@ function buildPlayerStats(
       mean: currentMean,
       std: currentStd,
       historicalSampleCount: 0,
+      mechanics,
     };
   }
 
@@ -267,6 +410,7 @@ function buildPlayerStats(
     mean: currentMean,
     std: Math.abs(currentMean) * 0.5,
     historicalSampleCount: 0,
+    mechanics,
   };
 }
 
@@ -274,11 +418,13 @@ function buildSeed(
   players: { id: string; score: number; roundsPlayed: number }[],
   winThreshold: number,
   deltasByPlayer?: Record<string, number[]>,
-  predictionProfiles?: PredictionProfilesByPlayer
+  predictionProfiles?: PredictionProfilesByPlayer,
+  roundSamplesByPlayer?: Record<string, ForecastRoundSample[]>
 ): number {
   const seedText = players
     .map((p) => {
       const deltas = deltasByPlayer?.[p.id] ?? [];
+      const roundSamples = roundSamplesByPlayer?.[p.id] ?? [];
       const profile = predictionProfiles?.[p.id];
       const profileText = profile
         ? `${profile.roundsPlayed}:${profile.meanDelta.toFixed(
@@ -287,9 +433,12 @@ function buildSeed(
             .slice(0, 10)
             .join(",")}`
         : "";
+      const roundSampleText = roundSamples
+        .map((sample) => `${sample.totalCardsPlayed}/${sample.blitzPileRemaining}`)
+        .join(",");
       return `${p.id}:${p.score}:${p.roundsPlayed}:${deltas.join(
         ","
-      )}:${profileText}`;
+      )}:${roundSampleText}:${profileText}`;
     })
     .sort()
     .join("|");
@@ -299,6 +448,44 @@ function buildSeed(
     seed = Math.imul(seed ^ seedText.charCodeAt(i), 16777619) >>> 0;
   }
   return seed || 1;
+}
+
+function sampleRoundOutcome(
+  stats: PlayerStats,
+  rng: () => number
+): RoundOutcome {
+  if (!stats.mechanics) {
+    return {
+      delta: clampRoundScore(normalSample(stats.mean, stats.std, rng)),
+      blitzed: false,
+    };
+  }
+
+  const blitzed = rng() < stats.mechanics.blitzRate;
+  const cardsPlayed = clampCardsPlayed(
+    normalSample(
+      stats.mechanics.meanCardsPlayed,
+      stats.mechanics.stdCardsPlayed,
+      rng
+    )
+  );
+  const validCardsPlayed = blitzed
+    ? Math.max(cardsPlayed, GAME_RULES.MIN_CARDS_FOR_BLITZ)
+    : cardsPlayed;
+  const blitzPileRemaining = blitzed
+    ? 0
+    : clampActiveBlitzPile(
+        normalSample(
+          stats.mechanics.meanActiveBlitzPileRemaining,
+          stats.mechanics.stdActiveBlitzPileRemaining,
+          rng
+        )
+      );
+
+  return {
+    delta: clampRoundScore(validCardsPlayed - 2 * blitzPileRemaining),
+    blitzed,
+  };
 }
 
 /**
@@ -330,7 +517,12 @@ export function calcRaceForecast(
   const orderedPlayers = [...players].sort((a, b) => a.id.localeCompare(b.id));
 
   const stats: PlayerStats[] = orderedPlayers.map((p) =>
-    buildPlayerStats(p, deltasByPlayer?.[p.id], options.predictionProfiles?.[p.id])
+    buildPlayerStats(
+      p,
+      deltasByPlayer?.[p.id],
+      options.predictionProfiles?.[p.id],
+      options.roundSamplesByPlayer?.[p.id]
+    )
   );
   const historicalSampleCount = stats.reduce(
     (sum, stat) => sum + stat.historicalSampleCount,
@@ -342,6 +534,7 @@ export function calcRaceForecast(
     .filter((count) => count > 0);
   const minimumHistoricalDepth =
     historicalDepths.length === stats.length ? Math.min(...historicalDepths) : 0;
+  const usesMechanicsModel = stats.some((stat) => stat.mechanics);
 
   // If every player has non-positive mean, no one is progressing
   if (stats.every((s) => s.mean <= 0)) {
@@ -351,10 +544,12 @@ export function calcRaceForecast(
           p.id,
           {
             id: p.id,
-            winProbability: 0,
-            nextRoundWinProbability: 0,
-            winningRound: null,
-          },
+              winProbability: 0,
+              nextRoundWinProbability: 0,
+              nextRoundBlitzWinProbability: 0,
+              nextRoundSwingProbability: 0,
+              winningRound: null,
+            },
         ])
       ),
       gameEndRound: null,
@@ -363,18 +558,29 @@ export function calcRaceForecast(
       simulationCount: SIMULATION_COUNT,
       usesHistoricalData,
       historicalSampleCount,
+      usesMechanicsModel,
     };
   }
 
   const rng = makeRng(
-    buildSeed(players, winThreshold, deltasByPlayer, options.predictionProfiles)
+    buildSeed(
+      players,
+      winThreshold,
+      deltasByPlayer,
+      options.predictionProfiles,
+      options.roundSamplesByPlayer
+    )
   );
 
   const wins: Record<string, number> = {};
   const nextRoundWins: Record<string, number> = {};
+  const nextRoundBlitzWins: Record<string, number> = {};
+  const nextRoundSwings: Record<string, number> = {};
   const winningRounds: Record<string, number[]> = {};
   for (const p of players) wins[p.id] = 0;
   for (const p of players) nextRoundWins[p.id] = 0;
+  for (const p of players) nextRoundBlitzWins[p.id] = 0;
+  for (const p of players) nextRoundSwings[p.id] = 0;
   for (const p of players) winningRounds[p.id] = [];
   const gameEndRounds: number[] = [];
   let unresolvedCount = 0;
@@ -383,12 +589,15 @@ export function calcRaceForecast(
     const scores = stats.map((s) => s.currentScore);
     let winnerId: string | null = null;
     let winningRound: number | null = null;
+    let winnerBlitzed = false;
 
     for (let r = 0; r < MAX_FUTURE_ROUNDS; r++) {
+      const outcomes = stats.map((s) => sampleRoundOutcome(s, rng));
       for (let i = 0; i < stats.length; i++) {
-        scores[i] += clampRoundScore(
-          normalSample(stats[i].mean, stats[i].std, rng)
-        );
+        scores[i] += outcomes[i].delta;
+        if (r === 0 && outcomes[i].delta >= SWING_ROUND_SCORE) {
+          nextRoundSwings[stats[i].id]++;
+        }
       }
       // Check if any player crossed the threshold this round
       let bestScore = -Infinity;
@@ -397,6 +606,7 @@ export function calcRaceForecast(
           bestScore = scores[i];
           winnerId = stats[i].id;
           winningRound = roundsPlayed + r + 1;
+          winnerBlitzed = outcomes[i].blitzed;
         }
       }
       if (winnerId) break;
@@ -408,6 +618,9 @@ export function calcRaceForecast(
       gameEndRounds.push(winningRound);
       if (winningRound === roundsPlayed + 1) {
         nextRoundWins[winnerId]++;
+        if (winnerBlitzed) {
+          nextRoundBlitzWins[winnerId]++;
+        }
       }
     } else {
       unresolvedCount++;
@@ -433,6 +646,14 @@ export function calcRaceForecast(
         toPercent(nextRoundWins[p.id], SIMULATION_COUNT),
         winProbability
       ),
+      nextRoundBlitzWinProbability: Math.min(
+        toPercent(nextRoundBlitzWins[p.id], SIMULATION_COUNT),
+        winProbability
+      ),
+      nextRoundSwingProbability: toPercent(
+        nextRoundSwings[p.id],
+        SIMULATION_COUNT
+      ),
       winningRound: buildRange(winningRounds[p.id]),
     };
   }
@@ -449,6 +670,7 @@ export function calcRaceForecast(
     simulationCount: SIMULATION_COUNT,
     usesHistoricalData,
     historicalSampleCount,
+    usesMechanicsModel,
   };
 }
 
