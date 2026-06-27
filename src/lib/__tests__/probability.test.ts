@@ -1,21 +1,45 @@
 import {
+  allocateOutcomePercents,
   calcWinProbabilities,
-  calcProjectedFinishRound,
+  calcRaceForecast,
+  clampRoundScore,
 } from "../scoring/probability";
 
-describe("calcProjectedFinishRound", () => {
-  it("projects finish round based on average pace", () => {
-    // 50 points in 5 rounds = 10/round, need 75, so ~7.5 → round 8
-    expect(calcProjectedFinishRound(50, 5, 75)).toBe(8);
-  });
+function forecastSum(forecast: NonNullable<ReturnType<typeof calcRaceForecast>>) {
+  return (
+    Object.values(forecast.players).reduce(
+      (sum, player) => sum + player.winProbability,
+      0
+    ) + forecast.unresolvedProbability
+  );
+}
 
-  it("returns Infinity for zero or negative pace", () => {
-    expect(calcProjectedFinishRound(-10, 5, 75)).toBe(Infinity);
-    expect(calcProjectedFinishRound(0, 5, 75)).toBe(Infinity);
+describe("clampRoundScore", () => {
+  it("keeps simulated round scores inside Dutch Blitz scoring bounds", () => {
+    expect(clampRoundScore(-100)).toBe(-20);
+    expect(clampRoundScore(100)).toBe(40);
+    expect(clampRoundScore(4.6)).toBe(5);
   });
+});
 
-  it("returns current round if already past threshold", () => {
-    expect(calcProjectedFinishRound(80, 5, 75)).toBe(5);
+describe("allocateOutcomePercents", () => {
+  it("uses a stable tie-break when rounded percentages need a remainder bump", () => {
+    const counts: [string, number][] = [
+      ["b", 2250],
+      ["a", 4350],
+      ["__unresolved", 3400],
+    ];
+
+    expect(allocateOutcomePercents(counts, 10_000)).toEqual({
+      a: 44,
+      b: 22,
+      __unresolved: 34,
+    });
+    expect(allocateOutcomePercents([...counts].reverse(), 10_000)).toEqual({
+      a: 44,
+      b: 22,
+      __unresolved: 34,
+    });
   });
 });
 
@@ -42,8 +66,6 @@ describe("calcWinProbabilities", () => {
     );
     expect(result).not.toBeNull();
     expect(result!["1"]).toBeGreaterThan(result!["2"]);
-    const sum = Object.values(result!).reduce((a, b) => a + b, 0);
-    expect(sum).toBe(100);
   });
 
   it("gives 0% to players with negative pace (no deltas)", () => {
@@ -84,6 +106,20 @@ describe("calcWinProbabilities", () => {
     const r1 = calcWinProbabilities(players, 75, deltas);
     const r2 = calcWinProbabilities(players, 75, deltas);
     expect(r1).toEqual(r2);
+  });
+
+  it("is deterministic for the same players in a different order", () => {
+    const players = [
+      { id: "b", score: 35, roundsPlayed: 5 },
+      { id: "a", score: 40, roundsPlayed: 5 },
+    ];
+    const deltas = {
+      a: [10, 8, 7, 9, 6],
+      b: [5, 12, 3, 8, 7],
+    };
+    const original = calcWinProbabilities(players, 75, deltas);
+    const reordered = calcWinProbabilities([...players].reverse(), 75, deltas);
+    expect(original).toEqual(reordered);
   });
 
   describe("with per-round deltas (Monte Carlo)", () => {
@@ -137,5 +173,74 @@ describe("calcWinProbabilities", () => {
       const sum = Object.values(result!).reduce((a, b) => a + b, 0);
       expect(sum).toBe(100);
     });
+  });
+});
+
+describe("calcRaceForecast", () => {
+  it("returns null when fewer than 3 rounds have been played", () => {
+    expect(
+      calcRaceForecast([{ id: "1", score: 10, roundsPlayed: 2 }], 75)
+    ).toBeNull();
+  });
+
+  it("keeps unresolved simulations explicit instead of crediting the leader", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "leader", score: 3, roundsPlayed: 3 },
+        { id: "trailing", score: 0, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        leader: [1, 1, 1],
+        trailing: [0, 0, 0],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.leader.winProbability).toBe(0);
+    expect(forecast!.unresolvedProbability).toBe(100);
+    expect(forecast!.gameEndRound).toBeNull();
+    expect(forecastSum(forecast!)).toBe(100);
+  });
+
+  it("derives next-round threat and winning-round range from the same pass", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "close", score: 70, roundsPlayed: 5 },
+        { id: "far", score: 30, roundsPlayed: 5 },
+      ],
+      75,
+      {
+        close: [12, 14, 16, 14, 14],
+        far: [4, 8, 6, 6, 6],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.close.nextRoundWinProbability).toBeGreaterThan(90);
+    expect(forecast!.players.close.nextRoundWinProbability).toBeLessThanOrEqual(
+      forecast!.players.close.winProbability
+    );
+    expect(forecast!.players.close.winningRound?.median).toBe(6);
+    expect(forecast!.gameEndRound?.median).toBe(6);
+  });
+
+  it("returns player outcomes plus unresolved outcomes that sum to 100", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "1", score: 30, roundsPlayed: 4 },
+        { id: "2", score: 25, roundsPlayed: 4 },
+        { id: "3", score: 20, roundsPlayed: 4 },
+      ],
+      75,
+      {
+        "1": [8, 7, 9, 6],
+        "2": [5, 8, 6, 6],
+        "3": [4, 5, 6, 5],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecastSum(forecast!)).toBe(100);
   });
 });
