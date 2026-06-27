@@ -1,21 +1,60 @@
 import {
+  allocateOutcomePercents,
   calcWinProbabilities,
-  calcProjectedFinishRound,
+  calcRaceForecast,
+  clampRoundScore,
 } from "../scoring/probability";
 
-describe("calcProjectedFinishRound", () => {
-  it("projects finish round based on average pace", () => {
-    // 50 points in 5 rounds = 10/round, need 75, so ~7.5 → round 8
-    expect(calcProjectedFinishRound(50, 5, 75)).toBe(8);
+function forecastSum(forecast: NonNullable<ReturnType<typeof calcRaceForecast>>) {
+  return (
+    Object.values(forecast.players).reduce(
+      (sum, player) => sum + player.winProbability,
+      0
+    ) + forecast.unresolvedProbability
+  );
+}
+
+describe("clampRoundScore", () => {
+  it("keeps simulated round scores inside Dutch Blitz scoring bounds", () => {
+    expect(clampRoundScore(-100)).toBe(-20);
+    expect(clampRoundScore(100)).toBe(40);
+    expect(clampRoundScore(4.6)).toBe(5);
+  });
+});
+
+describe("allocateOutcomePercents", () => {
+  it("returns zero percentages when there are no outcomes to allocate", () => {
+    expect(
+      allocateOutcomePercents(
+        [
+          ["a", 0],
+          ["b", 0],
+        ],
+        0
+      )
+    ).toEqual({
+      a: 0,
+      b: 0,
+    });
   });
 
-  it("returns Infinity for zero or negative pace", () => {
-    expect(calcProjectedFinishRound(-10, 5, 75)).toBe(Infinity);
-    expect(calcProjectedFinishRound(0, 5, 75)).toBe(Infinity);
-  });
+  it("uses a stable tie-break when rounded percentages need a remainder bump", () => {
+    const counts: [string, number][] = [
+      ["b", 2250],
+      ["a", 4350],
+      ["__unresolved", 3400],
+    ];
 
-  it("returns current round if already past threshold", () => {
-    expect(calcProjectedFinishRound(80, 5, 75)).toBe(5);
+    expect(allocateOutcomePercents(counts, 10_000)).toEqual({
+      a: 44,
+      b: 22,
+      __unresolved: 34,
+    });
+    expect(allocateOutcomePercents([...counts].reverse(), 10_000)).toEqual({
+      a: 44,
+      b: 22,
+      __unresolved: 34,
+    });
   });
 });
 
@@ -42,8 +81,6 @@ describe("calcWinProbabilities", () => {
     );
     expect(result).not.toBeNull();
     expect(result!["1"]).toBeGreaterThan(result!["2"]);
-    const sum = Object.values(result!).reduce((a, b) => a + b, 0);
-    expect(sum).toBe(100);
   });
 
   it("gives 0% to players with negative pace (no deltas)", () => {
@@ -84,6 +121,20 @@ describe("calcWinProbabilities", () => {
     const r1 = calcWinProbabilities(players, 75, deltas);
     const r2 = calcWinProbabilities(players, 75, deltas);
     expect(r1).toEqual(r2);
+  });
+
+  it("is deterministic for the same players in a different order", () => {
+    const players = [
+      { id: "b", score: 35, roundsPlayed: 5 },
+      { id: "a", score: 40, roundsPlayed: 5 },
+    ];
+    const deltas = {
+      a: [10, 8, 7, 9, 6],
+      b: [5, 12, 3, 8, 7],
+    };
+    const original = calcWinProbabilities(players, 75, deltas);
+    const reordered = calcWinProbabilities([...players].reverse(), 75, deltas);
+    expect(original).toEqual(reordered);
   });
 
   describe("with per-round deltas (Monte Carlo)", () => {
@@ -137,5 +188,332 @@ describe("calcWinProbabilities", () => {
       const sum = Object.values(result!).reduce((a, b) => a + b, 0);
       expect(sum).toBe(100);
     });
+  });
+});
+
+describe("calcRaceForecast", () => {
+  it("returns null when fewer than 3 rounds have been played", () => {
+    expect(
+      calcRaceForecast([{ id: "1", score: 10, roundsPlayed: 2 }], 75)
+    ).toBeNull();
+  });
+
+  it("can use historical profiles for an early low-confidence forecast", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "fast", score: 10, roundsPlayed: 1 },
+        { id: "steady", score: 10, roundsPlayed: 1 },
+      ],
+      75,
+      {
+        fast: [10],
+        steady: [10],
+      },
+      {
+        predictionProfiles: {
+          fast: {
+            playerId: "fast",
+            roundsPlayed: 20,
+            meanDelta: 18,
+            stdDelta: 4,
+            blitzRate: 0.6,
+            meanCardsPlayed: 24,
+            meanBlitzPileRemaining: 3,
+            recentDeltas: [20, 18, 16],
+          },
+          steady: {
+            playerId: "steady",
+            roundsPlayed: 20,
+            meanDelta: 8,
+            stdDelta: 3,
+            blitzRate: 0.2,
+            meanCardsPlayed: 18,
+            meanBlitzPileRemaining: 5,
+            recentDeltas: [8, 9, 7],
+          },
+        },
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.usesHistoricalData).toBe(true);
+    expect(forecast!.historicalSampleCount).toBe(40);
+    expect(forecast!.confidence).toBe("low");
+    expect(forecast!.players.fast.winProbability).toBeGreaterThan(
+      forecast!.players.steady.winProbability
+    );
+  });
+
+  it("ignores profiles without enough history for an early forecast", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "fast", score: 10, roundsPlayed: 1 },
+        { id: "steady", score: 10, roundsPlayed: 1 },
+      ],
+      75,
+      {
+        fast: [10],
+        steady: [10],
+      },
+      {
+        predictionProfiles: {
+          fast: {
+            playerId: "fast",
+            roundsPlayed: 4,
+            meanDelta: 18,
+            stdDelta: 4,
+            blitzRate: 0.6,
+            meanCardsPlayed: 24,
+            meanBlitzPileRemaining: 3,
+            recentDeltas: [20, 18, 16],
+          },
+        },
+      }
+    );
+
+    expect(forecast).toBeNull();
+  });
+
+  it("does not mark shallow per-player history as high confidence", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "a", score: 50, roundsPlayed: 5 },
+        { id: "b", score: 45, roundsPlayed: 5 },
+        { id: "c", score: 40, roundsPlayed: 5 },
+        { id: "d", score: 35, roundsPlayed: 5 },
+      ],
+      75,
+      {
+        a: [10, 10, 10, 10, 10],
+        b: [9, 9, 9, 9, 9],
+        c: [8, 8, 8, 8, 8],
+        d: [7, 7, 7, 7, 7],
+      },
+      {
+        predictionProfiles: Object.fromEntries(
+          ["a", "b", "c", "d"].map((id, index) => [
+            id,
+            {
+              playerId: id,
+              roundsPlayed: 5,
+              meanDelta: 10 - index,
+              stdDelta: 1,
+              blitzRate: 0.4,
+              meanCardsPlayed: 20,
+              meanBlitzPileRemaining: 4,
+              recentDeltas: [10 - index],
+            },
+          ])
+        ),
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.historicalSampleCount).toBe(20);
+    expect(forecast!.confidence).not.toBe("high");
+  });
+
+  it("keeps unresolved simulations explicit instead of crediting the leader", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "leader", score: 3, roundsPlayed: 3 },
+        { id: "trailing", score: 0, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        leader: [1, 1, 1],
+        trailing: [0, 0, 0],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.leader.winProbability).toBe(0);
+    expect(forecast!.unresolvedProbability).toBe(100);
+    expect(forecast!.gameEndRound).toBeNull();
+    expect(forecastSum(forecast!)).toBe(100);
+  });
+
+  it("keeps simulating volatile players even when their average delta is not positive", () => {
+    const forecast = calcRaceForecast(
+      [{ id: "volatile", score: 74, roundsPlayed: 3 }],
+      75,
+      {
+        volatile: [-20, 20, 0],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.volatile.winProbability).toBeGreaterThan(0);
+    expect(
+      forecast!.players.volatile.nextRoundWinProbability
+    ).toBeGreaterThan(0);
+  });
+
+  it("splits exact same-round winning-score ties between tied players", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "b", score: 30, roundsPlayed: 3 },
+        { id: "a", score: 30, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        a: [15, 15, 15],
+        b: [15, 15, 15],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.a.winProbability).toBe(50);
+    expect(forecast!.players.b.winProbability).toBe(50);
+    expect(forecast!.players.a.winningRound?.median).toBe(6);
+    expect(forecast!.players.b.winningRound?.median).toBe(6);
+    expect(forecastSum(forecast!)).toBe(100);
+  });
+
+  it("derives next-round threat and winning-round range from the same pass", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "close", score: 70, roundsPlayed: 5 },
+        { id: "far", score: 30, roundsPlayed: 5 },
+      ],
+      75,
+      {
+        close: [12, 14, 16, 14, 14],
+        far: [4, 8, 6, 6, 6],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.close.nextRoundWinProbability).toBeGreaterThan(90);
+    expect(forecast!.players.close.nextRoundWinProbability).toBeLessThanOrEqual(
+      forecast!.players.close.winProbability
+    );
+    expect(forecast!.players.close.winningRound?.median).toBe(6);
+    expect(forecast!.gameEndRound?.median).toBe(6);
+  });
+
+  it("tracks next-round blitz-out wins and swing potential from score mechanics", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "close", score: 55, roundsPlayed: 3 },
+        { id: "steady", score: 30, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        close: [25, 25, 25],
+        steady: [10, 10, 10],
+      },
+      {
+        roundSamplesByPlayer: {
+          close: [
+            { totalCardsPlayed: 25, blitzPileRemaining: 0 },
+            { totalCardsPlayed: 25, blitzPileRemaining: 0 },
+            { totalCardsPlayed: 25, blitzPileRemaining: 0 },
+          ],
+          steady: [
+            { totalCardsPlayed: 20, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 20, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 20, blitzPileRemaining: 5 },
+          ],
+        },
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.usesMechanicsModel).toBe(true);
+    expect(forecast!.players.close.nextRoundWinProbability).toBe(100);
+    expect(forecast!.players.close.nextRoundBlitzWinProbability).toBe(100);
+    expect(forecast!.players.close.nextRoundSwingProbability).toBe(100);
+    expect(forecast!.players.steady.nextRoundSwingProbability).toBe(0);
+  });
+
+  it("conditions mechanics-mode future rounds on at least one blitzer", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "a", score: 70, roundsPlayed: 3 },
+        { id: "b", score: 70, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        a: [5, 5, 5],
+        b: [5, 5, 5],
+      },
+      {
+        roundSamplesByPlayer: {
+          a: [
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+          ],
+          b: [
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+          ],
+        },
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.usesMechanicsModel).toBe(true);
+    expect(
+      forecast!.players.a.nextRoundWinProbability +
+        forecast!.players.b.nextRoundWinProbability
+    ).toBe(100);
+    expect(
+      forecast!.players.a.nextRoundBlitzWinProbability +
+        forecast!.players.b.nextRoundBlitzWinProbability
+    ).toBe(100);
+  });
+
+  it("keeps swing probability separate from next-round win probability", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "leader", score: 70, roundsPlayed: 3 },
+        { id: "trailer", score: 10, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        leader: [5, 5, 5],
+        trailer: [30, 30, 30],
+      },
+      {
+        roundSamplesByPlayer: {
+          leader: [
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+          ],
+          trailer: [
+            { totalCardsPlayed: 30, blitzPileRemaining: 0 },
+            { totalCardsPlayed: 30, blitzPileRemaining: 0 },
+            { totalCardsPlayed: 30, blitzPileRemaining: 0 },
+          ],
+        },
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.trailer.nextRoundWinProbability).toBe(0);
+    expect(forecast!.players.trailer.nextRoundSwingProbability).toBe(100);
+  });
+
+  it("returns player outcomes plus unresolved outcomes that sum to 100", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "1", score: 30, roundsPlayed: 4 },
+        { id: "2", score: 25, roundsPlayed: 4 },
+        { id: "3", score: 20, roundsPlayed: 4 },
+      ],
+      75,
+      {
+        "1": [8, 7, 9, 6],
+        "2": [5, 8, 6, 6],
+        "3": [4, 5, 6, 5],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecastSum(forecast!)).toBe(100);
   });
 });
