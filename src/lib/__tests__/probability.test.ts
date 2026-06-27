@@ -23,6 +23,21 @@ describe("clampRoundScore", () => {
 });
 
 describe("allocateOutcomePercents", () => {
+  it("returns zero percentages when there are no outcomes to allocate", () => {
+    expect(
+      allocateOutcomePercents(
+        [
+          ["a", 0],
+          ["b", 0],
+        ],
+        0
+      )
+    ).toEqual({
+      a: 0,
+      b: 0,
+    });
+  });
+
   it("uses a stable tie-break when rounded percentages need a remainder bump", () => {
     const counts: [string, number][] = [
       ["b", 2250],
@@ -200,6 +215,43 @@ describe("calcRaceForecast", () => {
     expect(forecast!.players.leader.winProbability).toBe(0);
     expect(forecast!.unresolvedProbability).toBe(100);
     expect(forecast!.gameEndRound).toBeNull();
+    expect(forecastSum(forecast!)).toBe(100);
+  });
+
+  it("keeps simulating volatile players even when their average delta is not positive", () => {
+    const forecast = calcRaceForecast(
+      [{ id: "volatile", score: 74, roundsPlayed: 3 }],
+      75,
+      {
+        volatile: [-20, 20, 0],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.volatile.winProbability).toBeGreaterThan(0);
+    expect(
+      forecast!.players.volatile.nextRoundWinProbability
+    ).toBeGreaterThan(0);
+  });
+
+  it("splits exact same-round winning-score ties between tied players", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "b", score: 30, roundsPlayed: 3 },
+        { id: "a", score: 30, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        a: [15, 15, 15],
+        b: [15, 15, 15],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.a.winProbability).toBe(50);
+    expect(forecast!.players.b.winProbability).toBe(50);
+    expect(forecast!.players.a.winningRound?.median).toBe(6);
+    expect(forecast!.players.b.winningRound?.median).toBe(6);
     expect(forecastSum(forecast!)).toBe(100);
   });
 

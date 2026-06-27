@@ -114,9 +114,13 @@ export function allocateOutcomePercents(
   counts: [string, number][],
   total: number
 ): Record<string, number> {
+  if (total <= 0) {
+    return Object.fromEntries(counts.map(([id]) => [id, 0]));
+  }
+
   const exact = counts.map(([id, count]) => ({
     id,
-    value: total === 0 ? 0 : (count / total) * 100,
+    value: (count / total) * 100,
   }));
   const result = Object.fromEntries(
     exact.map(({ id, value }) => [id, Math.floor(value)])
@@ -208,27 +212,6 @@ export function calcRaceForecast(
     return { id: p.id, currentScore: p.score, mean: m, std: Math.abs(m) * 0.5 };
   });
 
-  // If every player has non-positive mean, no one is progressing
-  if (stats.every((s) => s.mean <= 0)) {
-    return {
-      players: Object.fromEntries(
-        players.map((p) => [
-          p.id,
-          {
-            id: p.id,
-            winProbability: 0,
-            nextRoundWinProbability: 0,
-            winningRound: null,
-          },
-        ])
-      ),
-      gameEndRound: null,
-      unresolvedProbability: 100,
-      confidence: "low",
-      simulationCount: SIMULATION_COUNT,
-    };
-  }
-
   const rng = makeRng(buildSeed(players, winThreshold, deltasByPlayer));
 
   const wins: Record<string, number> = {};
@@ -242,7 +225,7 @@ export function calcRaceForecast(
 
   for (let sim = 0; sim < SIMULATION_COUNT; sim++) {
     const scores = stats.map((s) => s.currentScore);
-    let winnerId: string | null = null;
+    let winnerIndexes: number[] = [];
     let winningRound: number | null = null;
 
     for (let r = 0; r < MAX_FUTURE_ROUNDS; r++) {
@@ -253,23 +236,37 @@ export function calcRaceForecast(
       }
       // Check if any player crossed the threshold this round
       let bestScore = -Infinity;
+      const crossingIndexes: number[] = [];
       for (let i = 0; i < stats.length; i++) {
-        if (scores[i] >= winThreshold && scores[i] > bestScore) {
+        if (scores[i] < winThreshold) continue;
+        if (scores[i] > bestScore) {
           bestScore = scores[i];
-          winnerId = stats[i].id;
-          winningRound = roundsPlayed + r + 1;
+          crossingIndexes.length = 0;
+          crossingIndexes.push(i);
+        } else if (scores[i] === bestScore) {
+          crossingIndexes.push(i);
         }
       }
-      if (winnerId) break;
+      if (crossingIndexes.length > 0) {
+        winnerIndexes = crossingIndexes;
+        winningRound = roundsPlayed + r + 1;
+        break;
+      }
     }
 
-    if (winnerId && winningRound !== null) {
-      wins[winnerId]++;
-      winningRounds[winnerId].push(winningRound);
-      gameEndRounds.push(winningRound);
-      if (winningRound === roundsPlayed + 1) {
-        nextRoundWins[winnerId]++;
+    if (winnerIndexes.length > 0 && winningRound !== null) {
+      const splitWeight = 1 / winnerIndexes.length;
+
+      for (const winnerIndex of winnerIndexes) {
+        const winnerId = stats[winnerIndex].id;
+        wins[winnerId] += splitWeight;
+        winningRounds[winnerId].push(winningRound);
+        if (winningRound === roundsPlayed + 1) {
+          nextRoundWins[winnerId] += splitWeight;
+        }
       }
+
+      gameEndRounds.push(winningRound);
     } else {
       unresolvedCount++;
     }
