@@ -96,6 +96,8 @@ interface PlayerMechanicsStats {
 interface RoundOutcome {
   delta: number;
   blitzed: boolean;
+  cardsPlayed?: number;
+  blitzPileRemaining?: number;
 }
 
 export interface ForecastRoundSample {
@@ -180,9 +182,13 @@ export function allocateOutcomePercents(
   counts: [string, number][],
   total: number
 ): Record<string, number> {
+  if (total <= 0) {
+    return Object.fromEntries(counts.map(([id]) => [id, 0]));
+  }
+
   const exact = counts.map(([id, count]) => ({
     id,
-    value: total === 0 ? 0 : (count / total) * 100,
+    value: (count / total) * 100,
   }));
   const result = Object.fromEntries(
     exact.map(({ id, value }) => [id, Math.floor(value)])
@@ -485,7 +491,70 @@ function sampleRoundOutcome(
   return {
     delta: clampRoundScore(validCardsPlayed - 2 * blitzPileRemaining),
     blitzed,
+    cardsPlayed: validCardsPlayed,
+    blitzPileRemaining,
   };
+}
+
+function forceOneBlitzer(
+  stats: PlayerStats[],
+  outcomes: RoundOutcome[],
+  rng: () => number
+): RoundOutcome[] {
+  const candidateIndexes = stats
+    .map((stat, index) => (stat.mechanics ? index : -1))
+    .filter((index) => index >= 0);
+  if (candidateIndexes.length === 0) return outcomes;
+
+  const weights = candidateIndexes.map((index) =>
+    Math.max(stats[index].mechanics?.blitzRate ?? 0, 0.01)
+  );
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  let pick = rng() * totalWeight;
+  let forcedIndex = candidateIndexes[candidateIndexes.length - 1];
+
+  for (let i = 0; i < candidateIndexes.length; i++) {
+    pick -= weights[i];
+    if (pick <= 0) {
+      forcedIndex = candidateIndexes[i];
+      break;
+    }
+  }
+
+  const cardsPlayed = Math.max(
+    outcomes[forcedIndex].cardsPlayed ?? GAME_RULES.MIN_CARDS_FOR_BLITZ,
+    GAME_RULES.MIN_CARDS_FOR_BLITZ
+  );
+
+  return outcomes.map((outcome, index) =>
+    index === forcedIndex
+      ? {
+          ...outcome,
+          delta: clampRoundScore(cardsPlayed),
+          blitzed: true,
+          cardsPlayed,
+          blitzPileRemaining: 0,
+        }
+      : outcome
+  );
+}
+
+function sampleRoundOutcomes(
+  stats: PlayerStats[],
+  rng: () => number
+): RoundOutcome[] {
+  const hasMechanicsModel = stats.some((stat) => stat.mechanics);
+  const maxAttempts = hasMechanicsModel ? 25 : 1;
+  let outcomes: RoundOutcome[] = [];
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    outcomes = stats.map((stat) => sampleRoundOutcome(stat, rng));
+    if (!hasMechanicsModel || outcomes.some((outcome) => outcome.blitzed)) {
+      return outcomes;
+    }
+  }
+
+  return forceOneBlitzer(stats, outcomes, rng);
 }
 
 /**
@@ -536,32 +605,6 @@ export function calcRaceForecast(
     historicalDepths.length === stats.length ? Math.min(...historicalDepths) : 0;
   const usesMechanicsModel = stats.some((stat) => stat.mechanics);
 
-  // If every player has non-positive mean, no one is progressing
-  if (stats.every((s) => s.mean <= 0)) {
-    return {
-      players: Object.fromEntries(
-        players.map((p) => [
-          p.id,
-          {
-            id: p.id,
-              winProbability: 0,
-              nextRoundWinProbability: 0,
-              nextRoundBlitzWinProbability: 0,
-              nextRoundSwingProbability: 0,
-              winningRound: null,
-            },
-        ])
-      ),
-      gameEndRound: null,
-      unresolvedProbability: 100,
-      confidence: "low",
-      simulationCount: SIMULATION_COUNT,
-      usesHistoricalData,
-      historicalSampleCount,
-      usesMechanicsModel,
-    };
-  }
-
   const rng = makeRng(
     buildSeed(
       players,
@@ -587,12 +630,12 @@ export function calcRaceForecast(
 
   for (let sim = 0; sim < SIMULATION_COUNT; sim++) {
     const scores = stats.map((s) => s.currentScore);
-    let winnerId: string | null = null;
+    let winnerIndexes: number[] = [];
     let winningRound: number | null = null;
-    let winnerBlitzed = false;
+    let winningOutcomes: RoundOutcome[] | null = null;
 
     for (let r = 0; r < MAX_FUTURE_ROUNDS; r++) {
-      const outcomes = stats.map((s) => sampleRoundOutcome(s, rng));
+      const outcomes = sampleRoundOutcomes(stats, rng);
       for (let i = 0; i < stats.length; i++) {
         scores[i] += outcomes[i].delta;
         if (r === 0 && outcomes[i].delta >= SWING_ROUND_SCORE) {
@@ -601,27 +644,41 @@ export function calcRaceForecast(
       }
       // Check if any player crossed the threshold this round
       let bestScore = -Infinity;
+      const crossingIndexes: number[] = [];
       for (let i = 0; i < stats.length; i++) {
-        if (scores[i] >= winThreshold && scores[i] > bestScore) {
+        if (scores[i] < winThreshold) continue;
+        if (scores[i] > bestScore) {
           bestScore = scores[i];
-          winnerId = stats[i].id;
-          winningRound = roundsPlayed + r + 1;
-          winnerBlitzed = outcomes[i].blitzed;
+          crossingIndexes.length = 0;
+          crossingIndexes.push(i);
+        } else if (scores[i] === bestScore) {
+          crossingIndexes.push(i);
         }
       }
-      if (winnerId) break;
+      if (crossingIndexes.length > 0) {
+        winnerIndexes = crossingIndexes;
+        winningRound = roundsPlayed + r + 1;
+        winningOutcomes = outcomes;
+        break;
+      }
     }
 
-    if (winnerId && winningRound !== null) {
-      wins[winnerId]++;
-      winningRounds[winnerId].push(winningRound);
-      gameEndRounds.push(winningRound);
-      if (winningRound === roundsPlayed + 1) {
-        nextRoundWins[winnerId]++;
-        if (winnerBlitzed) {
-          nextRoundBlitzWins[winnerId]++;
+    if (winnerIndexes.length > 0 && winningRound !== null) {
+      const splitWeight = 1 / winnerIndexes.length;
+
+      for (const winnerIndex of winnerIndexes) {
+        const winnerId = stats[winnerIndex].id;
+        wins[winnerId] += splitWeight;
+        winningRounds[winnerId].push(winningRound);
+        if (winningRound === roundsPlayed + 1) {
+          nextRoundWins[winnerId] += splitWeight;
+          if (winningOutcomes?.[winnerIndex].blitzed) {
+            nextRoundBlitzWins[winnerId] += splitWeight;
+          }
         }
       }
+
+      gameEndRounds.push(winningRound);
     } else {
       unresolvedCount++;
     }

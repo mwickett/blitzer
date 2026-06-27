@@ -23,6 +23,21 @@ describe("clampRoundScore", () => {
 });
 
 describe("allocateOutcomePercents", () => {
+  it("returns zero percentages when there are no outcomes to allocate", () => {
+    expect(
+      allocateOutcomePercents(
+        [
+          ["a", 0],
+          ["b", 0],
+        ],
+        0
+      )
+    ).toEqual({
+      a: 0,
+      b: 0,
+    });
+  });
+
   it("uses a stable tie-break when rounded percentages need a remainder bump", () => {
     const counts: [string, number][] = [
       ["b", 2250],
@@ -318,6 +333,43 @@ describe("calcRaceForecast", () => {
     expect(forecastSum(forecast!)).toBe(100);
   });
 
+  it("keeps simulating volatile players even when their average delta is not positive", () => {
+    const forecast = calcRaceForecast(
+      [{ id: "volatile", score: 74, roundsPlayed: 3 }],
+      75,
+      {
+        volatile: [-20, 20, 0],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.volatile.winProbability).toBeGreaterThan(0);
+    expect(
+      forecast!.players.volatile.nextRoundWinProbability
+    ).toBeGreaterThan(0);
+  });
+
+  it("splits exact same-round winning-score ties between tied players", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "b", score: 30, roundsPlayed: 3 },
+        { id: "a", score: 30, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        a: [15, 15, 15],
+        b: [15, 15, 15],
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.players.a.winProbability).toBe(50);
+    expect(forecast!.players.b.winProbability).toBe(50);
+    expect(forecast!.players.a.winningRound?.median).toBe(6);
+    expect(forecast!.players.b.winningRound?.median).toBe(6);
+    expect(forecastSum(forecast!)).toBe(100);
+  });
+
   it("derives next-round threat and winning-round range from the same pass", () => {
     const forecast = calcRaceForecast(
       [
@@ -373,6 +425,45 @@ describe("calcRaceForecast", () => {
     expect(forecast!.players.close.nextRoundBlitzWinProbability).toBe(100);
     expect(forecast!.players.close.nextRoundSwingProbability).toBe(100);
     expect(forecast!.players.steady.nextRoundSwingProbability).toBe(0);
+  });
+
+  it("conditions mechanics-mode future rounds on at least one blitzer", () => {
+    const forecast = calcRaceForecast(
+      [
+        { id: "a", score: 70, roundsPlayed: 3 },
+        { id: "b", score: 70, roundsPlayed: 3 },
+      ],
+      75,
+      {
+        a: [5, 5, 5],
+        b: [5, 5, 5],
+      },
+      {
+        roundSamplesByPlayer: {
+          a: [
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+          ],
+          b: [
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 15, blitzPileRemaining: 5 },
+          ],
+        },
+      }
+    );
+
+    expect(forecast).not.toBeNull();
+    expect(forecast!.usesMechanicsModel).toBe(true);
+    expect(
+      forecast!.players.a.nextRoundWinProbability +
+        forecast!.players.b.nextRoundWinProbability
+    ).toBe(100);
+    expect(
+      forecast!.players.a.nextRoundBlitzWinProbability +
+        forecast!.players.b.nextRoundBlitzWinProbability
+    ).toBe(100);
   });
 
   it("keeps swing probability separate from next-round win probability", () => {
