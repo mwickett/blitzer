@@ -6,3 +6,9 @@ export {
   getCumulativeScore,
   getLongestAndShortestGamesByRounds,
 } from "./stats";
+export {
+  buildPredictionProfiles,
+  getPredictionProfilesForGame,
+  type PredictionProfile,
+  type PredictionProfilesByPlayer,
+} from "./predictionProfiles";
