@@ -5,6 +5,7 @@ import {
   type ForecastRange,
   type PlayerForecast,
   type RaceForecast,
+  type PredictionProfilesByPlayer,
 } from "@/lib/scoring/probability";
 
 interface WinProbabilityCardProps {
@@ -12,6 +13,7 @@ interface WinProbabilityCardProps {
   roundsPlayed: number;
   winThreshold: number;
   deltasByPlayer?: Record<string, number[]>;
+  predictionProfiles?: PredictionProfilesByPlayer;
 }
 
 export function WinProbabilityCard({
@@ -19,15 +21,17 @@ export function WinProbabilityCard({
   roundsPlayed,
   winThreshold,
   deltasByPlayer,
+  predictionProfiles,
 }: WinProbabilityCardProps) {
   const forecast = useMemo(
     () =>
       calcRaceForecast(
         players.map((p) => ({ id: p.id, score: p.score, roundsPlayed })),
         winThreshold,
-        deltasByPlayer
+        deltasByPlayer,
+        { predictionProfiles }
       ),
-    [players, roundsPlayed, winThreshold, deltasByPlayer]
+    [players, roundsPlayed, winThreshold, deltasByPlayer, predictionProfiles]
   );
 
   const sorted = useMemo(
@@ -122,10 +126,15 @@ export function WinProbabilityCard({
             {forecast.unresolvedProbability}% still open after the forecast window
           </div>
         )}
+        {forecast.usesHistoricalData && (
+          <div className="mt-2 text-[12px] md:text-[11px] text-[#8b5e3c]">
+            History-backed from {forecast.historicalSampleCount} prior player scores
+          </div>
+        )}
       </div>
 
       <div className="text-xs md:text-[11px] text-[#8b5e3c] text-center mt-2 italic">
-        Monte Carlo simulation · accounts for pace &amp; variance
+        Monte Carlo simulation · {getModelNote(forecast)}
       </div>
     </div>
   );
@@ -169,7 +178,22 @@ function getSubtitle(roundsPlayed: number, forecast: RaceForecast): string {
       : forecast.confidence === "medium"
         ? "medium confidence"
         : "low confidence";
-  return `Simulated from ${roundsPlayed} rounds tonight · ${confidence}`;
+  const source = forecast.usesHistoricalData
+    ? roundsPlayed > 0
+      ? `${formatRoundCount(roundsPlayed)} tonight + history`
+      : "player history"
+    : `${formatRoundCount(roundsPlayed)} tonight`;
+  return `Simulated from ${source} · ${confidence}`;
+}
+
+function getModelNote(forecast: RaceForecast): string {
+  return forecast.usesHistoricalData
+    ? "blends pace, variance & player history"
+    : "accounts for pace & variance";
+}
+
+function formatRoundCount(roundsPlayed: number): string {
+  return `${roundsPlayed} ${roundsPlayed === 1 ? "round" : "rounds"}`;
 }
 
 function getTopNextThreat(

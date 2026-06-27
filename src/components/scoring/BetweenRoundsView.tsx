@@ -15,6 +15,7 @@ import { calculateRoundScore } from "@/lib/validation/gameRules";
 import { useRoundEditing } from "./useRoundEditing";
 import { findPlayerScore } from "./utils";
 import { type PlayerWithScore, type RoundData } from "./types";
+import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
 
 interface BetweenRoundsViewProps {
   gameId: string;
@@ -25,6 +26,7 @@ interface BetweenRoundsViewProps {
   onEnterScores: () => void;
   /** When false, render as a read-only spectator view (no entry/edit actions) */
   canEdit?: boolean;
+  predictionProfiles?: PredictionProfilesByPlayer;
 }
 
 export function BetweenRoundsView({
@@ -35,6 +37,7 @@ export function BetweenRoundsView({
   nextRoundNumber,
   onEnterScores,
   canEdit = true,
+  predictionProfiles,
 }: BetweenRoundsViewProps) {
   const posthog = usePostHog();
   const { editingRoundIndex, editError, handleEditRound, handleSaveEdit, cancelEdit } =
@@ -87,6 +90,7 @@ export function BetweenRoundsView({
           roundsPlayed={rounds.length}
           winThreshold={winThreshold}
           deltasByPlayer={deltasByRound}
+          predictionProfiles={predictionProfiles}
         />
       </GraphCarousel>
 

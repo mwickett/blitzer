@@ -8,4 +8,5 @@ export {
   getHighestAndLowestScore,
   getCumulativeScore,
   getLongestAndShortestGamesByRounds,
+  getPredictionProfilesForGame,
 } from "./queries/index";

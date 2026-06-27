@@ -12,6 +12,7 @@ import { findPlayerScore } from "./utils";
 import { useRoundEditing } from "./useRoundEditing";
 import { type PlayerWithScore, type RoundData, type RoundScoreData } from "./types";
 import { calcGameStats, type RoundResult } from "@/lib/scoring/gameStats";
+import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
 import { cloneGame } from "@/server/mutations/games";
 
@@ -26,6 +27,7 @@ interface ScoringShellProps {
   winnerId?: string;
   endedAt?: string;
   rounds: RoundData[];
+  predictionProfiles?: PredictionProfilesByPlayer;
   /**
    * When false, render as a read-only spectator view — for people viewing a
    * game outside their circle, or via a public shared link. No score entry,
@@ -43,6 +45,7 @@ export function ScoringShell({
   winnerId,
   endedAt,
   rounds,
+  predictionProfiles,
   canEdit = true,
 }: ScoringShellProps) {
   const router = useRouter();
@@ -226,6 +229,7 @@ export function ScoringShell({
         nextRoundNumber={optimisticRound ? currentRoundNumber + 1 : currentRoundNumber}
         onEnterScores={() => setShowEntry(true)}
         canEdit={canEdit}
+        predictionProfiles={predictionProfiles}
       />
     );
   }
