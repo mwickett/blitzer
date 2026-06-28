@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { assignColorsToPlayers } from "@/lib/scoring/colors";
+import { ACCENT_COLORS, assignColorsToPlayers } from "@/lib/scoring/colors";
 import { resolveColorCascade } from "@/lib/scoring/colorCascade";
 
 export interface ColorStepPlayer {
@@ -15,6 +15,7 @@ export interface ColorStepPlayer {
 }
 
 export function useGameColors(players: ColorStepPlayer[]) {
+  const allowDuplicateColors = players.length > ACCENT_COLORS.length;
   const [colors, setColors] = useState<Record<string, string>>(() => {
     const inputs = players.map((p) => ({
       id: p.id,
@@ -24,8 +25,12 @@ export function useGameColors(players: ColorStepPlayer[]) {
   });
 
   const updateColor = useCallback((playerId: string, newColor: string) => {
-    setColors((prev) => resolveColorCascade(prev, playerId, newColor));
-  }, []);
+    setColors((prev) =>
+      allowDuplicateColors
+        ? { ...prev, [playerId]: newColor }
+        : resolveColorCascade(prev, playerId, newColor)
+    );
+  }, [allowDuplicateColors]);
 
   return { colors, updateColor };
 }

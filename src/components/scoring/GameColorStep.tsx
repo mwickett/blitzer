@@ -7,6 +7,7 @@ import { useGameColors, type ColorStepPlayer } from "./useGameColors";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PlayCircle, ArrowLeft } from "lucide-react";
+import { ACCENT_COLORS } from "@/lib/scoring/colors";
 
 interface GameColorStepProps {
   players: ColorStepPlayer[];
@@ -17,6 +18,7 @@ interface GameColorStepProps {
 export function GameColorStep({ players, onConfirm, onBack }: GameColorStepProps) {
   const { colors, updateColor } = useGameColors(players);
   const [saveAsDefault, setSaveAsDefault] = useState(true);
+  const allowDuplicateColors = players.length > ACCENT_COLORS.length;
 
   const getInitials = (name: string) => name.substring(0, 2).toUpperCase();
 
@@ -65,6 +67,7 @@ export function GameColorStep({ players, onConfirm, onBack }: GameColorStepProps
               value={colors[player.id] ?? null}
               onChange={(color) => updateColor(player.id, color)}
               usedColors={usedByOthers}
+              allowDuplicateColors={allowDuplicateColors}
             />
 
             {player.isCurrentUser && (

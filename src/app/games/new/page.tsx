@@ -1,9 +1,10 @@
 "use server";
 
 import { Suspense } from "react";
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
 import NewGameChooser from "./newGameChooser";
+import { getOrgMemberClerkIds } from "@/server/clerkOrgs";
 
 export default async function NewGamePage() {
   const { userId, orgId } = await auth();
@@ -16,16 +17,7 @@ export default async function NewGamePage() {
     return <div>Please join a circle first</div>;
   }
 
-  // Get circle members from Clerk
-  const client = await clerkClient();
-  const memberships = await client.organizations.getOrganizationMembershipList({
-    organizationId: orgId,
-  });
-
-  // Extract Clerk user IDs from memberships
-  const clerkUserIds = memberships.data
-    .map((m) => m.publicUserData?.userId)
-    .filter((id): id is string => !!id);
+  const clerkUserIds = Array.from(await getOrgMemberClerkIds(orgId));
 
   // Look up Prisma users by their clerk_user_ids
   const users = await prisma.user.findMany({
