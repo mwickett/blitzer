@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useOrganization } from "@clerk/nextjs";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
@@ -52,8 +51,6 @@ type GameStatusFilter = "all" | "completed" | "active" | "ended";
 
 function GameList({ games }: { games: GameSummary[] }) {
   const router = useRouter();
-  const { organization } = useOrganization();
-  const circleName = organization?.name ?? "the active Circle";
 
   const [statusFilter, setStatusFilter] =
     useState<GameStatusFilter>("all");
@@ -111,6 +108,9 @@ function GameList({ games }: { games: GameSummary[] }) {
   };
 
   const getGameStatus = (game: GameSummary) => {
+    if (game.kind === "PICKUP" && !game.startedAt) {
+      return <Badge variant="secondary">Lobby</Badge>;
+    }
     if (game.isFinished) {
       return <Badge variant="success">Completed</Badge>;
     }
@@ -188,8 +188,7 @@ function GameList({ games }: { games: GameSummary[] }) {
           <h1 className="text-2xl font-bold">Games</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Showing {filteredGames.length} of {games.length}{" "}
-            {games.length === 1 ? "game" : "games"} from {circleName}. Filters
-            narrow this Circle-wide list.
+            {games.length === 1 ? "game" : "games"} you can play or view.
           </p>
         </div>
         <Button asChild>
@@ -209,7 +208,7 @@ function GameList({ games }: { games: GameSummary[] }) {
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Circle games</SelectItem>
+              <SelectItem value="all">All games</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="active">In progress</SelectItem>
               <SelectItem value="ended">Ended without winner</SelectItem>
@@ -322,7 +321,7 @@ function GameList({ games }: { games: GameSummary[] }) {
           <TableBody>
             {filteredGames.map((game) => (
               <TableRow key={game.id}>
-                <TableCell>{getGameStatus(game)}</TableCell>
+                <TableCell><div className="flex flex-wrap gap-1">{getGameStatus(game)}{game.kind === "PICKUP" && game.startedAt && <Badge variant="secondary">Pickup</Badge>}</div></TableCell>
                 <TableCell>
                   {game.winnerId && (
                     <div className="flex items-center gap-1">
@@ -372,7 +371,7 @@ function GameList({ games }: { games: GameSummary[] }) {
           <Card key={game.id}>
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-4">
-                <div>{getGameStatus(game)}</div>
+                <div className="flex flex-wrap gap-1">{getGameStatus(game)}{game.kind === "PICKUP" && game.startedAt && <Badge variant="secondary">Pickup</Badge>}</div>
                 <div className="text-sm text-muted-foreground">
                   {formatGameDate(game.createdAt)}
                 </div>
@@ -428,7 +427,7 @@ function GameList({ games }: { games: GameSummary[] }) {
         <div className="text-center py-8 text-muted-foreground">
           {hasActiveFilters
             ? "No games found matching your filters"
-            : `No games found in ${circleName}`}
+            : "No games found"}
         </div>
       )}
     </div>

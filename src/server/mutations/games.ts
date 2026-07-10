@@ -3,7 +3,7 @@
 import prisma from "@/server/db/db";
 import { Prisma } from "@/generated/prisma/client";
 import { after } from "next/server";
-import { requireAuthContext, assertGameInCircle } from "./common";
+import { requireAuthContext, assertGameInCircle, requireGameScoringAccess } from "./common";
 import { getOrgMemberClerkIds } from "../clerkOrgs";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 import { resolvePlayerColor, assignColorsToPlayers } from "@/lib/scoring/colors";
@@ -129,7 +129,7 @@ export async function updateGameAsFinished(
   winnerId: string,
   isGuestWinner: boolean = false
 ) {
-  const { user, posthog, orgId } = await requireAuthContext("org");
+  const { user, posthog } = await requireAuthContext("user");
 
   // Fetch game with all player details
   const game = await prisma.game.findUnique({
@@ -158,7 +158,8 @@ export async function updateGameAsFinished(
     },
   });
 
-  assertGameInCircle(game, orgId);
+  await requireGameScoringAccess(gameId);
+  if (!game) throw new Error("Game not found");
 
   // Get winner's details
   let winnerName = "";

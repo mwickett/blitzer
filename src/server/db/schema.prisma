@@ -20,6 +20,13 @@ model User {
   scores                 Score[]
   createdGuests          GuestUser[]              @relation("CreatedGuests")
   OrganizationMembership OrganizationMembership[]
+  hostedGames            Game[]                   @relation("GameHost")
+}
+
+enum GameKind {
+  CIRCLE
+  PICKUP
+  LEGACY
 }
 
 model GuestUser {
@@ -47,10 +54,18 @@ model Game {
   winnerId       String?
   winThreshold   Int           @default(75) @map("win_threshold")
   organizationId String?       @map("organization_id")
+  kind           GameKind      @default(CIRCLE)
+  startedAt      DateTime?     @default(now()) @map("started_at")
+  hostUserId     String?       @map("host_user_id")
+  joinToken      String?       @unique @map("join_token")
+  joinCode       String?       @unique @map("join_code")
+  host           User?         @relation("GameHost", fields: [hostUserId], references: [id])
   players        GamePlayers[]
   rounds         Round[]
 
   @@index([organizationId])
+  @@index([hostUserId])
+  @@index([kind, startedAt])
 }
 
 model Round {
@@ -84,9 +99,9 @@ model Score {
 }
 
 model GamePlayers {
-  id        String     @id @default(uuid())
-  gameId    String
-  userId    String?
+  id          String     @id @default(uuid())
+  gameId      String
+  userId      String?
   guestId     String?
   accentColor String?    @map("accent_color")
   game        Game       @relation(fields: [gameId], references: [id])
@@ -110,4 +125,3 @@ model OrganizationMembership {
   @@index([organizationId])
   @@index([userId])
 }
-

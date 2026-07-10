@@ -3,8 +3,9 @@
 import prisma from "@/server/db/db";
 import {
   requireAuthContext,
-  requireGameInCircle,
-  type AuthedOrgContext,
+  requireGameScoringAccess,
+  assertScoreRoster,
+  type AuthedUserContext,
 } from "./common";
 import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
 import { getGameCompletion } from "@/lib/gameLogic";
@@ -14,7 +15,7 @@ import { updateGameAsFinished } from "./games";
 async function syncGameCompletionAfterScoreWrite(
   gameId: string,
   userId: string,
-  posthog: AuthedOrgContext["posthog"]
+  posthog: AuthedUserContext["posthog"]
 ) {
   const updatedGame = await getGameById(gameId);
   if (!updatedGame) return;
@@ -71,9 +72,8 @@ export async function createRoundForGame(
     totalCardsPlayed: number;
   }[]
 ) {
-  const { user, posthog, orgId } = await requireAuthContext("org");
-
-  const game = await requireGameInCircle(gameId, orgId);
+  const { user, posthog } = await requireAuthContext("user");
+  const game = await requireGameScoringAccess(gameId);
 
   // Validate scores using centralized validation
   try {
@@ -95,6 +95,7 @@ export async function createRoundForGame(
     }
     throw new Error("Invalid score submission");
   }
+  assertScoreRoster(game.players, scores);
 
   // Create round — the @@unique([gameId, round]) constraint prevents duplicates.
   // If a duplicate is attempted (e.g. double-tap), return the existing round.
@@ -160,9 +161,14 @@ export async function updateRoundScores(
     totalCardsPlayed: number;
   }[]
 ) {
-  const { user, posthog, orgId } = await requireAuthContext("org");
+  const { user, posthog } = await requireAuthContext("user");
+  const game = await requireGameScoringAccess(gameId);
 
-  await requireGameInCircle(gameId, orgId);
+  const round = await prisma.round.findUnique({
+    where: { id: roundId },
+    select: { gameId: true },
+  });
+  if (!round || round.gameId !== gameId) throw new Error("Round not found in this game");
 
   // Finished games are still editable — if an edit drops all players
   // below the threshold, the game will be reopened (see below).
@@ -187,6 +193,7 @@ export async function updateRoundScores(
     }
     throw new Error("Invalid score submission");
   }
+  assertScoreRoster(game.players, scores);
 
   // Update scores in a transaction to ensure consistency
   const updatedScores = await prisma.$transaction(async (tx) => {

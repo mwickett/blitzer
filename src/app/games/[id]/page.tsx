@@ -1,6 +1,6 @@
 import { ScoringShell } from "@/components/scoring/ScoringShell";
 import { getGameById, getPredictionProfilesForGame } from "@/server/queries";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
 import {
   resolvePlayerColor,
@@ -25,6 +25,14 @@ export default async function GameView(props: {
 
   // The query layer guarantees this shape — no per-request adaptation needed
   const game: GameWithPlayersAndScores = gameData;
+
+  const isPickupPlayer = !!userId && game.kind === "PICKUP" && game.players.some(
+    (player) => player.user?.clerk_user_id === userId
+  );
+  if (game.kind === "PICKUP" && !game.startedAt) {
+    if (isPickupPlayer) redirect(`/games/${game.id}/lobby`);
+    notFound();
+  }
 
   const displayScores = transformGameData(game);
 
@@ -86,7 +94,7 @@ export default async function GameView(props: {
         isFinished={isFinished}
         winnerId={displayScores.find((s) => s.isWinner)?.id}
         endedAt={game.endedAt?.toISOString()}
-        canEdit={isCircleMember}
+        canEdit={isCircleMember || isPickupPlayer}
         predictionProfiles={predictionProfiles}
         rounds={game.rounds.map((r) => ({
           id: r.id,

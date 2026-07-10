@@ -29,6 +29,11 @@ describe("transformGameData", () => {
       winnerId: null,
       winThreshold,
       organizationId: null,
+      kind: "CIRCLE",
+      startedAt: new Date(),
+      hostUserId: null,
+      joinToken: null,
+      joinCode: null,
       players: players.map((player) => ({
         id: `game-player-${player.userId}`,
         userId: player.userId,
@@ -291,6 +296,11 @@ describe("transformGameData", () => {
       winnerId: null,
       winThreshold: 75,
       organizationId: null,
+      kind: "LEGACY",
+      startedAt: new Date(),
+      hostUserId: null,
+      joinToken: null,
+      joinCode: null,
       players: [
         {
           id: "gp-guest",

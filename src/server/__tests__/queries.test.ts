@@ -157,7 +157,13 @@ describe("Queries", () => {
 
       expect(prisma.game.findMany).toHaveBeenCalledWith({
         where: {
-          organizationId: mockOrgId,
+          OR: [
+            { kind: "CIRCLE", organizationId: mockOrgId },
+            {
+              kind: "PICKUP",
+              players: { some: { user: { clerk_user_id: mockClerkUserId } } },
+            },
+          ],
         },
         include: {
           players: {
@@ -184,12 +190,20 @@ describe("Queries", () => {
       await expect(getGames()).rejects.toThrow("Unauthorized");
     });
 
-    it("should throw error if no active circle", async () => {
+    it("should still return the user's pickup games without an active circle", async () => {
       (auth as unknown as jest.Mock).mockResolvedValue({
         userId: mockClerkUserId,
         orgId: null,
       });
-      await expect(getGames()).rejects.toThrow("No active circle");
+      await getGames();
+      expect(prisma.game.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          OR: [{
+            kind: "PICKUP",
+            players: { some: { user: { clerk_user_id: mockClerkUserId } } },
+          }],
+        },
+      }));
     });
   });
 
