@@ -10,7 +10,11 @@ import { GameOverView } from "./GameOverView";
 import { RoundEditor } from "./RoundEditor";
 import { findPlayerScore } from "./utils";
 import { useRoundEditing } from "./useRoundEditing";
-import { type PlayerWithScore, type RoundData, type RoundScoreData } from "./types";
+import {
+  type PlayerWithScore,
+  type RoundData,
+  type RoundScoreData,
+} from "./types";
 import { calcGameStats, type RoundResult } from "@/lib/scoring/gameStats";
 import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
@@ -30,10 +34,12 @@ interface ScoringShellProps {
   predictionProfiles?: PredictionProfilesByPlayer;
   /**
    * When false, render as a read-only spectator view — for people viewing a
-   * game outside their circle, or via a public shared link. No score entry,
-   * round editing, or rematch.
+   * game outside their circle, or via a public shared link. No score entry or
+   * round editing; rematch availability is controlled separately.
    */
   canEdit?: boolean;
+  /** Pickup games require a new lobby, so only Circle games can clone a roster. */
+  canRematch?: boolean;
 }
 
 export function ScoringShell({
@@ -47,6 +53,7 @@ export function ScoringShell({
   rounds,
   predictionProfiles,
   canEdit = true,
+  canRematch = true,
 }: ScoringShellProps) {
   const router = useRouter();
   const posthog = usePostHog();
@@ -60,7 +67,9 @@ export function ScoringShell({
 
   // Optimistic round data — appended after a round is submitted so the UI
   // transitions to betweenRounds immediately without waiting for server refresh.
-  const [optimisticRound, setOptimisticRound] = useState<RoundData | null>(null);
+  const [optimisticRound, setOptimisticRound] = useState<RoundData | null>(
+    null,
+  );
 
   // Celebration: only show for recently-finished games (within 30s of endedAt).
   // useState initializer runs once on mount — safe to call Date.now() there.
@@ -70,8 +79,13 @@ export function ScoringShell({
   });
 
   // Editing state — shared hook for game-over round editing
-  const { editingRoundIndex, editError, handleEditRound, handleSaveEdit, cancelEdit } =
-    useRoundEditing({ gameId, rounds, players });
+  const {
+    editingRoundIndex,
+    editError,
+    handleEditRound,
+    handleSaveEdit,
+    cancelEdit,
+  } = useRoundEditing({ gameId, rounds, players });
 
   if (currentRoundNumber !== prevRound) {
     setPrevRound(currentRoundNumber);
@@ -82,13 +96,13 @@ export function ScoringShell({
   // Merge optimistic round into rounds and players for downstream components
   const effectiveRounds = useMemo(
     () => (optimisticRound ? [...rounds, optimisticRound] : rounds),
-    [rounds, optimisticRound]
+    [rounds, optimisticRound],
   );
   const effectivePlayers = useMemo(() => {
     if (!optimisticRound) return players;
     return players.map((p) => {
       const s = optimisticRound.scores.find(
-        (sc) => (sc.userId ?? sc.guestId) === p.id
+        (sc) => (sc.userId ?? sc.guestId) === p.id,
       );
       if (!s) return p;
       return { ...p, score: p.score + calculateRoundScore(s) };
@@ -103,7 +117,7 @@ export function ScoringShell({
         router.replace(`/games/${gameId}`);
       });
     },
-    [router, gameId, startTransition]
+    [router, gameId, startTransition],
   );
 
   // Derive mode from props + client override. Spectators (!canEdit) never see
@@ -127,7 +141,7 @@ export function ScoringShell({
       return { deltas, blitzCounts };
     });
     const playerNameMap = Object.fromEntries(
-      players.map((p) => [p.id, p.name])
+      players.map((p) => [p.id, p.name]),
     );
     return calcGameStats(roundResults, playerNameMap);
   }, [effectiveRounds, players]);
@@ -146,7 +160,7 @@ export function ScoringShell({
     router.push(`/games/${newGameId}`);
   };
 
-  const handleBackToCircle = () => {
+  const handleBackToGames = () => {
     router.push("/games");
   };
 
@@ -179,29 +193,31 @@ export function ScoringShell({
         )}
 
         {/* Inline round editor for finished games — members only */}
-        {canEdit && editingRoundIndex !== null && editingRoundIndex < effectiveRounds.length && (
-          <RoundEditor
-            roundIndex={editingRoundIndex}
-            players={players}
-            roundData={Object.fromEntries(
-              players.map((p) => {
-                const s = findPlayerScore(
-                  p,
-                  effectiveRounds[editingRoundIndex].scores
-                );
-                return [
-                  p.id,
-                  {
-                    blitzPileRemaining: s?.blitzPileRemaining ?? 0,
-                    totalCardsPlayed: s?.totalCardsPlayed ?? 0,
-                  },
-                ];
-              })
-            )}
-            onSave={handleSaveEdit}
-            onCancel={cancelEdit}
-          />
-        )}
+        {canEdit &&
+          editingRoundIndex !== null &&
+          editingRoundIndex < effectiveRounds.length && (
+            <RoundEditor
+              roundIndex={editingRoundIndex}
+              players={players}
+              roundData={Object.fromEntries(
+                players.map((p) => {
+                  const s = findPlayerScore(
+                    p,
+                    effectiveRounds[editingRoundIndex].scores,
+                  );
+                  return [
+                    p.id,
+                    {
+                      blitzPileRemaining: s?.blitzPileRemaining ?? 0,
+                      totalCardsPlayed: s?.totalCardsPlayed ?? 0,
+                    },
+                  ];
+                }),
+              )}
+              onSave={handleSaveEdit}
+              onCancel={cancelEdit}
+            />
+          )}
 
         {winner && (
           <GameOverView
@@ -211,8 +227,9 @@ export function ScoringShell({
             rounds={effectiveRounds}
             onEditRound={canEdit ? handleEditRound : undefined}
             onRematch={handleRematch}
-            onBackToCircle={handleBackToCircle}
+            onBackToGames={handleBackToGames}
             canEdit={canEdit}
+            canRematch={canRematch}
           />
         )}
       </>
@@ -226,7 +243,9 @@ export function ScoringShell({
         players={effectivePlayers}
         rounds={effectiveRounds}
         winThreshold={winThreshold}
-        nextRoundNumber={optimisticRound ? currentRoundNumber + 1 : currentRoundNumber}
+        nextRoundNumber={
+          optimisticRound ? currentRoundNumber + 1 : currentRoundNumber
+        }
         onEnterScores={() => setShowEntry(true)}
         canEdit={canEdit}
         predictionProfiles={predictionProfiles}

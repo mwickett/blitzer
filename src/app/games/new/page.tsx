@@ -8,7 +8,11 @@ import { getOrgMemberClerkIds } from "@/server/clerkOrgs";
 import { GameTypeChooser } from "./GameTypeChooser";
 import { PickupGameSetup } from "./PickupGameSetup";
 
-export default async function NewGamePage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+export default async function NewGamePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
   const { userId, orgId } = await auth();
   const { type } = await searchParams;
 
@@ -16,10 +20,30 @@ export default async function NewGamePage({ searchParams }: { searchParams: Prom
     return <div>Please sign in</div>;
   }
 
-  if (!type) return <main className="container mx-auto p-4"><GameTypeChooser hasCircle={!!orgId} /></main>;
-  if (type === "pickup") return <main className="container mx-auto p-4"><PickupGameSetup /></main>;
-  if (type !== "circle") return <main className="container mx-auto p-4"><GameTypeChooser hasCircle={!!orgId} /></main>;
-  if (!orgId) return <main className="container mx-auto p-4 text-center">Please join a Circle first.</main>;
+  if (!type)
+    return (
+      <main className="container mx-auto p-4">
+        <GameTypeChooser hasCircle={!!orgId} />
+      </main>
+    );
+  if (type === "pickup")
+    return (
+      <main className="container mx-auto p-4">
+        <PickupGameSetup />
+      </main>
+    );
+  if (type !== "circle")
+    return (
+      <main className="container mx-auto p-4">
+        <GameTypeChooser hasCircle={!!orgId} />
+      </main>
+    );
+  if (!orgId)
+    return (
+      <main className="container mx-auto p-4 text-center">
+        Please join a Circle first.
+      </main>
+    );
 
   const clerkUserIds = Array.from(await getOrgMemberClerkIds(orgId));
 

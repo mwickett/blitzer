@@ -39,19 +39,19 @@ export type AuthedOrgPrismaIdContext = AuthedOrgContext & AuthedPrismaIdContext;
  * @throws {Error} "User not found" if a Prisma id is required but missing
  */
 export async function requireAuthContext(
-  requires: "user"
+  requires: "user",
 ): Promise<AuthedUserContext>;
 export async function requireAuthContext(
-  requires: "prismaId"
+  requires: "prismaId",
 ): Promise<AuthedPrismaIdContext>;
 export async function requireAuthContext(
-  requires: "org"
+  requires: "org",
 ): Promise<AuthedOrgContext>;
 export async function requireAuthContext(
-  requires: "orgWithPrismaId"
+  requires: "orgWithPrismaId",
 ): Promise<AuthedOrgPrismaIdContext>;
 export async function requireAuthContext(
-  requires: Requirement
+  requires: Requirement,
 ): Promise<AuthedUserContext & { orgId?: string; prismaUserId?: string }> {
   const user = await auth();
   const posthog = posthogClient();
@@ -87,7 +87,7 @@ export async function requireAuthContext(
  */
 export function assertGameInCircle<G extends Pick<Game, "organizationId">>(
   game: G | null,
-  orgId: string
+  orgId: string,
 ): asserts game is G {
   if (!game) throw new Error("Game not found");
   if (game.organizationId !== orgId) {
@@ -101,7 +101,7 @@ export function assertGameInCircle<G extends Pick<Game, "organizationId">>(
  */
 export async function requireGameInCircle(
   gameId: string,
-  orgId: string
+  orgId: string,
 ): Promise<Game> {
   const game = await prisma.game.findUnique({ where: { id: gameId } });
   assertGameInCircle(game, orgId);
@@ -127,10 +127,13 @@ export async function ensureCurrentPrismaUser() {
 
   const emailMatch = await prisma.user.findUnique({ where: { email } });
   if (emailMatch) {
-    return prisma.user.update({
-      where: { id: emailMatch.id },
-      data: { clerk_user_id: userId },
-    });
+    // The Clerk webhook may have created the same identity between the first
+    // lookup and this email lookup. Treat that race as success, but never
+    // transfer an existing row to a different Clerk identity implicitly.
+    if (emailMatch.clerk_user_id === userId) return emailMatch;
+    throw new Error(
+      "An account already exists for this email. Sign in with that account to continue.",
+    );
   }
 
   const preferredName =
@@ -148,7 +151,12 @@ export async function ensureCurrentPrismaUser() {
       },
     });
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
       const racedUser = await prisma.user.findUnique({
         where: { clerk_user_id: userId },
       });
@@ -165,7 +173,11 @@ export async function requireGameScoringAccess(gameId: string) {
     where: { id: gameId },
     include: {
       players: {
-        select: { userId: true, guestId: true, user: { select: { clerk_user_id: true } } },
+        select: {
+          userId: true,
+          guestId: true,
+          user: { select: { clerk_user_id: true } },
+        },
       },
     },
   });
@@ -173,7 +185,8 @@ export async function requireGameScoringAccess(gameId: string) {
 
   if (game.kind === "CIRCLE" || !game.kind) {
     const session = await auth();
-    assertGameInCircle(game, session.orgId ?? "");
+    if (!session.orgId) throw new Error("No active circle");
+    assertGameInCircle(game, session.orgId);
   } else if (
     game.kind !== "PICKUP" ||
     !game.startedAt ||
@@ -187,10 +200,17 @@ export async function requireGameScoringAccess(gameId: string) {
 
 export function assertScoreRoster(
   players: { userId: string | null; guestId: string | null }[],
-  scores: { userId?: string; guestId?: string }[]
+  scores: { userId?: string; guestId?: string }[],
 ) {
-  const participantKey = (entry: { userId?: string | null; guestId?: string | null }) =>
-    entry.userId ? `user:${entry.userId}` : entry.guestId ? `guest:${entry.guestId}` : "";
+  const participantKey = (entry: {
+    userId?: string | null;
+    guestId?: string | null;
+  }) =>
+    entry.userId
+      ? `user:${entry.userId}`
+      : entry.guestId
+        ? `guest:${entry.guestId}`
+        : "";
   const roster = new Set(players.map(participantKey));
   const submitted = scores.map(participantKey);
   if (

@@ -26,9 +26,10 @@ export default async function GameView(props: {
   // The query layer guarantees this shape — no per-request adaptation needed
   const game: GameWithPlayersAndScores = gameData;
 
-  const isPickupPlayer = !!userId && game.kind === "PICKUP" && game.players.some(
-    (player) => player.user?.clerk_user_id === userId
-  );
+  const isPickupPlayer =
+    !!userId &&
+    game.kind === "PICKUP" &&
+    game.players.some((player) => player.user?.clerk_user_id === userId);
   if (game.kind === "PICKUP" && !game.startedAt) {
     if (isPickupPlayer) redirect(`/games/${game.id}/lobby`);
     notFound();
@@ -58,7 +59,7 @@ export default async function GameView(props: {
   // DisplayScores.id is the participant's userId or guestId (stable ID from gameLogic.ts)
   const scoringPlayers = displayScores.map((ds) => {
     const gamePlayer = game.players.find(
-      (p) => p.userId === ds.id || p.guestId === ds.id
+      (p) => p.userId === ds.id || p.guestId === ds.id,
     );
     return {
       id: ds.id,
@@ -95,6 +96,7 @@ export default async function GameView(props: {
         winnerId={displayScores.find((s) => s.isWinner)?.id}
         endedAt={game.endedAt?.toISOString()}
         canEdit={isCircleMember || isPickupPlayer}
+        canRematch={game.kind === "CIRCLE"}
         predictionProfiles={predictionProfiles}
         rounds={game.rounds.map((r) => ({
           id: r.id,

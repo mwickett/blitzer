@@ -8,8 +8,22 @@ jest.mock("posthog-js/react", () => ({
 }));
 
 const players: PlayerWithScore[] = [
-  { id: "p1", name: "Alice", color: "#ff0000", isGuest: false, userId: "p1", score: 80 },
-  { id: "p2", name: "Bob", color: "#0000ff", isGuest: false, userId: "p2", score: 40 },
+  {
+    id: "p1",
+    name: "Alice",
+    color: "#ff0000",
+    isGuest: false,
+    userId: "p1",
+    score: 80,
+  },
+  {
+    id: "p2",
+    name: "Bob",
+    color: "#0000ff",
+    isGuest: false,
+    userId: "p2",
+    score: 40,
+  },
 ];
 
 const stats: GameStats = {
@@ -37,7 +51,7 @@ const baseProps = {
   stats,
   rounds,
   onRematch: jest.fn(),
-  onBackToCircle: jest.fn(),
+  onBackToGames: jest.fn(),
 };
 
 describe("GameOverView spectator mode", () => {
@@ -45,10 +59,8 @@ describe("GameOverView spectator mode", () => {
     render(<GameOverView {...baseProps} />);
     // Winner name appears in both the winner card and the standings row
     expect(screen.getAllByText("Alice").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText("New Game with Same Players")
-    ).toBeInTheDocument();
-    expect(screen.getByText("Back to Circle")).toBeInTheDocument();
+    expect(screen.getByText("New Game with Same Players")).toBeInTheDocument();
+    expect(screen.getByText("Back to Games")).toBeInTheDocument();
   });
 
   it("hides member actions when read-only (canEdit=false)", () => {
@@ -58,8 +70,16 @@ describe("GameOverView spectator mode", () => {
     expect(screen.getByText("Game Complete")).toBeInTheDocument();
     // ...but no mutating actions
     expect(
-      screen.queryByText("New Game with Same Players")
+      screen.queryByText("New Game with Same Players"),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Back to Circle")).not.toBeInTheDocument();
+    expect(screen.queryByText("Back to Games")).not.toBeInTheDocument();
+  });
+
+  it("keeps navigation but hides rematch when the game cannot be cloned", () => {
+    render(<GameOverView {...baseProps} canRematch={false} />);
+    expect(
+      screen.queryByText("New Game with Same Players"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Back to Games")).toBeInTheDocument();
   });
 });
