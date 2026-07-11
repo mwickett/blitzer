@@ -82,5 +82,6 @@ describe("shared mutation authorization", () => {
     await expect(requireGameScoringAccess("game-id")).rejects.toThrow(
       "No active circle",
     );
+    expect(auth).toHaveBeenCalledTimes(1);
   });
 });

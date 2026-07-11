@@ -168,7 +168,7 @@ export async function ensureCurrentPrismaUser() {
 
 /** Authorize the shared scorer without changing Circle-game semantics. */
 export async function requireGameScoringAccess(gameId: string) {
-  const { userId } = await requireAuthContext("user");
+  const { user, userId } = await requireAuthContext("user");
   const game = await prisma.game.findUnique({
     where: { id: gameId },
     include: {
@@ -184,9 +184,8 @@ export async function requireGameScoringAccess(gameId: string) {
   if (!game) throw new Error("Game not found");
 
   if (game.kind === "CIRCLE" || !game.kind) {
-    const session = await auth();
-    if (!session.orgId) throw new Error("No active circle");
-    assertGameInCircle(game, session.orgId);
+    if (!user.orgId) throw new Error("No active circle");
+    assertGameInCircle(game, user.orgId);
   } else if (
     game.kind !== "PICKUP" ||
     !game.startedAt ||

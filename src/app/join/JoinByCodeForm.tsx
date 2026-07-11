@@ -29,17 +29,24 @@ export function JoinByCodeForm() {
       <Input
         autoCapitalize="characters"
         autoComplete="off"
-        maxLength={8}
+        maxLength={6}
         placeholder="Lobby code"
         value={code}
-        onChange={(event) => setCode(event.target.value.toUpperCase())}
+        onChange={(event) =>
+          setCode(
+            event.target.value
+              .toUpperCase()
+              .replace(/[^A-Z0-9]/g, "")
+              .slice(0, 6),
+          )
+        }
       />
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}
-      <Button className="w-full" disabled={pending || code.length < 4}>
+      <Button className="w-full" disabled={pending || code.length !== 6}>
         {pending ? "Joining…" : "Join game"}
       </Button>
     </form>
