@@ -4,8 +4,10 @@ import {
   DEMO_ROUNDS_PLAYED,
   DEMO_DELTAS_BY_PLAYER,
   DEMO_SCORES_BY_ROUND,
+  DEMO_LAST_ROUND_ENTRIES,
 } from "@/components/marketing/fixtures";
 import { ACCENT_COLORS } from "@/lib/scoring/colors";
+import { calculateRoundScore } from "@/lib/validation/gameRules";
 
 describe("marketing fixtures", () => {
   it("gives every player a colour from the real accent palette", () => {
@@ -41,6 +43,25 @@ describe("marketing fixtures", () => {
   it("keeps every player short of the win threshold so the game reads as live", () => {
     for (const player of DEMO_PLAYERS) {
       expect(player.score).toBeLessThan(DEMO_WIN_THRESHOLD);
+    }
+  });
+
+  it("has exactly one blitzer in the final round, and entries that reproduce the deltas", () => {
+    const blitzers = Object.values(DEMO_LAST_ROUND_ENTRIES).filter(
+      (entry) => entry.blitzRemaining === 0
+    );
+    // Emptying the Blitz pile ends the round, so only one player can be at 0.
+    expect(blitzers).toHaveLength(1);
+
+    for (const player of DEMO_PLAYERS) {
+      const entry = DEMO_LAST_ROUND_ENTRIES[player.id];
+      const deltas = DEMO_DELTAS_BY_PLAYER[player.id];
+      // Convert from PlayerEntry to RoundScoreData format for calculateRoundScore
+      const score = {
+        blitzPileRemaining: entry.blitzRemaining,
+        totalCardsPlayed: entry.cardsPlayed,
+      };
+      expect(calculateRoundScore(score)).toBe(deltas[deltas.length - 1]);
     }
   });
 
