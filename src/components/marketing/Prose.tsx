@@ -4,6 +4,17 @@ import { cn } from "@/lib/utils";
  * Guide pages are TSX rather than MDX so they can embed the live scoring
  * components. That means no markdown pipeline styles them — this carries the
  * typography instead.
+ *
+ * AUTHORING CONSTRAINT: every rule below except the link one uses a
+ * direct-child selector (`[&>p]`, not `[&_p]`). Keep prose elements as direct
+ * children of <Prose>. Wrapping a paragraph or heading in a <div> silently
+ * drops its styling — nothing errors, it just renders unstyled.
+ *
+ * Styled: direct-child p, h2, h3, ul, ol, their immediate li, and any
+ * descendant a. NOT styled: h4-h6, blockquote, table, pre, code, hr, dl,
+ * second-level list items, or anything nested inside a wrapper element. Give
+ * those explicit classes at the call site — the FAQ list in /guide does
+ * exactly that for its <dl>.
  */
 export function Prose({
   className,
