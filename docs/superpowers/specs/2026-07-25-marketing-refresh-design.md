@@ -9,7 +9,9 @@ The marketing site is one page (`src/app/page.tsx`) that undersells and partly m
 
 **It is stale.** The copy promises a "friends list" — that system was replaced by Circles in March 2026 (#205). It never mentions anything shipped since: pickup lobbies with join codes and QR, Monte Carlo win probability, the race track, per-player deck colours, shareable public game pages, or guest players.
 
-**It looks like a different product than the app.** The landing page uses drop shadows, `hover:-translate-y-1` floating cards, gradient blur blobs and an `animate-pulse` halo. The scoring UI uses flat panels with a warm `1.5px` border and no shadows. Nothing on the marketing page shows the actual software.
+**It looks like a different product than the app.** The landing page uses drop shadows, `hover:-translate-y-1` floating cards, gradient blur blobs and an `animate-pulse` halo. The scoring UI uses flat panels with a warm `1.5px` border. Nothing on the marketing page shows the actual software.
+
+*(Corrected during implementation: "and no shadows" was wrong. `RaceTrack.tsx:75,93` puts `shadow-sm` on the player pucks, so the hero panel does carry drop shadows. That is accepted — the point is showing the real component, and changing scoring components is out of scope. The no-shadow rule binds marketing-authored code only.)*
 
 **The unauthenticated IA is thin.** Only `/`, `/privacy`, `/terms` and `/sign-in`. There is no how-to content anywhere. `NavBar.tsx:51` builds `navData` unconditionally, so signed-out visitors see Dashboard and Games links that bounce them into sign-in. Both the landing CTA and the footer link out to a Notion vision doc from June 2024 that promises features which do not exist.
 
@@ -218,11 +220,15 @@ Verified presentational — plain props, no auth, no data fetching:
 
 ### Guide pages as TSX
 
-Not MDX. No new dependency, and guide pages can embed the live product components — `how-scoring-works` renders an actual worked example with `<ScoreEntryCard>` rather than describing one. A shared `<Prose>` component carries the typography.
+Not MDX. No new dependency, and guide pages can embed the live product components — `reading-your-stats` renders a live `<WinProbabilityDemo>` inside its prose. A shared `<Prose>` component carries the typography.
+
+*(Deviation, deliberate: `how-scoring-works` uses a prose worked example rather than an embedded `<ScoreEntryCard>` as originally planned. Embedding it would have put another set of non-functional inputs in a public page's tab order for no gain.)*
 
 ### Tracking
 
-`marketing_cta_clicked` `{section, destination}` and `guide_page_viewed` `{slug}`. snake_case, no PII, per the repo convention.
+`marketing_cta_clicked` `{section, destination}`. snake_case, no PII, per the repo convention.
+
+*(Deviation, deliberate: `guide_page_viewed` was dropped. `src/app/PostHogPageView.tsx` already captures `$pageview` with the pathname on every route change, so a second event would double-count guide traffic.)*
 
 ### Tests
 
