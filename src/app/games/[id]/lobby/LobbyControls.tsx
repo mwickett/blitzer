@@ -37,10 +37,17 @@ export function LobbyControls({
     };
   }, [router]);
 
+  // The Clipboard API rejects outside secure contexts and on some older
+  // mobile browsers — the lobby code below is the fallback, so say so rather
+  // than leaving an unhandled rejection and a button that did nothing.
   const copy = async () => {
-    await navigator.clipboard.writeText(joinUrl);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1_800);
+    try {
+      await navigator.clipboard.writeText(joinUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1_800);
+    } catch {
+      setError("Couldn't copy the link — share the lobby code instead.");
+    }
   };
 
   const startGame = () => {

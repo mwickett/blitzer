@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
 import posthogClient from "@/app/posthog";
+import { generateRandomUsername } from "@/lib/utils";
 import type { Game } from "@/generated/prisma/client";
 
 // One auth seam for all server actions. Declare what the action needs and
@@ -108,10 +109,24 @@ export async function requireGameInCircle(
   return game;
 }
 
+export function isUniqueConstraintError(error: unknown) {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "P2002"
+  );
+}
+
 /**
  * Resolve (or provision) the local user for authenticated pickup-game flows.
  * Clerk webhooks normally create this row; doing it here as well removes the
  * race for somebody who signs up from a QR code and immediately taps Join.
+ *
+ * Username selection deliberately matches the `user.created` webhook: that
+ * webhook matches on email and will overwrite whatever this wrote moments
+ * later, so picking a different scheme here would make a player's name visibly
+ * change in the lobby a few seconds after they join.
  */
 export async function ensureCurrentPrismaUser() {
   const { userId } = await requireAuthContext("user");
@@ -136,37 +151,82 @@ export async function ensureCurrentPrismaUser() {
     );
   }
 
-  const preferredName =
-    clerkUser.username ||
-    [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
-    `player-${userId.slice(-6)}`;
-
-  try {
-    return await prisma.user.create({
-      data: {
-        clerk_user_id: userId,
-        email,
-        username: `${preferredName}-${userId.slice(-4)}`,
-        avatarUrl: clerkUser.imageUrl,
-      },
-    });
-  } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "P2002"
-    ) {
+  // `username` is unique, so a collision is retryable — but only with a
+  // different name. Re-running with the same one would just fail again.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await prisma.user.create({
+        data: {
+          clerk_user_id: userId,
+          email,
+          username:
+            attempt === 0
+              ? clerkUser.username || generateRandomUsername()
+              : generateRandomUsername(),
+          avatarUrl: clerkUser.imageUrl,
+        },
+      });
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) throw error;
+      // The webhook may have won the race while we were writing.
       const racedUser = await prisma.user.findUnique({
         where: { clerk_user_id: userId },
       });
       if (racedUser) return racedUser;
+      if (!uniqueConstraintTargets(error).includes("username")) throw error;
     }
-    throw error;
+  }
+
+  throw new Error("Unable to set up your account. Please try again.");
+}
+
+/** Which field(s) a Prisma P2002 collided on, when it says. */
+function uniqueConstraintTargets(error: unknown): string[] {
+  const target =
+    error && typeof error === "object" && "meta" in error
+      ? (error.meta as { target?: unknown } | undefined)?.target
+      : undefined;
+  if (Array.isArray(target)) return target.map(String);
+  return typeof target === "string" ? [target] : [];
+}
+
+/** The shape any game needs to have for its scoring access to be judged. */
+export type ScoringAccessGame = Pick<
+  Game,
+  "kind" | "organizationId" | "startedAt"
+> & {
+  players: { user: { clerk_user_id: string } | null }[];
+};
+
+/**
+ * Assert the caller may write scores for an already-loaded game, without
+ * changing Circle-game semantics: Circle games stay gated on active-Circle
+ * membership, pickup games on being a registered player in a started game.
+ *
+ * @throws {Error} If the game is missing, or the caller may not score it
+ */
+export function assertGameScoringAccess<G extends ScoringAccessGame>(
+  game: G | null,
+  caller: { userId: string; orgId?: string },
+): asserts game is G {
+  if (!game) throw new Error("Game not found");
+
+  if (game.kind === "CIRCLE") {
+    if (!caller.orgId) throw new Error("No active circle");
+    assertGameInCircle(game, caller.orgId);
+    return;
+  }
+
+  if (
+    game.kind !== "PICKUP" ||
+    !game.startedAt ||
+    !game.players.some((player) => player.user?.clerk_user_id === caller.userId)
+  ) {
+    throw new Error("You are not a player in this game");
   }
 }
 
-/** Authorize the shared scorer without changing Circle-game semantics. */
+/** Load a game and assert the caller may write scores for it. */
 export async function requireGameScoringAccess(gameId: string) {
   const { user, userId } = await requireAuthContext("user");
   const game = await prisma.game.findUnique({
@@ -181,19 +241,8 @@ export async function requireGameScoringAccess(gameId: string) {
       },
     },
   });
-  if (!game) throw new Error("Game not found");
 
-  if (game.kind === "CIRCLE" || !game.kind) {
-    if (!user.orgId) throw new Error("No active circle");
-    assertGameInCircle(game, user.orgId);
-  } else if (
-    game.kind !== "PICKUP" ||
-    !game.startedAt ||
-    !game.players.some((player) => player.user?.clerk_user_id === userId)
-  ) {
-    throw new Error("You are not a player in this game");
-  }
-
+  assertGameScoringAccess(game, { userId, orgId: user.orgId ?? undefined });
   return game;
 }
 

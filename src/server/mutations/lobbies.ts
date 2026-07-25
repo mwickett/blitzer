@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { assignColorsToPlayers } from "@/lib/scoring/colors";
-import { ensureCurrentPrismaUser, requireAuthContext } from "./common";
+import { MAX_PICKUP_PLAYERS, isLobbyExpired } from "@/lib/lobbies";
+import {
+  ensureCurrentPrismaUser,
+  isUniqueConstraintError,
+  requireAuthContext,
+} from "./common";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -15,15 +20,6 @@ function createJoinCode() {
     bytes,
     (byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length],
   ).join("");
-}
-
-function isUniqueConstraintError(error: unknown) {
-  return (
-    error !== null &&
-    typeof error === "object" &&
-    "code" in error &&
-    error.code === "P2002"
-  );
 }
 
 export async function createPickupGame(input: {
@@ -45,6 +41,10 @@ export async function createPickupGame(input: {
     .filter(Boolean);
   if (guestNames.some((name) => name.length > 50)) {
     throw new Error("Guest names must be 50 characters or fewer");
+  }
+  // The host occupies a seat too, so guests can only fill what is left.
+  if (guestNames.length + 1 > MAX_PICKUP_PLAYERS) {
+    throw new Error(`A pickup game seats up to ${MAX_PICKUP_PLAYERS} players`);
   }
 
   let game;
@@ -131,8 +131,19 @@ export async function joinPickupGame(joinToken: string) {
     if (!game || game.kind !== "PICKUP" || game.startedAt || game.isFinished) {
       throw new Error("This lobby is no longer accepting players");
     }
+    if (isLobbyExpired(game.createdAt)) {
+      throw new Error("This lobby has expired — ask the host for a new one");
+    }
+    // Re-joining is idempotent, and it has to stay that way at a full table:
+    // an existing player reloading the link must not be turned away.
     if (game.players.some((player) => player.userId === joiningUser.id)) {
       return game.id;
+    }
+    // Checked under the row lock so concurrent scans can't overfill the table.
+    if (game.players.length >= MAX_PICKUP_PLAYERS) {
+      throw new Error(
+        `This lobby is full (${MAX_PICKUP_PLAYERS} players maximum)`,
+      );
     }
 
     const key = `joining:${joiningUser.id}`;

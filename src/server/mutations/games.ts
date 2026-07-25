@@ -6,7 +6,7 @@ import { after } from "next/server";
 import {
   requireAuthContext,
   assertGameInCircle,
-  requireGameScoringAccess,
+  assertGameScoringAccess,
 } from "./common";
 import { getOrgMemberClerkIds } from "../clerkOrgs";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
@@ -135,7 +135,7 @@ export async function updateGameAsFinished(
   winnerId: string,
   isGuestWinner: boolean = false,
 ) {
-  const { user, posthog } = await requireAuthContext("user");
+  const { user, userId, posthog } = await requireAuthContext("user");
 
   // Fetch game with all player details
   const game = await prisma.game.findUnique({
@@ -164,8 +164,9 @@ export async function updateGameAsFinished(
     },
   });
 
-  if (!game) throw new Error("Game not found");
-  await requireGameScoringAccess(gameId);
+  // This include is already a superset of what the check needs, so assert
+  // against it rather than re-loading the same row through the require* helper.
+  assertGameScoringAccess(game, { userId, orgId: user.orgId ?? undefined });
 
   const winnerPlayer = game.players.find((player) =>
     isGuestWinner

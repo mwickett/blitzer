@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, QrCode } from "lucide-react";
 import { createPickupGame } from "@/server/mutations/lobbies";
+import { MAX_PICKUP_PLAYERS } from "@/lib/lobbies";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,16 +22,25 @@ function createGuestDraft(): GuestDraft {
 export function PickupGameSetup() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [threshold, setThreshold] = useState(75);
+  // Held as text so clearing the field shows an empty input rather than the 0
+  // that Number("") would produce.
+  const [threshold, setThreshold] = useState("75");
   const [guests, setGuests] = useState<GuestDraft[]>([]);
   const [error, setError] = useState("");
+
+  const parsedThreshold = Number(threshold);
+  const thresholdValid =
+    /^\d+$/.test(threshold) && parsedThreshold >= 25 && parsedThreshold <= 200;
+  const hasBlankGuest = guests.some((guest) => !guest.name.trim());
+  // The host takes one of the seats.
+  const seatsLeft = MAX_PICKUP_PLAYERS - 1 - guests.length;
 
   const createLobby = () =>
     startTransition(async () => {
       setError("");
       try {
         const result = await createPickupGame({
-          winThreshold: threshold,
+          winThreshold: parsedThreshold,
           guestNames: guests.map((guest) => guest.name),
         });
         router.push(`/games/${result.gameId}/lobby`);
@@ -59,14 +69,21 @@ export function PickupGameSetup() {
             min={25}
             max={200}
             value={threshold}
-            onChange={(event) => setThreshold(Number(event.target.value))}
+            onChange={(event) => setThreshold(event.target.value)}
           />
+          {!thresholdValid && (
+            <p className="mt-1 text-xs text-destructive">
+              Enter a whole number between 25 and 200.
+            </p>
+          )}
         </div>
         <div className="space-y-3">
           <div>
             <Label>Guests at the table (optional)</Label>
             <p className="text-xs text-muted-foreground">
               Use this for players who won&apos;t join with a Blitzer account.
+              Room for {seatsLeft} more {seatsLeft === 1 ? "seat" : "seats"}
+              &nbsp;— everyone else can scan in.
             </p>
           </div>
           {guests.map((guest, index) => (
@@ -101,10 +118,16 @@ export function PickupGameSetup() {
               </Button>
             </div>
           ))}
+          {hasBlankGuest && (
+            <p className="text-xs text-destructive">
+              Name every guest, or remove the empty rows.
+            </p>
+          )}
           <Button
             type="button"
             variant="outline"
             size="sm"
+            disabled={seatsLeft <= 0}
             onClick={() =>
               setGuests((currentGuests) => [
                 ...currentGuests,
@@ -123,12 +146,7 @@ export function PickupGameSetup() {
         )}
         <Button
           className="w-full"
-          disabled={
-            isPending ||
-            !Number.isInteger(threshold) ||
-            threshold < 25 ||
-            threshold > 200
-          }
+          disabled={isPending || !thresholdValid || hasBlankGuest}
           onClick={createLobby}
         >
           {isPending ? "Creating lobby…" : "Create lobby"}

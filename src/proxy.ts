@@ -19,10 +19,14 @@ const isProtectedRoute = createRouteMatcher([
 const isPublicGameDetail = (pathname: string) =>
   /^\/games\/[0-9a-f-]{36}$/.test(pathname);
 
-// These circle pages require auth but NOT an active circle
+// These pages require auth but NOT an active circle. Pickup games make
+// "signed in with no Circle" a legitimate steady state rather than an
+// unfinished onboarding step, so the places such a player needs — their
+// games, their stats, and the pickup flow — must not bounce them to setup.
 const isCircleExemptRoute = (pathname: string) =>
   pathname === "/circles/setup" ||
   pathname === "/circles/invite-friends" ||
+  pathname === "/dashboard" ||
   pathname === "/games" ||
   pathname === "/games/new" ||
   /^\/games\/[0-9a-f-]{36}\/lobby$/.test(pathname);

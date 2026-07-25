@@ -1,22 +1,32 @@
-import Image from "next/image";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import QRCode from "qrcode";
 import { getPickupLobbyForParticipant } from "@/server/queries/lobbies";
+import { MAX_PICKUP_PLAYERS, isLobbyExpired } from "@/lib/lobbies";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { LobbyControls } from "./LobbyControls";
+import { LobbyQrCode } from "./LobbyQrCode";
 
 function normalizeBaseUrl(value: string) {
   const withProtocol = /^https?:\/\//.test(value) ? value : `https://${value}`;
   return new URL(withProtocol).origin;
 }
 
+/**
+ * The join URL is scanned by someone who is signed out, so it has to land on
+ * the domain Clerk is configured for. `VERCEL_URL` is the per-deployment host
+ * (`blitzer-<hash>.vercel.app`) and is always set on Vercel — reading it first
+ * would send every production QR to a host auth doesn't work on. It is only
+ * useful for previews, where there is no canonical domain.
+ */
 async function getTrustedBaseUrl() {
   const configuredUrl =
-    process.env.VERCEL_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_ENV === "production"
+      ? process.env.VERCEL_PROJECT_PRODUCTION_URL
+      : process.env.VERCEL_URL);
   if (configuredUrl) return normalizeBaseUrl(configuredUrl);
 
   if (process.env.NODE_ENV === "development") {
@@ -47,15 +57,12 @@ export default async function PickupLobbyPage({
   if (game.startedAt || !game.joinToken) redirect(`/games/${game.id}`);
 
   const joinUrl = `${baseUrl}/join/${game.joinToken}`;
-  const qrCode = await QRCode.toDataURL(joinUrl, {
-    width: 560,
-    margin: 2,
-    color: { dark: "#2a0e02", light: "#ffffff" },
-  });
   const currentPlayer = game.players.find(
     (player) => player.user?.clerk_user_id === session.userId,
   );
   const isHost = game.hostUserId === currentPlayer?.userId;
+  const isFull = game.players.length >= MAX_PICKUP_PLAYERS;
+  const expired = isLobbyExpired(game.createdAt);
 
   return (
     <main className="container mx-auto p-4">
@@ -73,20 +80,24 @@ export default async function PickupLobbyPage({
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-xl border bg-white p-3">
-            <Image
-              src={qrCode}
-              alt="QR code to join this pickup game"
-              width={560}
-              height={560}
-              unoptimized
-              className="h-auto w-full"
-            />
-          </div>
+          <LobbyQrCode joinUrl={joinUrl} />
+
+          {expired ? (
+            <p className="rounded-md bg-muted p-3 text-center text-sm text-muted-foreground">
+              This lobby has expired, so nobody new can join. The host can still
+              start with everyone already at the table.
+            </p>
+          ) : (
+            isFull && (
+              <p className="rounded-md bg-muted p-3 text-center text-sm text-muted-foreground">
+                The table is full at {MAX_PICKUP_PLAYERS} players.
+              </p>
+            )
+          )}
 
           <div>
             <h2 className="mb-3 font-medium">
-              At the table ({game.players.length})
+              At the table ({game.players.length} of {MAX_PICKUP_PLAYERS})
             </h2>
             <ul className="grid gap-2 sm:grid-cols-2">
               {game.players.map((player) => {

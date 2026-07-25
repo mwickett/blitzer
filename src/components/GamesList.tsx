@@ -47,13 +47,16 @@ import type { GameSummary } from "@/server/queries/games";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 
-type GameStatusFilter = "all" | "completed" | "active" | "ended";
+type GameStatusFilter = "all" | "lobby" | "completed" | "active" | "ended";
+
+/** A pickup game whose host has not started play yet. */
+const isOpenLobby = (game: GameSummary) =>
+  game.kind === "PICKUP" && !game.startedAt;
 
 function GameList({ games }: { games: GameSummary[] }) {
   const router = useRouter();
 
-  const [statusFilter, setStatusFilter] =
-    useState<GameStatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<GameStatusFilter>("all");
   const [playerFilters, setPlayerFilters] = useState<string[]>([]);
   const [playerFilterOpen, setPlayerFilterOpen] = useState(false);
 
@@ -73,7 +76,7 @@ function GameList({ games }: { games: GameSummary[] }) {
             username: player.guestUser.name,
           });
         }
-      })
+      }),
     );
     return Array.from(playerMap.values());
   }, [games]);
@@ -108,7 +111,7 @@ function GameList({ games }: { games: GameSummary[] }) {
   };
 
   const getGameStatus = (game: GameSummary) => {
-    if (game.kind === "PICKUP" && !game.startedAt) {
+    if (isOpenLobby(game)) {
       return <Badge variant="secondary">Lobby</Badge>;
     }
     if (game.isFinished) {
@@ -120,12 +123,23 @@ function GameList({ games }: { games: GameSummary[] }) {
     return <Badge variant="default">Ongoing</Badge>;
   };
 
+  // Status plus, for a pickup game that is under way, the badge that explains
+  // why it has no Circle. Shared by the table and card layouts.
+  const getGameBadges = (game: GameSummary) => (
+    <div className="flex flex-wrap gap-1">
+      {getGameStatus(game)}
+      {game.kind === "PICKUP" && game.startedAt && (
+        <Badge variant="secondary">Pickup</Badge>
+      )}
+    </div>
+  );
+
   const getWinnerName = (game: GameSummary) => {
     if (!game.winnerId) return null;
     const winner = game.players.find(
       (p) =>
         (p.user && p.user.id === game.winnerId) ||
-        (p.guestUser && p.guestUser.id === game.winnerId)
+        (p.guestUser && p.guestUser.id === game.winnerId),
     );
 
     if (!winner) return null;
@@ -141,15 +155,19 @@ function GameList({ games }: { games: GameSummary[] }) {
 
   const selectedPlayers = useMemo(
     () => allPlayers.filter((player) => playerFilters.includes(player.id)),
-    [allPlayers, playerFilters]
+    [allPlayers, playerFilters],
   );
 
   const filteredGames = useMemo(() => {
     return games.filter((game) => {
       const statusMatch =
         statusFilter === "all" ||
+        (statusFilter === "lobby" && isOpenLobby(game)) ||
         (statusFilter === "completed" && game.isFinished) ||
-        (statusFilter === "active" && !game.isFinished && !game.endedAt) ||
+        (statusFilter === "active" &&
+          !isOpenLobby(game) &&
+          !game.isFinished &&
+          !game.endedAt) ||
         (statusFilter === "ended" && !game.isFinished && !!game.endedAt);
 
       const playerMatch =
@@ -158,8 +176,8 @@ function GameList({ games }: { games: GameSummary[] }) {
           game.players.some(
             (p) =>
               (p.user && p.user.id === playerId) ||
-              (p.guestUser && p.guestUser.id === playerId)
-          )
+              (p.guestUser && p.guestUser.id === playerId),
+          ),
         );
 
       return statusMatch && playerMatch;
@@ -172,7 +190,7 @@ function GameList({ games }: { games: GameSummary[] }) {
     setPlayerFilters((prev) =>
       prev.includes(playerId)
         ? prev.filter((id) => id !== playerId)
-        : [...prev, playerId]
+        : [...prev, playerId],
     );
   };
 
@@ -209,6 +227,7 @@ function GameList({ games }: { games: GameSummary[] }) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All games</SelectItem>
+              <SelectItem value="lobby">Waiting in lobby</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="active">In progress</SelectItem>
               <SelectItem value="ended">Ended without winner</SelectItem>
@@ -321,7 +340,7 @@ function GameList({ games }: { games: GameSummary[] }) {
           <TableBody>
             {filteredGames.map((game) => (
               <TableRow key={game.id}>
-                <TableCell><div className="flex flex-wrap gap-1">{getGameStatus(game)}{game.kind === "PICKUP" && game.startedAt && <Badge variant="secondary">Pickup</Badge>}</div></TableCell>
+                <TableCell>{getGameBadges(game)}</TableCell>
                 <TableCell>
                   {game.winnerId && (
                     <div className="flex items-center gap-1">
@@ -371,7 +390,7 @@ function GameList({ games }: { games: GameSummary[] }) {
           <Card key={game.id}>
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-4">
-                <div className="flex flex-wrap gap-1">{getGameStatus(game)}{game.kind === "PICKUP" && game.startedAt && <Badge variant="secondary">Pickup</Badge>}</div>
+                {getGameBadges(game)}
                 <div className="text-sm text-muted-foreground">
                   {formatGameDate(game.createdAt)}
                 </div>

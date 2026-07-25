@@ -2,9 +2,25 @@ import { auth } from "@clerk/nextjs/server";
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import { getPickupLobbyByToken } from "@/server/queries/lobbies";
+import { MAX_PICKUP_PLAYERS, isLobbyExpired, isLobbyOpen } from "@/lib/lobbies";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { JoinLobbyButton } from "./JoinLobbyButton";
+
+function LobbyUnavailable({ reason }: { reason: string }) {
+  return (
+    <main className="container mx-auto p-4">
+      <Card className="mx-auto my-10 max-w-sm">
+        <CardHeader>
+          <CardTitle>Lobby unavailable</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          {reason}
+        </CardContent>
+      </Card>
+    </main>
+  );
+}
 
 export default async function JoinLobbyPage({
   params,
@@ -16,30 +32,43 @@ export default async function JoinLobbyPage({
     getPickupLobbyByToken(token),
     auth(),
   ]);
-  if (!game || game.kind !== "PICKUP" || game.startedAt)
+
+  if (!game || !isLobbyOpen(game))
     return (
-      <main className="container mx-auto p-4">
-        <Card className="mx-auto my-10 max-w-sm">
-          <CardHeader>
-            <CardTitle>Lobby unavailable</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            This pickup lobby is invalid or has already started.
-          </CardContent>
-        </Card>
-      </main>
+      <LobbyUnavailable
+        reason={
+          game && isLobbyExpired(game.createdAt)
+            ? "This pickup lobby has expired. Ask the host to start a new one."
+            : "This pickup lobby is invalid or has already started."
+        }
+      />
     );
+
+  // An existing player following their own link belongs back in the lobby,
+  // even once the table is full — so this runs before the capacity check.
   if (
     userId &&
     game.players.some((player) => player.user?.clerk_user_id === userId)
   )
     redirect(`/games/${game.id}/lobby`);
+
+  if (game.players.length >= MAX_PICKUP_PLAYERS)
+    return (
+      <LobbyUnavailable
+        reason={`This pickup game is full at ${MAX_PICKUP_PLAYERS} players.`}
+      />
+    );
+
   const returnUrl = `/join/${token}`;
   return (
     <main className="container mx-auto p-4">
       <Card className="mx-auto my-10 max-w-sm">
         <CardHeader>
-          <CardTitle>Join {game.host?.username}&apos;s game</CardTitle>
+          <CardTitle>
+            {game.host?.username
+              ? `Join ${game.host.username}'s game`
+              : "Join this pickup game"}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           <p className="text-sm text-muted-foreground">

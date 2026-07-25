@@ -124,6 +124,7 @@ describe("Game Mutations", () => {
     it("should create a new round with scores", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         organizationId: mockOrgId,
         isFinished: false,
         winnerId: null,
@@ -152,6 +153,7 @@ describe("Game Mutations", () => {
     it("should finalize an unfinished game when the new score crosses the threshold", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         organizationId: mockOrgId,
         isFinished: false,
         winnerId: null,
@@ -260,8 +262,9 @@ describe("Game Mutations", () => {
       };
 
       (prisma.game.findUnique as jest.Mock)
+        // 1: the scoring-access check, 2: the completion re-read,
+        // 3: updateGameAsFinished loading the roster for the winner + emails.
         .mockResolvedValueOnce(mockGame)
-        .mockResolvedValueOnce(completionGame)
         .mockResolvedValueOnce(completionGame)
         .mockResolvedValueOnce(completionGame);
       (prisma.round.create as jest.Mock).mockResolvedValue(mockRound);
@@ -304,6 +307,7 @@ describe("Game Mutations", () => {
     it("should throw error if validation fails", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         organizationId: mockOrgId,
         players: validRoster,
       };
@@ -338,6 +342,7 @@ describe("Game Mutations", () => {
     it("rejects score submissions for players outside the game roster", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         organizationId: mockOrgId,
         players: validRoster,
       };
@@ -359,6 +364,7 @@ describe("Game Mutations", () => {
     it("should throw error if database operation fails", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         organizationId: mockOrgId,
         players: validRoster,
       };
@@ -407,6 +413,7 @@ describe("Game Mutations", () => {
     it("should update scores for a round", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         isFinished: false,
         organizationId: mockOrgId,
         players: validRoster,
@@ -435,6 +442,7 @@ describe("Game Mutations", () => {
     it("should throw error if validation fails", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         isFinished: false,
         organizationId: mockOrgId,
         players: validRoster,
@@ -470,6 +478,7 @@ describe("Game Mutations", () => {
     it("rejects round edits for players outside the game roster", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         isFinished: false,
         organizationId: mockOrgId,
         players: validRoster,
@@ -496,6 +505,7 @@ describe("Game Mutations", () => {
     it("should allow editing finished games", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         isFinished: true,
         organizationId: mockOrgId,
         players: validRoster,
@@ -534,6 +544,7 @@ describe("Game Mutations", () => {
     it("rejects a winner who is not on the game roster", async () => {
       const game = {
         id: mockGameId,
+        kind: "CIRCLE",
         organizationId: mockOrgId,
         players: [
           {
