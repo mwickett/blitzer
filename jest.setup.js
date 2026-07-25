@@ -14,12 +14,18 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => ({
     get: jest.fn(),
   }),
+  usePathname: () => '/',
 }))
 
+// Clerk's <Show when="signed-in|signed-out"> renders exactly one branch at
+// runtime. Tests select which via global.__setClerkAuthState. Defaults to
+// signed-out, the state the marketing pages are written for.
+let mockClerkAuthState = 'signed-out'
+global.__setClerkAuthState = (state) => {
+  mockClerkAuthState = state
+}
+
 // Mock clerk/nextjs
-// `Show` renders its children unconditionally here. Tests that need to assert
-// on a specific auth state should test the pure link sets in
-// src/components/marketing/navLinks.ts instead of rendering Clerk components.
 jest.mock('@clerk/nextjs', () => ({
   auth: () => ({
     userId: 'test-user-id',
@@ -28,7 +34,7 @@ jest.mock('@clerk/nextjs', () => ({
     id: 'test-user-id',
     email: 'test@example.com',
   }),
-  Show: ({ children }) => children,
+  Show: ({ when, children }) => (when === mockClerkAuthState ? children : null),
   SignInButton: ({ children }) => children,
   SignUpButton: ({ children }) => children,
   UserButton: () => null,
