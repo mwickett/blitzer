@@ -2369,10 +2369,10 @@ export default function CirclesAndPickupGames() {
           create a Circle later, once it is clear the group is a regular thing.
         </p>
         <p>
-          One thing to know: your{" "}
-          <Link href="/guide/reading-your-stats">stats dashboard</Link> requires
-          an active Circle, so if you have only ever played pickup games you
-          will be asked to create one before you can see it.
+          Either way your{" "}
+          <Link href="/guide/reading-your-stats">stats</Link> count every round
+          you play — pickup games and Circle games are pooled together, so
+          starting with pickup costs you nothing.
         </p>
       </Prose>
     </>
