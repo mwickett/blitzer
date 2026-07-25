@@ -97,7 +97,9 @@ One fixture module (`src/components/marketing/fixtures.ts`) supplies the same fo
 ### 1 · Gather — lobby panel
 
 > ## Everyone's in before the deck is shuffled
-> Start a pickup game and show the code. They scan, they're in — up to eight players, and nobody needs an account first.
+> Start a pickup game and show the code. They scan, sign in, and they're at the table — up to eight players, with no Circle to set up and no invitations to send.
+
+*(Corrected during implementation: the original wording claimed "nobody needs an account first", which is false. `joinPickupGame` and `joinPickupGameByCode` both call `requireAuthContext("user")`, and `/join/[token]` gates signed-out visitors behind sign-in. The only account-free path is a host-added guest, which the next paragraph already covers.)*
 >
 > Playing with someone who'll never sign up? Add them as a guest and they're scored like anyone else.
 
