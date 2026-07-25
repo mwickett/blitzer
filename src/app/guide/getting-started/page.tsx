@@ -56,6 +56,11 @@ export default function GettingStarted() {
           players end up on the same colour, the one who had it moves to the
           next free one.
         </p>
+        <p>
+          There are six colours, so a seven- or eight-player game runs out and
+          two people end up sharing. Everything still scores correctly; you just
+          have to look at the names rather than the colours.
+        </p>
 
         <h2>4. Score each round</h2>
         <p>Once a round finishes, each player needs two numbers:</p>
