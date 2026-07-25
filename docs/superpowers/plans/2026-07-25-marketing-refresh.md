@@ -774,7 +774,7 @@ export function Hero() {
           src="/img/blitzer-logo.png"
           width={300}
           height={300}
-          alt="Blitzer"
+          alt="Blitzer logo — line drawing of a windmill with hearts"
           priority
           className="mx-auto mb-8 h-auto w-[140px] md:w-[170px]"
         />
@@ -798,9 +798,13 @@ export function Hero() {
         </div>
 
         <div className="mt-12 rounded-xl border-[1.5px] border-borderWarm bg-surfaceRaised p-4 text-left">
-          <div className="mb-2 flex justify-between text-xs font-medium text-textMuted">
-            <span>Round 4 · Thursday night</span>
-            <span>{DEMO_WIN_THRESHOLD} to win</span>
+          {/*
+            Only the left-hand label. RaceTrack renders its own header row with
+            the floor score and "{winThreshold} to win" (RaceTrack.tsx:37-40),
+            so repeating the threshold here would print it twice in one panel.
+          */}
+          <div className="mb-2 text-xs font-medium text-textMuted">
+            Round 4 · Thursday night
           </div>
           <RaceTrack
             players={DEMO_PLAYERS}
