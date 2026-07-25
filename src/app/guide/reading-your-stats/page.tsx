@@ -40,8 +40,9 @@ export default function ReadingYourStats() {
           Mid-game, Blitzer estimates each player&apos;s chance of winning by
           simulating the rest of the game thousands of times, using how this
           table has actually been scoring tonight rather than a generic
-          assumption. It appears once three rounds have been played — before
-          that there is not enough to go on.
+          assumption. It normally needs three rounds before it has enough to go
+          on. If it can lean on how the players have scored in earlier finished
+          games, it can start sooner.
         </p>
       </Prose>
 
@@ -66,7 +67,8 @@ export default function ReadingYourStats() {
         <h3>Hot &amp; cold</h3>
         <p>
           Each player&apos;s per-round scores as an intensity grid, so you can
-          see streaks rather than totals. A player&apos;s best round is marked.
+          see streaks rather than totals. Each player&apos;s best round is
+          marked, unless every round they played lost them points.
         </p>
         <h3>Race track</h3>
         <p>
