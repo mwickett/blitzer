@@ -21,6 +21,11 @@ const config = {
       colors: {
         brand: "var(--brand)",
         brandAccent: "var(--brand-accent)",
+        surfaceRaised: "var(--surface-raised)",
+        surfaceSubtle: "var(--surface-subtle)",
+        borderWarm: "var(--border-warm)",
+        textMuted: "var(--text-muted)",
+        textBody: "var(--text-body)",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -59,6 +64,9 @@ const config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      fontFamily: {
+        display: ["var(--font-display)", "Georgia", "serif"],
       },
       keyframes: {
         "accordion-down": {

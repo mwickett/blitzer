@@ -7,6 +7,13 @@
     --brand: #fff7ea;
     --brand-accent: #290806;
 
+    /* Marketing surface tokens — same values the scoring UI already uses */
+    --surface-raised: #ffffff;
+    --surface-subtle: #faf5ed;
+    --border-warm: #e6d7c3;
+    --text-muted: #8b5e3c;
+    --text-body: #5b4038;
+
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
 
@@ -137,4 +144,17 @@
   10% { opacity: 1; }
   70% { opacity: 1; }
   100% { opacity: 0; transform: translateY(600px) rotate(720deg); }
+}
+
+/*
+ * Tailwind generates `.font-display` with the family from tailwind.config.ts.
+ * This augments that same class with Fraunces' optical axes: SOFT rounds the
+ * terminals and WONK enables the alternate italic-ish forms, which is what
+ * makes it rhyme with the logo wordmark rather than read as a stock serif.
+ */
+@layer utilities {
+  .font-display {
+    font-variation-settings: "SOFT" 40, "WONK" 1;
+    letter-spacing: -0.018em;
+  }
 }
