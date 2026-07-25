@@ -70,6 +70,7 @@ claude_desktop_config.json
 
 # worktrees
 .worktrees/
+.claude/worktrees/
 
 # superpowers brainstorm sessions + playwright mcp state
 .superpowers/
