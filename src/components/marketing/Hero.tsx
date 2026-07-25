@@ -16,7 +16,7 @@ export function Hero() {
           className="mx-auto mb-8 h-auto w-[140px] md:w-[170px]"
         />
 
-        <h1 className="font-display text-5xl font-bold leading-[1.02] text-brandAccent md:text-6xl">
+        <h1 className="font-display text-5xl font-bold leading-[1.02] tracking-[-0.018em] text-brandAccent md:text-6xl">
           Keep score.
           <br />
           Settle scores.

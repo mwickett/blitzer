@@ -27,7 +27,7 @@ export const DEMO_PLAYERS: PlayerWithScore[] = [
     color: "#ef4444",
     isGuest: false,
     userId: "mike",
-    score: 44,
+    score: 54,
   },
   {
     id: "priya",
@@ -35,7 +35,7 @@ export const DEMO_PLAYERS: PlayerWithScore[] = [
     color: "#22c55e",
     isGuest: false,
     userId: "priya",
-    score: 36,
+    score: 42,
   },
   {
     id: "tom",
@@ -43,24 +43,24 @@ export const DEMO_PLAYERS: PlayerWithScore[] = [
     color: "#3b82f6",
     isGuest: true,
     guestId: "tom",
-    score: 21,
+    score: 30,
   },
 ];
 
 /** Per-round score change, oldest round first. */
 export const DEMO_DELTAS_BY_PLAYER: Record<string, number[]> = {
-  dana: [12, 15, 16, 15],
-  mike: [9, 12, 12, 11],
-  priya: [7, 11, 10, 8],
-  tom: [4, 7, 5, 5],
+  dana: [18, 6, 20, 14],
+  mike: [9, 21, 7, 17],
+  priya: [14, 3, 16, 9],
+  tom: [4, 12, 6, 8],
 };
 
 /** Running totals after each round — what ScoreProgressionCard plots. */
 export const DEMO_SCORES_BY_ROUND: Record<string, number[]> = {
-  dana: [12, 27, 43, 58],
-  mike: [9, 21, 33, 44],
-  priya: [7, 18, 28, 36],
-  tom: [4, 11, 16, 21],
+  dana: [18, 24, 44, 58],
+  mike: [9, 30, 37, 54],
+  priya: [14, 17, 33, 42],
+  tom: [4, 16, 22, 30],
 };
 
 /**
@@ -78,8 +78,8 @@ export const DEMO_LAST_ROUND_ENTRIES: Record<
   string,
   { blitzRemaining: number; cardsPlayed: number }
 > = {
-  dana: { blitzRemaining: 0, cardsPlayed: 15 }, // 15 − 0  = 15, and Dana blitzed
-  mike: { blitzRemaining: 2, cardsPlayed: 15 }, // 15 − 4  = 11
-  priya: { blitzRemaining: 1, cardsPlayed: 10 }, // 10 − 2 =  8
-  tom: { blitzRemaining: 3, cardsPlayed: 11 }, // 11 − 6   =  5
+  dana: { blitzRemaining: 0, cardsPlayed: 14 }, // 14 − 0  = 14, and Dana blitzed
+  mike: { blitzRemaining: 2, cardsPlayed: 21 }, // 21 − 4  = 17
+  priya: { blitzRemaining: 1, cardsPlayed: 11 }, // 11 − 2 =  9
+  tom: { blitzRemaining: 3, cardsPlayed: 14 }, // 14 − 6   =  8
 };

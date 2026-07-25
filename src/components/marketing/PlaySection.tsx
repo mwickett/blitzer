@@ -31,7 +31,7 @@ export function PlaySection() {
 
         <div className="order-1 md:order-2">
           <SectionEyebrow>2 · Play</SectionEyebrow>
-          <h2 className="font-display text-4xl font-bold leading-[1.08] text-brandAccent">
+          <h2 className="font-display text-4xl font-bold leading-[1.08] tracking-[-0.018em] text-brandAccent">
             Lower friction than pen and paper. That&apos;s a higher bar than it
             sounds.
           </h2>

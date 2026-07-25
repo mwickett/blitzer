@@ -7,7 +7,7 @@ export function SettleSection() {
       <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
         <div>
           <SectionEyebrow tone="dark">3 · Settle it</SectionEyebrow>
-          <h2 className="font-display text-4xl font-bold leading-[1.08] text-brand">
+          <h2 className="font-display text-4xl font-bold leading-[1.08] tracking-[-0.018em] text-brand">
             Real odds.
             <br />
             Not vibes.

@@ -11,7 +11,7 @@ export function GatherSection() {
       <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
         <div>
           <SectionEyebrow>1 · Gather</SectionEyebrow>
-          <h2 className="font-display text-4xl font-bold leading-[1.08] text-brandAccent">
+          <h2 className="font-display text-4xl font-bold leading-[1.08] tracking-[-0.018em] text-brandAccent">
             Everyone&apos;s in before the deck is shuffled
           </h2>
           <p className="mt-4 text-base leading-relaxed text-textBody">
