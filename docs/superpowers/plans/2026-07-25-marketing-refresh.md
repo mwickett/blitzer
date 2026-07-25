@@ -1486,7 +1486,9 @@ export const metadata: Metadata = {
  */
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col bg-brand">
+    // A <div>, not a <main>: NavBar.tsx:164 already provides the document's
+    // one <main>. The outgoing page nested a second one; this does not.
+    <div className="flex min-h-screen flex-col bg-brand">
       <Hero />
       <GatherSection />
       <PlaySection />
@@ -1977,6 +1979,17 @@ import { cn } from "@/lib/utils";
  * Guide pages are TSX rather than MDX so they can embed the live scoring
  * components. That means no markdown pipeline styles them — this carries the
  * typography instead.
+ *
+ * AUTHORING CONSTRAINT: every rule below except the link one uses a
+ * direct-child selector (`[&>p]`, not `[&_p]`). Keep prose elements as direct
+ * children of <Prose>. Wrapping a paragraph or heading in a <div> silently
+ * drops its styling — nothing errors, it just renders unstyled.
+ *
+ * Styled: direct-child p, h2, h3, ul, ol, their immediate li, and any
+ * descendant a. NOT styled: h4-h6, blockquote, table, pre, code, hr, dl,
+ * second-level list items, or anything nested inside a wrapper element. Give
+ * those explicit classes at the call site — the FAQ list in /guide does
+ * exactly that for its <dl>.
  */
 export function Prose({
   className,
@@ -2063,7 +2076,12 @@ export default function GuideLayout({
           </ul>
         </nav>
 
-        <main className="min-w-0">{children}</main>
+        {/*
+          A <div>, not a <main>: NavBar.tsx:164 already wraps every page's
+          content in the document's one <main>. Nesting a second would be
+          invalid HTML and give screen readers two competing landmarks.
+        */}
+        <div className="min-w-0">{children}</div>
       </div>
     </div>
   );
