@@ -117,7 +117,9 @@ Uses a **pre-generated QR image committed to `public/img/`**, not `LobbyQrCode`.
 
 ### 4 · Remember — `<StatTile>` + live `<ScoreProgressionCard>`
 
-> ## Your average — per round, per game, against one specific person?
+> ## The record keeps itself
+
+*(Corrected during implementation. The original headline — "Your average — per round, per game, against one specific person?" — was lifted from the vision doc's list of questions the author hoped to answer, and read as a description of shipped features. It promises three slicing dimensions the product delivers none of: `getPlayerBattingAverageForUser` computes one all-time figure with no grouping by round or game and no opponent filter. "Against one specific person" is a head-to-head claim, the exact category this section is barred from making. The stat tile labelled "Games won" was fabricated the same way — `DashboardStats` returns only batting average, score extremes, cumulative score, and game round extremes — and is now "Rounds played".)*
 > Every game your group plays lands in your Circle, so the record is all in one place instead of scattered across whoever remembered to write it down.
 >
 > And every finished game gets a link anyone can open — no account, no app, just send it to the group chat.
