@@ -113,12 +113,15 @@ describe("pickup lobby mutations", () => {
       accentColor: null,
     }));
 
+  // Expected rejections come back as values, not exceptions: throwing would
+  // file an ordinary full lobby in Sentry and mask the message in production.
   it("rejects joining after a pickup game has started", async () => {
     const tx = joinTransaction({ startedAt: new Date() });
 
-    await expect(joinPickupGame("expired-token")).rejects.toThrow(
-      "This lobby is no longer accepting players",
-    );
+    await expect(joinPickupGame("expired-token")).resolves.toMatchObject({
+      ok: false,
+      reason: "not_open",
+    });
     expect(tx.gamePlayers.create).not.toHaveBeenCalled();
   });
 
@@ -126,6 +129,7 @@ describe("pickup lobby mutations", () => {
     const tx = joinTransaction({ players: seatedPlayers(2) });
 
     await expect(joinPickupGame("token")).resolves.toEqual({
+      ok: true,
       gameId: "game-id",
     });
     expect(tx.gamePlayers.create).toHaveBeenCalledWith({
@@ -145,8 +149,23 @@ describe("pickup lobby mutations", () => {
   it("rejects joining a lobby that is already at capacity", async () => {
     const tx = joinTransaction({ players: seatedPlayers(MAX_PICKUP_PLAYERS) });
 
-    await expect(joinPickupGame("token")).rejects.toThrow("This lobby is full");
+    await expect(joinPickupGame("token")).resolves.toMatchObject({
+      ok: false,
+      reason: "full",
+    });
     expect(tx.gamePlayers.create).not.toHaveBeenCalled();
+  });
+
+  it("records a rejection as a product event rather than an exception", async () => {
+    joinTransaction({ players: seatedPlayers(MAX_PICKUP_PLAYERS) });
+
+    await joinPickupGame("token");
+
+    expect(capture).toHaveBeenCalledWith({
+      distinctId: "clerk-host",
+      event: "join_pickup_game_rejected",
+      properties: { reason: "full", game_id: "game-id" },
+    });
   });
 
   it("still lets a seated player back into a full lobby", async () => {
@@ -155,6 +174,7 @@ describe("pickup lobby mutations", () => {
     const tx = joinTransaction({ players });
 
     await expect(joinPickupGame("token")).resolves.toEqual({
+      ok: true,
       gameId: "game-id",
     });
     expect(tx.gamePlayers.create).not.toHaveBeenCalled();
@@ -165,9 +185,10 @@ describe("pickup lobby mutations", () => {
       createdAt: new Date(Date.now() - LOBBY_MAX_AGE_MS - 1_000),
     });
 
-    await expect(joinPickupGame("token")).rejects.toThrow(
-      "This lobby has expired",
-    );
+    await expect(joinPickupGame("token")).resolves.toMatchObject({
+      ok: false,
+      reason: "expired",
+    });
     expect(tx.gamePlayers.create).not.toHaveBeenCalled();
   });
 
@@ -179,14 +200,15 @@ describe("pickup lobby mutations", () => {
           (_, index) => `Guest ${index}`,
         ),
       }),
-    ).rejects.toThrow(`seats up to ${MAX_PICKUP_PLAYERS} players`);
+    ).resolves.toMatchObject({ ok: false, reason: "too_many_guests" });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("rejects a win threshold outside the supported range", async () => {
-    await expect(createPickupGame({ winThreshold: 5 })).rejects.toThrow(
-      "Win threshold must be between 25 and 200",
-    );
+    await expect(createPickupGame({ winThreshold: 5 })).resolves.toMatchObject({
+      ok: false,
+      reason: "invalid_threshold",
+    });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -197,9 +219,10 @@ describe("pickup lobby mutations", () => {
       playerCount: 2,
     });
 
-    await expect(startPickupGame("game-id")).rejects.toThrow(
-      "Only the host can start this game",
-    );
+    await expect(startPickupGame("game-id")).resolves.toMatchObject({
+      ok: false,
+      reason: "not_host",
+    });
     expect(tx.game.update).not.toHaveBeenCalled();
   });
 
@@ -210,9 +233,10 @@ describe("pickup lobby mutations", () => {
       playerCount: 1,
     });
 
-    await expect(startPickupGame("game-id")).rejects.toThrow(
-      "At least two players are needed to start",
-    );
+    await expect(startPickupGame("game-id")).resolves.toMatchObject({
+      ok: false,
+      reason: "too_few_players",
+    });
     expect(tx.game.update).not.toHaveBeenCalled();
   });
 
@@ -224,6 +248,7 @@ describe("pickup lobby mutations", () => {
     });
 
     await expect(startPickupGame("game-id")).resolves.toEqual({
+      ok: true,
       gameId: "game-id",
     });
     expect(tx.game.update).toHaveBeenCalledWith({
@@ -255,9 +280,10 @@ describe("pickup lobby mutations", () => {
   it("authenticates before looking up a lobby code", async () => {
     (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
 
-    await expect(joinPickupGameByCode("ABC234")).rejects.toThrow(
-      "We couldn't find that lobby code",
-    );
+    await expect(joinPickupGameByCode("ABC234")).resolves.toMatchObject({
+      ok: false,
+      reason: "code_not_found",
+    });
     expect(requireAuthContext).toHaveBeenCalledWith("user");
     expect(
       (requireAuthContext as jest.Mock).mock.invocationCallOrder[0],
@@ -283,6 +309,7 @@ describe("pickup lobby mutations", () => {
       );
 
     await expect(createPickupGame({})).resolves.toEqual({
+      ok: true,
       gameId: "game-id",
       joinToken: "new-token",
     });

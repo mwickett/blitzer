@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useCallback, useMemo, useTransition } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { ScoreEntryView } from "./ScoreEntryView";
@@ -40,6 +46,13 @@ interface ScoringShellProps {
   canEdit?: boolean;
   /** Pickup games require a new lobby, so only Circle games can clone a roster. */
   canRematch?: boolean;
+  /**
+   * Whether players are expected to score from their own devices at once, in
+   * which case this view polls for rounds it did not write itself. Only pickup
+   * games opt in: a Circle game re-runs the per-player prediction-profile
+   * queries on every refresh, which is not worth paying on a poll.
+   */
+  sharedScoring?: boolean;
 }
 
 export function ScoringShell({
@@ -54,6 +67,7 @@ export function ScoringShell({
   predictionProfiles,
   canEdit = true,
   canRematch = true,
+  sharedScoring = false,
 }: ScoringShellProps) {
   const router = useRouter();
   const posthog = usePostHog();
@@ -92,6 +106,28 @@ export function ScoringShell({
     setShowEntry(false);
     setOptimisticRound(null); // server data caught up — drop the optimistic round
   }
+
+  // Notice rounds this device did not write — without it a stale device
+  // submits a round somebody else already recorded. Paused while this player
+  // is mid-entry: a refresh that changes currentRoundNumber runs the reset
+  // above and would close the entry sheet under them.
+  const isEnteringScores = showEntry || editingRoundIndex !== null;
+  const shouldPollForRounds =
+    sharedScoring && canEdit && !isFinished && !isEnteringScores;
+  useEffect(() => {
+    if (!shouldPollForRounds) return;
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    const timer = window.setInterval(refreshWhenVisible, 5_000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [router, shouldPollForRounds]);
 
   // Merge optimistic round into rounds and players for downstream components
   const effectiveRounds = useMemo(

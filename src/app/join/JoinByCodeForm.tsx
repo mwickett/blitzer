@@ -17,8 +17,12 @@ export function JoinByCodeForm() {
         event.preventDefault();
         startTransition(async () => {
           try {
-            const { gameId } = await joinPickupGameByCode(code);
-            router.push(`/games/${gameId}/lobby`);
+            const result = await joinPickupGameByCode(code);
+            if (!result.ok) {
+              setError(result.message);
+              return;
+            }
+            router.push(`/games/${result.gameId}/lobby`);
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : "Unable to join");
           }

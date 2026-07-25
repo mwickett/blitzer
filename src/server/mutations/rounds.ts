@@ -5,6 +5,7 @@ import {
   requireAuthContext,
   requireGameScoringAccess,
   assertScoreRoster,
+  isUniqueConstraintError,
   type AuthedUserContext,
 } from "./common";
 import { validateGameRules, ValidationError } from "@/lib/validation/gameRules";
@@ -12,10 +13,42 @@ import { getGameCompletion } from "@/lib/gameLogic";
 import { getGameById } from "@/server/queries/games";
 import { updateGameAsFinished } from "./games";
 
+/**
+ * Whether a submission is the same data already stored for a round — i.e. a
+ * re-send of the same tap rather than a competing set of scores.
+ */
+function scoresMatch(
+  stored: {
+    userId: string | null;
+    guestId: string | null;
+    blitzPileRemaining: number;
+    totalCardsPlayed: number;
+  }[],
+  submitted: {
+    userId?: string;
+    guestId?: string;
+    blitzPileRemaining: number;
+    totalCardsPlayed: number;
+  }[],
+) {
+  if (stored.length !== submitted.length) return false;
+  const key = (s: { userId?: string | null; guestId?: string | null }) =>
+    s.userId ? `user:${s.userId}` : `guest:${s.guestId}`;
+  const storedByPlayer = new Map(stored.map((s) => [key(s), s]));
+  return submitted.every((s) => {
+    const match = storedByPlayer.get(key(s));
+    return (
+      !!match &&
+      match.blitzPileRemaining === s.blitzPileRemaining &&
+      match.totalCardsPlayed === s.totalCardsPlayed
+    );
+  });
+}
+
 async function syncGameCompletionAfterScoreWrite(
   gameId: string,
   userId: string,
-  posthog: AuthedUserContext["posthog"]
+  posthog: AuthedUserContext["posthog"],
 ) {
   const updatedGame = await getGameById(gameId);
   if (!updatedGame) return;
@@ -42,7 +75,7 @@ async function syncGameCompletionAfterScoreWrite(
     await updateGameAsFinished(
       gameId,
       completion.winnerId,
-      completion.isGuestWinner
+      completion.isGuestWinner,
     );
     return;
   }
@@ -70,7 +103,7 @@ export async function createRoundForGame(
     guestId?: string;
     blitzPileRemaining: number;
     totalCardsPlayed: number;
-  }[]
+  }[],
 ) {
   const { user, posthog } = await requireAuthContext("user");
   const game = await requireGameScoringAccess(gameId);
@@ -98,7 +131,6 @@ export async function createRoundForGame(
   assertScoreRoster(game.players, scores);
 
   // Create round — the @@unique([gameId, round]) constraint prevents duplicates.
-  // If a duplicate is attempted (e.g. double-tap), return the existing round.
   let round;
   try {
     round = await prisma.round.create({
@@ -108,15 +140,34 @@ export async function createRoundForGame(
       },
     });
   } catch (error) {
-    // Unique constraint violation — round already exists (double submit)
-    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
-      const existing = await prisma.round.findFirst({
-        where: { gameId: game.id, round: roundNumber },
-      });
-      if (existing) {
-        await syncGameCompletionAfterScoreWrite(game.id, user.userId, posthog);
-        return existing;
+    if (!isUniqueConstraintError(error)) throw error;
+    // The round already exists. That is either the same device submitting
+    // twice, or — now that pickup players score from their own devices —
+    // somebody else recording this round first. Returning early is right for
+    // the double-tap and silently discards real scores in the second case, so
+    // the two have to be told apart.
+    const existing = await prisma.round.findFirst({
+      where: { gameId: game.id, round: roundNumber },
+      include: { scores: true },
+    });
+    if (existing) {
+      if (!scoresMatch(existing.scores, scores)) {
+        // Somebody else got there first. An ordinary outcome of scoring from
+        // several devices, so it comes back as a value — throwing would file
+        // it in Sentry as a crash and mask the message in production.
+        posthog.capture({
+          distinctId: user.userId,
+          event: "round_submit_conflict",
+          properties: { game_id: game.id, round_number: roundNumber },
+        });
+        return {
+          ok: false as const,
+          reason: "round_conflict" as const,
+          message: `Round ${roundNumber} was already recorded by another player. Refresh to see the current scores.`,
+        };
       }
+      await syncGameCompletionAfterScoreWrite(game.id, user.userId, posthog);
+      return { ok: true as const, round: existing };
     }
     throw error;
   }
@@ -147,7 +198,7 @@ export async function createRoundForGame(
 
   await syncGameCompletionAfterScoreWrite(game.id, user.userId, posthog);
 
-  return round;
+  return { ok: true as const, round };
 }
 
 // Update scores for a round
@@ -159,7 +210,7 @@ export async function updateRoundScores(
     guestId?: string;
     blitzPileRemaining: number;
     totalCardsPlayed: number;
-  }[]
+  }[],
 ) {
   const { user, posthog } = await requireAuthContext("user");
   const game = await requireGameScoringAccess(gameId);
@@ -168,7 +219,8 @@ export async function updateRoundScores(
     where: { id: roundId },
     select: { gameId: true },
   });
-  if (!round || round.gameId !== gameId) throw new Error("Round not found in this game");
+  if (!round || round.gameId !== gameId)
+    throw new Error("Round not found in this game");
 
   // Finished games are still editable — if an edit drops all players
   // below the threshold, the game will be reopened (see below).

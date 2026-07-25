@@ -147,7 +147,7 @@ describe("Game Mutations", () => {
         },
       });
 
-      expect(result).toBe(mockRound);
+      expect(result).toEqual({ ok: true, round: mockRound });
     });
 
     it("should finalize an unfinished game when the new score crosses the threshold", async () => {
@@ -336,6 +336,66 @@ describe("Game Mutations", () => {
           roundNumber: 1,
           type: "game_rules",
         },
+      });
+    });
+
+    describe("when the round already exists", () => {
+      const mockGame = {
+        id: mockGameId,
+        kind: "CIRCLE",
+        organizationId: mockOrgId,
+        isFinished: false,
+        winnerId: null,
+        winThreshold: 75,
+        players: validRoster,
+      };
+      const stored = validScores.map((s) => ({ ...s, guestId: null }));
+
+      beforeEach(() => {
+        (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+        (prisma.round.create as jest.Mock).mockRejectedValue({ code: "P2002" });
+      });
+
+      it("stays idempotent when the same device submits twice", async () => {
+        const existing = { id: "round-1", round: 1, scores: stored };
+        (prisma.round.findFirst as jest.Mock).mockResolvedValue(existing);
+        // 1: the scoring-access check, 2: the completion re-read that follows
+        // the early return.
+        (prisma.game.findUnique as jest.Mock)
+          .mockResolvedValueOnce(mockGame)
+          .mockResolvedValueOnce({ ...mockGame, players: [], rounds: [] });
+
+        await expect(
+          createRoundForGame(mockGameId, 1, validScores),
+        ).resolves.toEqual({ ok: true, round: existing });
+        expect(prisma.score.createMany).not.toHaveBeenCalled();
+      });
+
+      it("refuses to discard scores another player already recorded", async () => {
+        (prisma.round.findFirst as jest.Mock).mockResolvedValue({
+          id: "round-1",
+          round: 1,
+          // Same players, different numbers — a competing submission, not a
+          // re-send of the same tap.
+          scores: stored.map((s) => ({ ...s, totalCardsPlayed: 39 })),
+        });
+
+        await expect(
+          createRoundForGame(mockGameId, 1, validScores),
+        ).resolves.toMatchObject({ ok: false, reason: "round_conflict" });
+        expect(prisma.score.createMany).not.toHaveBeenCalled();
+      });
+
+      it("treats a different roster size as a competing submission", async () => {
+        (prisma.round.findFirst as jest.Mock).mockResolvedValue({
+          id: "round-1",
+          round: 1,
+          scores: [stored[0]],
+        });
+
+        await expect(
+          createRoundForGame(mockGameId, 1, validScores),
+        ).resolves.toMatchObject({ ok: false, reason: "round_conflict" });
       });
     });
 

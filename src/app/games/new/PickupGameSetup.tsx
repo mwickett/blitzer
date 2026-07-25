@@ -43,6 +43,10 @@ export function PickupGameSetup() {
           winThreshold: parsedThreshold,
           guestNames: guests.map((guest) => guest.name),
         });
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
         router.push(`/games/${result.gameId}/lobby`);
       } catch (cause) {
         setError(

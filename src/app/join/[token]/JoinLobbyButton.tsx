@@ -17,8 +17,12 @@ export function JoinLobbyButton({ token }: { token: string }) {
         onClick={() =>
           startTransition(async () => {
             try {
-              const { gameId } = await joinPickupGame(token);
-              router.push(`/games/${gameId}/lobby`);
+              const result = await joinPickupGame(token);
+              if (!result.ok) {
+                setError(result.message);
+                return;
+              }
+              router.push(`/games/${result.gameId}/lobby`);
             } catch (cause) {
               setError(
                 cause instanceof Error ? cause.message : "Unable to join",

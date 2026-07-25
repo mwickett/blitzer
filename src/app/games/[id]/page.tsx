@@ -97,6 +97,7 @@ export default async function GameView(props: {
         endedAt={game.endedAt?.toISOString()}
         canEdit={isCircleMember || isPickupPlayer}
         canRematch={game.kind === "CIRCLE"}
+        sharedScoring={game.kind === "PICKUP"}
         predictionProfiles={predictionProfiles}
         rounds={game.rounds.map((r) => ({
           id: r.id,

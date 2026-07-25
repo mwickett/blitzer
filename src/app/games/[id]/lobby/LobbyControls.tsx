@@ -53,7 +53,11 @@ export function LobbyControls({
   const startGame = () => {
     startTransition(async () => {
       try {
-        await startPickupGame(gameId);
+        const result = await startPickupGame(gameId);
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
         router.push(`/games/${gameId}`);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Unable to start");
