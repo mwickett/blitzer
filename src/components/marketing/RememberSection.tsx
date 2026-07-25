@@ -19,9 +19,15 @@ export function RememberSection() {
     <Section ground="white">
       <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
         <div>
+          {/*
+            Both tiles must correspond to something DashboardStats actually
+            returns (batting average, score extremes, cumulative score, game
+            round extremes). "Games won" was here once and is not computed
+            anywhere — do not reintroduce a stat the product cannot show.
+          */}
           <div className="mb-3 grid grid-cols-2 gap-3">
             <StatTile label="Batting average" value=".412" />
-            <StatTile label="Games won" value="17" />
+            <StatTile label="Rounds played" value="312" />
           </div>
           <ScoreProgressionCard
             players={DEMO_PLAYERS}
@@ -33,7 +39,7 @@ export function RememberSection() {
         <div>
           <SectionEyebrow>4 · Remember</SectionEyebrow>
           <h2 className="font-display text-4xl font-bold leading-[1.08] text-brandAccent">
-            Your average — per round, per game, against one specific person?
+            The record keeps itself
           </h2>
           <p className="mt-4 text-base leading-relaxed text-textBody">
             Every game your group plays lands in your Circle, so the record is
