@@ -10,13 +10,24 @@ describe("Why Blitzer page", () => {
     // friend approval was replaced by Circles (#205); there are no global
     // leaderboards; outlier showcases were never built; AI chat is Insights,
     // which is flag-gated and excluded from marketing entirely.
+    //
+    // Two earlier patterns here could never fire: /approve friendships/ does
+    // not match "approving friendships", and /ask questions of the data/ was
+    // narrower than any phrasing anyone would write. Both were decorative.
+    // And a per-opponent claim shipped past this list once already, which is
+    // why /against (one|a) specific/ is here. Treat a green run as a floor,
+    // not proof — a copy edit still needs a human to check the claim.
     for (const forbidden of [
-      /friend request/i,
-      /approve friendships/i,
+      /friend requests?/i,
+      /approv\w*\s+(a\s+)?friend/i,
       /best Dutch Blitz players in the world/i,
       /leaderboard/i,
       /AI chat/i,
-      /ask questions of the data/i,
+      /chat (with|to) (your|the) (data|stats)/i,
+      /quer(y|ying) (your|the) (data|stats)/i,
+      /ask (it |them )?(questions?|anything)/i,
+      /against (one|a) specific/i,
+      /these are all answerable/i,
     ]) {
       expect(copy).not.toMatch(forbidden);
     }
