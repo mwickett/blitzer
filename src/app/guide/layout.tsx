@@ -35,7 +35,12 @@ export default function GuideLayout({
           </ul>
         </nav>
 
-        <main className="min-w-0">{children}</main>
+        {/*
+          A <div>, not a <main>: NavBar.tsx:164 already wraps every page's
+          content in the document's one <main>. Nesting a second would be
+          invalid HTML and give screen readers two competing landmarks.
+        */}
+        <div className="min-w-0">{children}</div>
       </div>
     </div>
   );

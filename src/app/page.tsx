@@ -21,7 +21,9 @@ export const metadata: Metadata = {
  */
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col bg-brand">
+    // A <div>, not a <main>: NavBar.tsx:164 already provides the document's
+    // one <main>. The outgoing page nested a second one; this does not.
+    <div className="flex min-h-screen flex-col bg-brand">
       <Hero />
       <GatherSection />
       <PlaySection />
@@ -30,6 +32,6 @@ export default function Home() {
       <QuoteSection />
       <GuideTeaser />
       <FinalCta />
-    </main>
+    </div>
   );
 }
