@@ -2213,9 +2213,10 @@ export default function GettingStarted() {
         <h2>3. Choose colours</h2>
         <p>
           Each player gets a colour, which is how they are identified in the
-          standings, the race track and every chart. Blitzer assigns colours
-          automatically, and anyone can change theirs before play starts. If two
-          people pick the same colour, the one who had it gets bumped to the
+          standings, the race track and every chart. In a Circle game, whoever
+          sets it up picks colours for everyone on one screen before play
+          starts. In a pickup game, Blitzer assigns them as people join. If two
+          players end up on the same colour, the one who had it moves to the
           next free one.
         </p>
 
