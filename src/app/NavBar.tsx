@@ -14,6 +14,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useLlmFeaturesFlag } from "@/hooks/useFeatureFlag";
+import { SIGNED_OUT_LINKS, signedInLinks } from "@/components/marketing/navLinks";
 
 // Mobile nav link component
 function MobileNavLink({
@@ -47,26 +48,7 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const llmEnabled = useLlmFeaturesFlag();
 
-  // Define navigation items - conditionally include Insights link
-  const navData = [
-    {
-      label: "Dashboard",
-      href: "/dashboard",
-    },
-    {
-      label: "Games",
-      href: "/games",
-    },
-    // Only include Insights if LLM features are enabled
-    ...(llmEnabled
-      ? [
-          {
-            label: "Insights",
-            href: "/insights",
-          },
-        ]
-      : []),
-  ];
+  const appLinks = signedInLinks(llmEnabled);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -89,23 +71,33 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
                   <span className="text-xl font-bold">Blitzer</span>
                 </Link>
                 <nav className="flex flex-col gap-4 mt-4">
-                  {navData.map((navItem) => (
-                    <MobileNavLink
-                      href={navItem.href}
-                      label={navItem.label}
-                      onClick={() => setIsMenuOpen(false)}
-                      pathName={pathName}
-                      key={navItem.href}
-                    />
-                  ))}
-                  <Button asChild>
-                    <Link
-                      href="/games/new"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      New game
-                    </Link>
-                  </Button>
+                  <Show when="signed-in">
+                    {appLinks.map((navItem) => (
+                      <MobileNavLink
+                        href={navItem.href}
+                        label={navItem.label}
+                        onClick={() => setIsMenuOpen(false)}
+                        pathName={pathName}
+                        key={navItem.href}
+                      />
+                    ))}
+                    <Button asChild>
+                      <Link href="/games/new" onClick={() => setIsMenuOpen(false)}>
+                        New game
+                      </Link>
+                    </Button>
+                  </Show>
+                  <Show when="signed-out">
+                    {SIGNED_OUT_LINKS.map((navItem) => (
+                      <MobileNavLink
+                        href={navItem.href}
+                        label={navItem.label}
+                        onClick={() => setIsMenuOpen(false)}
+                        pathName={pathName}
+                        key={navItem.href}
+                      />
+                    ))}
+                  </Show>
                 </nav>
               </SheetContent>
             </Sheet>
@@ -117,19 +109,36 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
             <span className="text-xl font-bold">Blitzer</span>
           </Link>
           <nav className="hidden md:flex items-center space-x-6">
-            {navData.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  pathName === item.href
-                    ? "text-primary font-semibold"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
+            <Show when="signed-in">
+              {appLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`text-sm font-medium transition-colors hover:text-primary ${
+                    pathName === item.href
+                      ? "text-primary font-semibold"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </Show>
+            <Show when="signed-out">
+              {SIGNED_OUT_LINKS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`text-sm font-medium transition-colors hover:text-primary ${
+                    pathName === item.href
+                      ? "text-primary font-semibold"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </Show>
           </nav>
           <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 md:gap-2 lg:gap-4">
             <Show when="signed-in">
