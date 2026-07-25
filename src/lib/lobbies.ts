@@ -4,12 +4,14 @@
  * need the same numbers.
  */
 
+import { GAME_RULES } from "./validation/gameRules";
+
 /**
- * Dutch Blitz expansion packs seat up to eight, so that is the ceiling. Past
- * six the accent palette repeats (see `assignColorsToPlayers`) — that is
- * accepted for large games rather than a reason to cap lower.
+ * A lobby seats what any Blitzer game seats — see `GAME_RULES.MAX_PLAYERS` for
+ * why that number is eight. Kept as its own name because the lobby copy and
+ * rejection messages read better talking about pickup players.
  */
-export const MAX_PICKUP_PLAYERS = 8;
+export const MAX_PICKUP_PLAYERS = GAME_RULES.MAX_PLAYERS;
 
 /**
  * A pickup lobby is a same-sitting thing. Its join token and code stay live

@@ -178,6 +178,10 @@ describe("pickup lobby mutations", () => {
       gameId: "game-id",
     });
     expect(tx.gamePlayers.create).not.toHaveBeenCalled();
+    // Nobody new sat down, so this must not read as a join in the funnel.
+    expect(capture).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: "join_pickup_game" }),
+    );
   });
 
   it("rejects joining a lobby that has aged out", async () => {

@@ -73,6 +73,7 @@ export default function NewGameChooser({
   const [hasEditedPlayers, setHasEditedPlayers] = useState(false);
   const inGamePlayers =
     hasEditedPlayers || !currentUser ? selectedPlayers : [currentUser];
+  const isAtCapacity = inGamePlayers.length >= GAME_RULES.MAX_PLAYERS;
   const [open, setOpen] = useState(false);
   const searchParams = useSearchParams();
   const step = searchParams.get("step") === "colors" ? "colors" : "players";
@@ -104,6 +105,7 @@ export default function NewGameChooser({
   };
 
   const handleAddUser = (user: UserSubset) => {
+    if (isAtCapacity) return;
     if (!inGamePlayers.some((p) => p.id === user.id)) {
       updateInGamePlayers([...inGamePlayers, user]);
     }
@@ -112,6 +114,10 @@ export default function NewGameChooser({
   };
 
   const handleAddGuest = () => {
+    if (isAtCapacity) {
+      setGuestError(`A game seats up to ${GAME_RULES.MAX_PLAYERS} players.`);
+      return;
+    }
     if (!guestName.trim()) {
       setGuestError("Please enter a name");
       return;
@@ -310,7 +316,7 @@ export default function NewGameChooser({
                 </div>
               ))}
 
-              {!addingPlayer && (
+              {!addingPlayer && !isAtCapacity && (
                 <button
                   className="flex items-center sm:flex-col sm:items-center justify-start sm:justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] transition-colors sm:h-[130px]"
                   onClick={startAddingPlayer}
@@ -322,6 +328,15 @@ export default function NewGameChooser({
                     Add Player
                   </span>
                 </button>
+              )}
+
+              {!addingPlayer && isAtCapacity && (
+                <div className="flex items-center sm:flex-col sm:items-center justify-start sm:justify-center p-3 rounded-lg border border-dashed border-[#e6d7c3] bg-[#f7f2e9] sm:h-[130px] text-center">
+                  <span className="text-xs text-[#8b5e3c] sm:px-2">
+                    Table is full at {GAME_RULES.MAX_PLAYERS} players. Remove
+                    someone to swap a player in.
+                  </span>
+                </div>
               )}
 
               {addingPlayer && (
@@ -497,7 +512,9 @@ export default function NewGameChooser({
       <CardFooter className="bg-[#f7f2e9] border-t border-[#e6d7c3] p-4 flex justify-end">
         <Button
           className="bg-[#2a6517] hover:bg-[#1d4a10] text-white font-medium px-6 h-10"
-          onClick={() => router.push("/games/new?step=colors")}
+          // `type` has to stay on the URL: the page routes on it, and without
+          // it the step lands back on the game-type chooser instead of colors.
+          onClick={() => router.push("/games/new?type=circle&step=colors")}
           disabled={inGamePlayers.length < 2}
         >
           <PlayCircle className="mr-2 h-4 w-4" />

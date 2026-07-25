@@ -14,6 +14,7 @@ import {
   resolvePlayerColor,
   assignColorsToPlayers,
 } from "@/lib/scoring/colors";
+import { GAME_RULES } from "@/lib/validation/gameRules";
 
 // Create a new game with support for guest players
 export async function createGame(
@@ -27,6 +28,12 @@ export async function createGame(
 ) {
   const { user, posthog, orgId, prismaUserId } =
     await requireAuthContext("orgWithPrismaId");
+
+  // The picker stops at this count, but the action is the boundary that
+  // actually holds — a stale tab or a direct call must not seat a ninth.
+  if (users.length > GAME_RULES.MAX_PLAYERS) {
+    throw new Error(`A game seats up to ${GAME_RULES.MAX_PLAYERS} players.`);
+  }
 
   const regularPlayerIds = users.filter((u) => !u.isGuest).map((u) => u.id);
 

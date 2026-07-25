@@ -19,11 +19,11 @@ import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
 import { redirect } from "next/navigation";
+import { GAME_RULES } from "@/lib/validation/gameRules";
 
 // Mock dependencies
-jest.mock("../db/db", () => ({
-  __esModule: true,
-  default: {
+jest.mock("../db/db", () => {
+  const client = {
     game: {
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -51,9 +51,21 @@ jest.mock("../db/db", () => ({
       create: jest.fn(),
       createMany: jest.fn(),
     },
-    $transaction: jest.fn((callback) => Promise.all(callback)),
-  },
-}));
+    $transaction: jest.fn(),
+  };
+  // Set after the literal so `client` is not referenced inside its own
+  // initializer. Supports both Prisma forms: an array of operations, and the
+  // interactive callback form, whose `tx` is this same mock — so assertions on
+  // prisma.round.create and prisma.score.createMany keep working inside a
+  // transaction. jest.clearAllMocks() preserves implementations, so this
+  // survives between tests.
+  client.$transaction.mockImplementation((arg: unknown) =>
+    typeof arg === "function"
+      ? (arg as (tx: unknown) => unknown)(client)
+      : Promise.all(arg as unknown[]),
+  );
+  return { __esModule: true, default: client };
+});
 
 // Mock types
 type AuthResult = { userId: string | null };
@@ -647,6 +659,35 @@ describe("Game Mutations", () => {
       (prisma.gamePlayers.createMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
+    });
+
+    it("refuses to seat more than the maximum number of players", async () => {
+      const players = Array.from(
+        { length: GAME_RULES.MAX_PLAYERS + 1 },
+        (_, i) => ({ id: `player-${i}`, username: `Player${i}` }),
+      );
+
+      await expect(createGame(players)).rejects.toThrow(
+        `A game seats up to ${GAME_RULES.MAX_PLAYERS} players.`,
+      );
+      expect(prisma.game.create).not.toHaveBeenCalled();
+    });
+
+    it("seats a full table of the maximum number of players", async () => {
+      const players = Array.from(
+        { length: GAME_RULES.MAX_PLAYERS },
+        (_, i) => ({ id: `guest-${i}`, username: `Guest${i}`, isGuest: true }),
+      );
+      (prisma.guestUser.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.guestUser.create as jest.Mock).mockImplementation(
+        async ({ data }: { data: { name: string } }) => ({
+          id: `created-${data.name}`,
+          name: data.name,
+        }),
+      );
+
+      await expect(createGame(players)).resolves.toBeDefined();
+      expect(prisma.game.create).toHaveBeenCalled();
     });
 
     it("should create a game with organizationId from active circle", async () => {

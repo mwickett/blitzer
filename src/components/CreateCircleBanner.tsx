@@ -5,9 +5,12 @@ import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-function useLocalStorage(key: string): [boolean, () => void] {
+// A null key means "we do not know who this is yet". Reads report dismissed so
+// the banner stays hidden rather than flashing, and writes are dropped.
+function useLocalStorage(key: string | null): [boolean, () => void] {
   const subscribe = useCallback(
     (callback: () => void) => {
+      if (!key) return () => {};
       const handler = (e: StorageEvent) => {
         if (e.key === key) callback();
       };
@@ -18,7 +21,7 @@ function useLocalStorage(key: string): [boolean, () => void] {
   );
 
   const getSnapshot = useCallback(
-    () => localStorage.getItem(key) === "true",
+    () => (key ? localStorage.getItem(key) === "true" : true),
     [key],
   );
 
@@ -31,6 +34,7 @@ function useLocalStorage(key: string): [boolean, () => void] {
   );
 
   const dismiss = useCallback(() => {
+    if (!key) return;
     localStorage.setItem(key, "true");
     window.dispatchEvent(
       new StorageEvent("storage", { key, newValue: "true" }),
@@ -46,12 +50,18 @@ function useLocalStorage(key: string): [boolean, () => void] {
  * need to nag.
  */
 export default function CreateCircleBanner() {
-  const { userId } = useAuth();
-  const [dismissed, dismiss] = useLocalStorage(
-    `blitzer:create-circle-banner-dismissed:${userId}`,
-  );
+  const { isLoaded, userId } = useAuth();
+  // Clerk reports userId as undefined until it has loaded. Interpolating that
+  // would key every signed-out moment to a shared `...:undefined` entry, so
+  // one player's dismissal would hide the banner from the next person to sign
+  // in on the same device.
+  const key =
+    isLoaded && userId
+      ? `blitzer:create-circle-banner-dismissed:${userId}`
+      : null;
+  const [dismissed, dismiss] = useLocalStorage(key);
 
-  if (dismissed) return null;
+  if (!key || dismissed) return null;
 
   return (
     <div className="mb-4 rounded-lg border border-[#e6d7c3] bg-[#f7f2e9] p-4">

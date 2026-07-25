@@ -8,6 +8,10 @@ export const GAME_RULES = {
   BLITZ_PENALTY_MULTIPLIER: 2,
   MAX_BLITZ_PILE: 10,
   MAX_CARDS_PLAYED: 40,
+  // Dutch Blitz expansion packs seat eight. Past six the accent palette
+  // repeats (see assignColorsToPlayers), which is accepted rather than a
+  // reason to cap lower. Applies to every game, pickup or Circle.
+  MAX_PLAYERS: 8,
 } as const;
 
 // Game error messages

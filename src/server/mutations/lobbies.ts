@@ -177,7 +177,7 @@ export async function joinPickupGame(
   // Rejections return out of the transaction rather than throwing: nothing has
   // been written at that point, so committing an empty transaction is fine.
   const outcome = await prisma.$transaction(
-    async (tx): Promise<Result<{ gameId: string }>> => {
+    async (tx): Promise<Result<{ gameId: string; didJoin: boolean }>> => {
       const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
       SELECT "id" FROM "Game" WHERE "join_token" = ${joinToken} FOR UPDATE
     `);
@@ -216,7 +216,7 @@ export async function joinPickupGame(
       // Re-joining is idempotent, and it has to stay that way at a full table:
       // an existing player reloading the link must not be turned away.
       if (game.players.some((player) => player.userId === joiningUser.id)) {
-        return { ok: true, gameId: game.id };
+        return { ok: true, gameId: game.id, didJoin: false };
       }
       // Checked under the row lock so concurrent scans can't overfill the table.
       if (game.players.length >= MAX_PICKUP_PLAYERS) {
@@ -242,19 +242,26 @@ export async function joinPickupGame(
           accentColor: colors[key],
         },
       });
-      return { ok: true, gameId: game.id };
+      return { ok: true, gameId: game.id, didJoin: true };
     },
   );
 
   if (!outcome.ok) return outcome;
 
-  posthog.capture({
-    distinctId: user.userId,
-    event: "join_pickup_game",
-    properties: { game_id: outcome.gameId },
-  });
+  // Only a seat that was actually added is a join. Reloading the link is an
+  // ordinary thing to do in a lobby, and counting those would inflate the
+  // funnel with events that represent nobody new sitting down.
+  if (outcome.didJoin) {
+    posthog.capture({
+      distinctId: user.userId,
+      event: "join_pickup_game",
+      properties: { game_id: outcome.gameId },
+    });
+  }
   revalidatePath(`/games/${outcome.gameId}/lobby`);
-  return outcome;
+  // `didJoin` is only here to gate the event above — callers just need to know
+  // the join succeeded, so it does not travel out of this function.
+  return { ok: true as const, gameId: outcome.gameId };
 }
 
 export async function joinPickupGameByCode(

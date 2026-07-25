@@ -130,14 +130,43 @@ export async function createRoundForGame(
   }
   assertScoreRoster(game.players, scores);
 
+  const now = new Date();
+  const validScores = scores.filter((score) => {
+    if (!score.userId && !score.guestId) {
+      console.error("Score missing both userId and guestId:", score);
+      return false;
+    }
+    return true;
+  });
+
   // Create round — the @@unique([gameId, round]) constraint prevents duplicates.
+  // The scores go in the same transaction: a round row that outlived a failed
+  // score write would be unreachable afterwards, because every retry then hits
+  // the unique constraint, finds a scoreless round, and is turned away as a
+  // conflict — permanently, with a message telling the player to refresh and
+  // look at scores that were never written.
   let round;
   try {
-    round = await prisma.round.create({
-      data: {
-        gameId: game.id,
-        round: roundNumber,
-      },
+    round = await prisma.$transaction(async (tx) => {
+      const created = await tx.round.create({
+        data: {
+          gameId: game.id,
+          round: roundNumber,
+        },
+      });
+      const scoreRows = validScores.map((score) => ({
+        roundId: created.id,
+        blitzPileRemaining: score.blitzPileRemaining,
+        totalCardsPlayed: score.totalCardsPlayed,
+        updatedAt: now,
+        ...(score.userId
+          ? { userId: score.userId }
+          : { guestId: score.guestId }),
+      }));
+      if (scoreRows.length > 0) {
+        await tx.score.createMany({ data: scoreRows });
+      }
+      return created;
     });
   } catch (error) {
     if (!isUniqueConstraintError(error)) throw error;
@@ -170,28 +199,6 @@ export async function createRoundForGame(
       return { ok: true as const, round: existing };
     }
     throw error;
-  }
-
-  // Batch-insert all scores in a single createMany call to minimise DB roundtrips
-  const now = new Date();
-  const scoreRows = scores
-    .filter((score) => {
-      if (!score.userId && !score.guestId) {
-        console.error("Score missing both userId and guestId:", score);
-        return false;
-      }
-      return true;
-    })
-    .map((score) => ({
-      roundId: round.id,
-      blitzPileRemaining: score.blitzPileRemaining,
-      totalCardsPlayed: score.totalCardsPlayed,
-      updatedAt: now,
-      ...(score.userId ? { userId: score.userId } : { guestId: score.guestId }),
-    }));
-
-  if (scoreRows.length > 0) {
-    await prisma.score.createMany({ data: scoreRows });
   }
 
   posthog.capture({ distinctId: user.userId, event: "create_scores" });

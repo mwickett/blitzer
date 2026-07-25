@@ -107,11 +107,19 @@ export function ScoringShell({
     setOptimisticRound(null); // server data caught up — drop the optimistic round
   }
 
+  // The very first round opens the entry form on its own, with no tap on
+  // "Enter Next Round" — so `showEntry` is still false while that player is
+  // typing. `mode` below reads this too, so the form and the polling guard
+  // cannot drift apart.
+  const isFirstRoundAutoEntry = canEdit && rounds.length === 0 && !optimisticRound;
+
   // Notice rounds this device did not write — without it a stale device
   // submits a round somebody else already recorded. Paused while this player
   // is mid-entry: a refresh that changes currentRoundNumber runs the reset
-  // above and would close the entry sheet under them.
-  const isEnteringScores = showEntry || editingRoundIndex !== null;
+  // above and would close the entry sheet under them, discarding what they
+  // typed. That includes the automatic first-round form.
+  const isEnteringScores =
+    showEntry || isFirstRoundAutoEntry || editingRoundIndex !== null;
   const shouldPollForRounds =
     sharedScoring && canEdit && !isFinished && !isEnteringScores;
   useEffect(() => {
@@ -160,7 +168,7 @@ export function ScoringShell({
   // the score-entry form — they only ever observe betweenRounds / gameOver.
   const mode: ScoringMode = isFinished
     ? "gameOver"
-    : canEdit && ((rounds.length === 0 && !optimisticRound) || showEntry)
+    : isFirstRoundAutoEntry || (canEdit && showEntry)
       ? "entry"
       : "betweenRounds";
 
