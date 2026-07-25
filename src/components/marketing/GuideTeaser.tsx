@@ -1,0 +1,54 @@
+import Link from "next/link";
+import { Section, SectionEyebrow } from "./Section";
+
+const CARDS = [
+  {
+    href: "/guide/how-scoring-works",
+    title: "How scoring works",
+    blurb:
+      "Cards played, minus twice your blitz pile. Why the maths is the way it is.",
+  },
+  {
+    href: "/guide/circles-and-pickup-games",
+    title: "Circles vs pickup games",
+    blurb:
+      "One is for tonight. One is for the next three years of Thursdays.",
+  },
+  {
+    href: "/guide/reading-your-stats",
+    title: "Reading your stats",
+    blurb:
+      "What batting average means here, and how the odds are calculated.",
+  },
+];
+
+export function GuideTeaser() {
+  return (
+    <Section ground="white">
+      <SectionEyebrow>The guide</SectionEyebrow>
+      <h2 className="font-display text-3xl font-bold text-brandAccent">
+        New to any of this? Start here.
+      </h2>
+
+      <div className="mt-6 grid gap-3 md:grid-cols-3">
+        {CARDS.map((card) => (
+          <Link
+            key={card.href}
+            href={card.href}
+            className="rounded-xl border-[1.5px] border-borderWarm bg-surfaceRaised p-4 transition-colors hover:border-brandAccent"
+          >
+            <h3 className="font-display text-base font-bold text-brandAccent">
+              {card.title}
+            </h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-textBody">
+              {card.blurb}
+            </p>
+            <span className="mt-3 inline-block text-[13px] font-semibold text-brandAccent">
+              Read →
+            </span>
+          </Link>
+        ))}
+      </div>
+    </Section>
+  );
+}
