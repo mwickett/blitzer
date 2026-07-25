@@ -6,15 +6,20 @@ export function ColorPicker({
   value,
   onChange,
   usedColors = [],
+  allowDuplicateColors = false,
 }: {
   value: string | null;
   onChange: (color: string) => void;
   usedColors?: string[];
+  allowDuplicateColors?: boolean;
 }) {
   return (
     <div className="flex gap-2 flex-wrap">
       {ACCENT_COLORS.map((c) => {
-        const isUsed = usedColors.includes(c.value) && c.value !== value;
+        const isUsed =
+          !allowDuplicateColors &&
+          usedColors.includes(c.value) &&
+          c.value !== value;
         const isSelected = value === c.value;
         return (
           <button
