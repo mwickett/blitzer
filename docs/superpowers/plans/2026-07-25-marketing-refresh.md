@@ -1700,10 +1700,83 @@ Expected: PASS
 
 Run `npm run dev` and load `/` in a private window. Confirm the header shows Guide, Sign In, Sign Up — and no Dashboard or Games.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Make the Clerk `Show` mock honour `when`, and cover the wiring**
+
+The pure link-set test proves the *sets* are right, but nothing proves `NavBar.tsx` threads the right set into the right `<Show>` branch. Both are `NavLink[]` and both branch labels are valid literals, so swapping them compiles, type-checks, and passes every test. That is the exact bug this task exists to fix, so it deserves a gate.
+
+Only `NavBar` and `MarketingCta` use `<Show>`, and no existing test renders either branch — so teaching the mock about `when` breaks nothing.
+
+In `jest.setup.js`, replace the `Show` entry and add the state above the mock (the variable MUST begin with `mock` — Jest hoists `jest.mock` factories and only permits closing over out-of-scope names with that prefix):
+
+```js
+// Clerk's <Show when="signed-in|signed-out"> renders exactly one branch at
+// runtime. Tests select which via global.__setClerkAuthState. Defaults to
+// signed-out, the state the marketing pages are written for.
+let mockClerkAuthState = 'signed-out'
+global.__setClerkAuthState = (state) => {
+  mockClerkAuthState = state
+}
+```
+
+and inside the `@clerk/nextjs` factory:
+
+```js
+  Show: ({ when, children }) => (when === mockClerkAuthState ? children : null),
+```
+
+Then create `src/app/__tests__/NavBar.test.tsx`:
+
+```tsx
+import { render, screen } from "@testing-library/react";
+import NavBar from "@/app/NavBar";
+
+// NavBar reads the llm-features flag; posthog is not wired up in jsdom.
+jest.mock("@/hooks/useFeatureFlag", () => ({
+  useLlmFeaturesFlag: () => false,
+}));
+
+// NavBar treats children as an array (children[0], children.slice(1)).
+function renderNav() {
+  return render(<NavBar>{[<div key="a" />, <div key="b" />]}</NavBar>);
+}
+
+function renderedHrefs() {
+  return Array.from(document.querySelectorAll("a")).map((a) =>
+    a.getAttribute("href")
+  );
+}
+
+describe("NavBar", () => {
+  // Covers the desktop nav only: the mobile sheet's contents live in a Radix
+  // portal that mounts on open, so they are absent from the DOM here.
+  it("offers signed-out visitors the guide and no route that needs auth", () => {
+    global.__setClerkAuthState("signed-out");
+    renderNav();
+
+    const hrefs = renderedHrefs();
+    expect(hrefs).toContain("/guide");
+    for (const authOnly of ["/dashboard", "/games", "/insights"]) {
+      expect(hrefs).not.toContain(authOnly);
+    }
+  });
+
+  it("offers signed-in users the app routes", () => {
+    global.__setClerkAuthState("signed-in");
+    renderNav();
+
+    const hrefs = renderedHrefs();
+    expect(hrefs).toContain("/dashboard");
+    expect(hrefs).toContain("/games");
+  });
+});
+```
+
+Run: `npx jest src/app/__tests__/NavBar.test.tsx` — expect 2 passing. Then `npm test` — expect 233 / 34.
+
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/components/marketing/navLinks.ts src/components/__tests__/marketing/navLinks.test.ts src/app/NavBar.tsx
+git add src/components/marketing/navLinks.ts src/components/__tests__/marketing/navLinks.test.ts src/app/NavBar.tsx jest.setup.js src/app/__tests__/NavBar.test.tsx
 git commit -m "feat: gate navigation links by auth state"
 ```
 
