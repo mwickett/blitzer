@@ -218,8 +218,10 @@ import {
   DEMO_ROUNDS_PLAYED,
   DEMO_DELTAS_BY_PLAYER,
   DEMO_SCORES_BY_ROUND,
+  DEMO_LAST_ROUND_ENTRIES,
 } from "@/components/marketing/fixtures";
 import { ACCENT_COLORS } from "@/lib/scoring/colors";
+import { calculateRoundScore } from "@/lib/validation/gameRules";
 
 describe("marketing fixtures", () => {
   it("gives every player a colour from the real accent palette", () => {
@@ -255,6 +257,20 @@ describe("marketing fixtures", () => {
   it("keeps every player short of the win threshold so the game reads as live", () => {
     for (const player of DEMO_PLAYERS) {
       expect(player.score).toBeLessThan(DEMO_WIN_THRESHOLD);
+    }
+  });
+
+  it("has exactly one blitzer in the final round, and entries that reproduce the deltas", () => {
+    const blitzers = Object.values(DEMO_LAST_ROUND_ENTRIES).filter(
+      (entry) => entry.blitzRemaining === 0
+    );
+    // Emptying the Blitz pile ends the round, so only one player can be at 0.
+    expect(blitzers).toHaveLength(1);
+
+    for (const player of DEMO_PLAYERS) {
+      const entry = DEMO_LAST_ROUND_ENTRIES[player.id];
+      const deltas = DEMO_DELTAS_BY_PLAYER[player.id];
+      expect(calculateRoundScore(entry)).toBe(deltas[deltas.length - 1]);
     }
   });
 
@@ -339,6 +355,27 @@ export const DEMO_SCORES_BY_ROUND: Record<string, number[]> = {
   mike: [9, 21, 33, 44],
   priya: [7, 18, 28, 36],
   tom: [4, 11, 16, 21],
+};
+
+/**
+ * The raw entry each player would have keyed in for the final round — what
+ * ScoreEntryPreview shows on its phone screen.
+ *
+ * Exactly one player may have `blitzRemaining: 0`. Emptying the Blitz pile is
+ * what ends the round, so a screen showing three players at zero depicts a
+ * game that cannot happen — and the audience for this page plays the game.
+ *
+ * Each entry must reproduce that player's final delta through the real
+ * scoring formula (cards − 2 × blitz). fixtures.test.ts asserts it.
+ */
+export const DEMO_LAST_ROUND_ENTRIES: Record<
+  string,
+  { blitzRemaining: number; cardsPlayed: number }
+> = {
+  dana: { blitzRemaining: 0, cardsPlayed: 15 }, // 15 − 0  = 15, and Dana blitzed
+  mike: { blitzRemaining: 2, cardsPlayed: 15 }, // 15 − 4  = 11
+  priya: { blitzRemaining: 1, cardsPlayed: 10 }, // 10 − 2 =  8
+  tom: { blitzRemaining: 3, cardsPlayed: 11 }, // 11 − 6   =  5
 };
 ```
 
@@ -628,11 +665,23 @@ Create `src/components/marketing/ScoreEntryPreview.tsx`:
 "use client";
 
 import { ScoreEntryCard } from "@/components/scoring/ScoreEntryCard";
-import { DEMO_PLAYERS, DEMO_DELTAS_BY_PLAYER } from "./fixtures";
+import {
+  DEMO_PLAYERS,
+  DEMO_SCORES_BY_ROUND,
+  DEMO_LAST_ROUND_ENTRIES,
+  DEMO_ROUNDS_PLAYED,
+} from "./fixtures";
 
 /**
  * ScoreEntryCard needs an onUpdate callback, and functions cannot be passed
  * from a server component to a client one. The no-op is created here instead.
+ *
+ * `score` is the total BEFORE the round being keyed in — matching how
+ * ScoreEntryView passes the prop in production, and making the marketing claim
+ * legible: the phone shows Dana on 43 with a 15-point round going in, while
+ * the Standings panel beside it shows the resulting 58. Passing the post-round
+ * total instead would leave both panels showing the same settled number, with
+ * no before-state for the standings to redraw from.
  *
  * This renders a static, non-interactive preview. Wiring it to local state to
  * make it playable is a deliberate follow-up, not an oversight.
@@ -646,15 +695,15 @@ export function ScoreEntryPreview() {
   return (
     <div className="space-y-2">
       {shown.map((player) => {
-        const deltas = DEMO_DELTAS_BY_PLAYER[player.id];
-        const lastDelta = deltas[deltas.length - 1];
+        const cumulative = DEMO_SCORES_BY_ROUND[player.id];
+        const scoreBeforeRound = cumulative[DEMO_ROUNDS_PLAYED - 2];
         return (
           <ScoreEntryCard
             key={player.id}
             name={player.name}
             color={player.color}
-            score={player.score}
-            entry={{ blitzRemaining: 0, cardsPlayed: lastDelta }}
+            score={scoreBeforeRound}
+            entry={DEMO_LAST_ROUND_ENTRIES[player.id]}
             status="complete"
             onUpdate={noop}
           />
