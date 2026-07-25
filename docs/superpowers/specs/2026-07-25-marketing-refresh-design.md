@@ -113,7 +113,7 @@ Uses a **pre-generated QR image committed to `public/img/`**, not `LobbyQrCode`.
 > ## Real odds. Not vibes.
 > Blitzer simulates thousands of finishes from how your table has actually been scoring tonight. So "she's got this" stops being an opinion and becomes a number everyone can see.
 
-### 4 · Remember — live `<BasicStatBlock>` + `<ScoreProgressionCard>`
+### 4 · Remember — `<StatTile>` + live `<ScoreProgressionCard>`
 
 > ## Your average — per round, per game, against one specific person?
 > Every game your group plays lands in your Circle, so the record is all in one place instead of scattered across whoever remembered to write it down.
@@ -169,6 +169,7 @@ The Notion doc (June 2024) is mined for voice and retired as a link. Three lines
 | `surfaceSubtle` | `#faf5ed` | `--scoring-bg-subtle` |
 | `borderWarm` | `#e6d7c3` | `--scoring-border` |
 | `textMuted` | `#8b5e3c` | `--scoring-text-muted` |
+| `textBody` | `#5b4038` | marketing body copy |
 
 **Flagged, not fixed:** `globals.css:41-50` defines `--scoring-bg`, `--scoring-border`, `--scoring-text-muted` and others, but the scoring components do not use them. `Standings.tsx` and `RaceTrack.tsx` hardcode `#e6d7c3`, `#8b5e3c` and `#f0e6d2` directly. The variables and components have drifted apart. Marketing will use tokens properly; reconciling scoring is separate work and out of scope here.
 
@@ -204,7 +205,7 @@ Verified presentational — plain props, no auth, no data fetching:
 | `ScoreProgressionCard` | `"use client"`, ready |
 | `Standings` | pure, hook-free, ready |
 | `HotColdCard` | pure, hook-free, ready |
-| `BasicStatBlock` | pure, ready |
+| `BasicStatBlock` | pure, but **not used** — wraps `ui/card`'s `shadow-sm`, which the no-shadow rule bans. Marketing uses a purpose-built `StatTile` instead; the dashboard keeps `BasicStatBlock` |
 | `RoundHistoryTable` | pure, optional callback |
 | `ScoreEntryCard` | `"use client"`, requires an `onUpdate` callback |
 | `WinProbabilityCard` | calls `useMemo` with **no** `"use client"` directive — needs a thin client wrapper |
