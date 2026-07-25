@@ -21,9 +21,9 @@ export default function CirclesAndPickupGames() {
         <h2>Pickup games</h2>
         <p>
           A pickup game is for right now. You open a lobby, everyone at the
-          table joins with a code or a QR scan, and you play. There is no Circle
-          to create and nobody to invite in advance. You can seat up to{" "}
-          {MAX_PICKUP_PLAYERS} players.
+          table joins with a code or a QR scan, and you play. You can seat up
+          to {MAX_PICKUP_PLAYERS} players, and it works whether or not the
+          people at the table are in a Circle with you.
         </p>
         <p>
           Players joining from their own phone sign in as they come through. It
