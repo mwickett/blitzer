@@ -10,7 +10,9 @@ if (!globalThis.crypto?.randomUUID) {
 
 // Mock server actions
 jest.mock("@/server/mutations", () => ({
-  createRoundForGame: jest.fn().mockResolvedValue({ id: "round-1" }),
+  createRoundForGame: jest
+    .fn()
+    .mockResolvedValue({ ok: true, round: { id: "round-1" } }),
 }));
 
 // Mock next/navigation router
@@ -38,7 +40,7 @@ jest.mock("@/lib/validation/gameRules", () => ({
   validateGameRules: jest.fn(),
   calculateRoundScore: jest.fn(
     (s: { blitzPileRemaining: number; totalCardsPlayed: number }) =>
-      s.totalCardsPlayed - 2 * s.blitzPileRemaining
+      s.totalCardsPlayed - 2 * s.blitzPileRemaining,
   ),
 }));
 
@@ -69,7 +71,7 @@ describe("ScoreEntryView", () => {
         currentRoundNumber={1}
         players={mockPlayers}
         winThreshold={75}
-      />
+      />,
     );
     // Names appear in both RaceTrack pills and ScoreEntryCards, so use getAllByText
     expect(screen.getAllByText("Mike").length).toBeGreaterThanOrEqual(1);
@@ -83,7 +85,7 @@ describe("ScoreEntryView", () => {
         currentRoundNumber={1}
         players={mockPlayers}
         winThreshold={75}
-      />
+      />,
     );
     expect(screen.getByText(/2 remaining/)).toBeInTheDocument();
   });
@@ -95,7 +97,7 @@ describe("ScoreEntryView", () => {
         currentRoundNumber={1}
         players={mockPlayers}
         winThreshold={75}
-      />
+      />,
     );
     const inputs = screen.getAllByPlaceholderText("—");
     // Fill Mike's two fields
@@ -112,7 +114,7 @@ describe("ScoreEntryView", () => {
         currentRoundNumber={1}
         players={mockPlayers}
         winThreshold={75}
-      />
+      />,
     );
 
     // Fill all inputs (2 per player = 4 total)
@@ -125,7 +127,7 @@ describe("ScoreEntryView", () => {
     fireEvent.click(screen.getByText("Submit Round"));
 
     await waitFor(() =>
-      expect(mockReplace).toHaveBeenCalledWith("/games/game-1")
+      expect(mockReplace).toHaveBeenCalledWith("/games/game-1"),
     );
   });
 });

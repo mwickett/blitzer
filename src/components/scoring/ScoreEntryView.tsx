@@ -1,15 +1,30 @@
 // src/components/scoring/ScoreEntryView.tsx
 "use client";
 
-import { useState, useCallback, useMemo, useRef, useEffect, useTransition } from "react";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import { ScoreEntryCard } from "./ScoreEntryCard";
 import { FloatingCTA } from "./FloatingCTA";
 import { RoundHeader } from "./RoundHeader";
 import { RaceTrack } from "./RaceTrack";
-import { type PlayerEntry, type PlayerWithScore, type RoundScoreData, getEntryStatus } from "./types";
+import {
+  type PlayerEntry,
+  type PlayerWithScore,
+  type RoundScoreData,
+  getEntryStatus,
+} from "./types";
 import { usePostHog } from "posthog-js/react";
-import { validateGameRules, calculateRoundScore } from "@/lib/validation/gameRules";
+import {
+  validateGameRules,
+  calculateRoundScore,
+} from "@/lib/validation/gameRules";
 import { createRoundForGame } from "@/server/mutations";
 
 interface ScoreEntryViewProps {
@@ -32,12 +47,15 @@ export function ScoreEntryView({
   const [isPending, startTransition] = useTransition();
   const [entries, setEntries] = useState<Record<string, PlayerEntry>>(() =>
     Object.fromEntries(
-      players.map((p) => [p.id, { blitzRemaining: null, cardsPlayed: null }])
-    )
+      players.map((p) => [p.id, { blitzRemaining: null, cardsPlayed: null }]),
+    ),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [optimisticDeltas, setOptimisticDeltas] = useState<Record<string, number> | null>(null);
+  const [optimisticDeltas, setOptimisticDeltas] = useState<Record<
+    string,
+    number
+  > | null>(null);
   const deltaTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Clean up delta flash timer on unmount
@@ -51,19 +69,23 @@ export function ScoreEntryView({
     () =>
       Object.values(entries).filter((e) => getEntryStatus(e) !== "complete")
         .length,
-    [entries]
+    [entries],
   );
   const allComplete = remainingCount === 0;
 
   const handleUpdate = useCallback(
-    (playerId: string, field: "blitzRemaining" | "cardsPlayed", value: number | null) => {
+    (
+      playerId: string,
+      field: "blitzRemaining" | "cardsPlayed",
+      value: number | null,
+    ) => {
       setEntries((prev) => ({
         ...prev,
         [playerId]: { ...prev[playerId], [field]: value },
       }));
       setError(null);
     },
-    []
+    [],
   );
 
   const handleSubmit = useCallback(async () => {
@@ -101,11 +123,27 @@ export function ScoreEntryView({
 
       setEntries(
         Object.fromEntries(
-          players.map((p) => [p.id, { blitzRemaining: null, cardsPlayed: null }])
-        )
+          players.map((p) => [
+            p.id,
+            { blitzRemaining: null, cardsPlayed: null },
+          ]),
+        ),
       );
 
-      await createRoundForGame(gameId, currentRoundNumber, scores);
+      const result = await createRoundForGame(
+        gameId,
+        currentRoundNumber,
+        scores,
+      );
+      if (!result.ok) {
+        // Another device recorded this round first — keep what was typed on
+        // screen so it can be re-entered against the refreshed round.
+        setEntries(preSubmitEntries);
+        setOptimisticDeltas(null);
+        setError(result.message);
+        setIsSubmitting(false);
+        return;
+      }
       posthog.capture("scoring_round_submitted", {
         game_id: gameId,
         round_number: currentRoundNumber,
@@ -141,7 +179,17 @@ export function ScoreEntryView({
       setError(e instanceof Error ? e.message : "Failed to submit round");
       setIsSubmitting(false);
     }
-  }, [allComplete, isSubmitting, players, entries, gameId, currentRoundNumber, posthog, router, onRoundSubmitted]);
+  }, [
+    allComplete,
+    isSubmitting,
+    players,
+    entries,
+    gameId,
+    currentRoundNumber,
+    posthog,
+    router,
+    onRoundSubmitted,
+  ]);
 
   return (
     <div className="pb-4">
@@ -193,7 +241,6 @@ export function ScoreEntryView({
         }}
         onAction={handleSubmit}
       />
-
     </div>
   );
 }

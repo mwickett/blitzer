@@ -50,11 +50,16 @@ export async function getGames(): Promise<GameSummary[]> {
   const user = await auth();
 
   if (!user.userId) throw new Error("Unauthorized");
-  if (!user.orgId) throw new Error("No active circle");
 
   return prisma.game.findMany({
     where: {
-      organizationId: user.orgId,
+      OR: [
+        ...(user.orgId ? [{ kind: "CIRCLE" as const, organizationId: user.orgId }] : []),
+        {
+          kind: "PICKUP",
+          players: { some: { user: { clerk_user_id: user.userId } } },
+        },
+      ],
     },
     include: gameSummaryInclude,
     orderBy: {
@@ -71,7 +76,7 @@ export async function getLegacyGames(): Promise<GameSummary[]> {
 
   return prisma.game.findMany({
     where: {
-      organizationId: null,
+      kind: "LEGACY",
       players: {
         some: {
           user: {

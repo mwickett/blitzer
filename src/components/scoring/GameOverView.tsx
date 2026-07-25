@@ -12,9 +12,10 @@ interface GameOverViewProps {
   rounds: RoundData[];
   onEditRound?: (roundIndex: number) => void;
   onRematch: () => void;
-  onBackToCircle: () => void;
+  onBackToGames: () => void;
   /** When false, render as a read-only spectator view (no member actions) */
   canEdit?: boolean;
+  canRematch?: boolean;
 }
 
 export function GameOverView({
@@ -24,8 +25,9 @@ export function GameOverView({
   rounds,
   onEditRound,
   onRematch,
-  onBackToCircle,
+  onBackToGames,
   canEdit = true,
+  canRematch = true,
 }: GameOverViewProps) {
   const posthog = usePostHog();
   const sorted = [...players].sort((a, b) => b.score - a.score);
@@ -34,9 +36,7 @@ export function GameOverView({
     <div>
       {/* Header */}
       <div className="text-center py-4 border-b border-[#f0e6d2]">
-        <h2 className="text-xl font-extrabold text-[#290806]">
-          Game Complete
-        </h2>
+        <h2 className="text-xl font-extrabold text-[#290806]">Game Complete</h2>
         <div className="text-xs text-[#8b5e3c] mt-1">
           {stats.roundsPlayed} rounds · {players.length} players
         </div>
@@ -160,28 +160,30 @@ export function GameOverView({
         />
       </div>
 
-      {/* Actions — circle members only; spectators get a read-only result */}
+      {/* Actions — participating editors only; spectators get a read-only result */}
       {canEdit && (
         <div className="px-4 pt-5 pb-6 space-y-2">
+          {canRematch && (
+            <button
+              onClick={() => {
+                posthog.capture("game_over_rematch", {
+                  player_count: players.length,
+                });
+                onRematch();
+              }}
+              className="w-full py-3.5 rounded-xl text-[15px] font-bold bg-[#290806] text-white hover:bg-[#3d1a0a] transition-colors cursor-pointer"
+            >
+              New Game with Same Players
+            </button>
+          )}
           <button
             onClick={() => {
-              posthog.capture("game_over_rematch", {
-                player_count: players.length,
-              });
-              onRematch();
-            }}
-            className="w-full py-3.5 rounded-xl text-[15px] font-bold bg-[#290806] text-white hover:bg-[#3d1a0a] transition-colors cursor-pointer"
-          >
-            New Game with Same Players
-          </button>
-          <button
-            onClick={() => {
-              posthog.capture("game_over_back_to_circle");
-              onBackToCircle();
+              posthog.capture("game_over_back_to_games");
+              onBackToGames();
             }}
             className="w-full py-3 rounded-xl text-[13px] font-semibold border-[1.5px] border-[#e6d7c3] bg-white text-[#8b5e3c] hover:bg-[#faf5ed] transition-colors cursor-pointer"
           >
-            Back to Circle
+            Back to Games
           </button>
         </div>
       )}

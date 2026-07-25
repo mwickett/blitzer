@@ -14,19 +14,16 @@ import {
   updateRoundScores,
   cloneGame,
 } from "../mutations";
-import {
-  requireAuthContext,
-  requireGameInCircle,
-} from "../mutations/common";
+import { requireAuthContext, requireGameInCircle } from "../mutations/common";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
 import { redirect } from "next/navigation";
+import { GAME_RULES } from "@/lib/validation/gameRules";
 
 // Mock dependencies
-jest.mock("../db/db", () => ({
-  __esModule: true,
-  default: {
+jest.mock("../db/db", () => {
+  const client = {
     game: {
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -35,6 +32,7 @@ jest.mock("../db/db", () => ({
     round: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
     },
     score: {
       create: jest.fn(),
@@ -53,9 +51,21 @@ jest.mock("../db/db", () => ({
       create: jest.fn(),
       createMany: jest.fn(),
     },
-    $transaction: jest.fn((callback) => Promise.all(callback)),
-  },
-}));
+    $transaction: jest.fn(),
+  };
+  // Set after the literal so `client` is not referenced inside its own
+  // initializer. Supports both Prisma forms: an array of operations, and the
+  // interactive callback form, whose `tx` is this same mock — so assertions on
+  // prisma.round.create and prisma.score.createMany keep working inside a
+  // transaction. jest.clearAllMocks() preserves implementations, so this
+  // survives between tests.
+  client.$transaction.mockImplementation((arg: unknown) =>
+    typeof arg === "function"
+      ? (arg as (tx: unknown) => unknown)(client)
+      : Promise.all(arg as unknown[]),
+  );
+  return { __esModule: true, default: client };
+});
 
 // Mock types
 type AuthResult = { userId: string | null };
@@ -94,12 +104,19 @@ describe("Game Mutations", () => {
   const mockGameId = "test-game-id";
   const mockTargetUserId = "target-user-id";
   const mockOrgId = "org_test123";
+  const validRoster = [
+    { userId: "player1", guestId: null },
+    { userId: "player2", guestId: null },
+  ];
 
   beforeEach(() => {
     jest.clearAllMocks();
     (auth as unknown as jest.Mock).mockResolvedValue({
       userId: mockUserId,
       orgId: mockOrgId,
+    });
+    (prisma.round.findUnique as jest.Mock).mockResolvedValue({
+      gameId: mockGameId,
     });
   });
 
@@ -116,14 +133,15 @@ describe("Game Mutations", () => {
         totalCardsPlayed: 20,
       },
     ];
-
     it("should create a new round with scores", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         organizationId: mockOrgId,
         isFinished: false,
         winnerId: null,
         winThreshold: 75,
+        players: validRoster,
       };
       const mockRound = { id: "round-1", scores: validScores };
 
@@ -141,18 +159,20 @@ describe("Game Mutations", () => {
         },
       });
 
-      expect(result).toBe(mockRound);
+      expect(result).toEqual({ ok: true, round: mockRound });
     });
 
     it("should finalize an unfinished game when the new score crosses the threshold", async () => {
       const mockGame = {
         id: mockGameId,
+        kind: "CIRCLE",
         organizationId: mockOrgId,
         isFinished: false,
         winnerId: null,
         winThreshold: 50,
         createdAt: new Date(),
         endedAt: null,
+        players: validRoster,
       };
       const mockRound = { id: "round-2", scores: validScores };
       const completionGame = {
@@ -254,6 +274,8 @@ describe("Game Mutations", () => {
       };
 
       (prisma.game.findUnique as jest.Mock)
+        // 1: the scoring-access check, 2: the completion re-read,
+        // 3: updateGameAsFinished loading the roster for the winner + emails.
         .mockResolvedValueOnce(mockGame)
         .mockResolvedValueOnce(completionGame)
         .mockResolvedValueOnce(completionGame);
@@ -295,7 +317,12 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if validation fails", async () => {
-      const mockGame = { id: mockGameId, organizationId: mockOrgId };
+      const mockGame = {
+        id: mockGameId,
+        kind: "CIRCLE",
+        organizationId: mockOrgId,
+        players: validRoster,
+      };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       const invalidScores = [
@@ -307,7 +334,7 @@ describe("Game Mutations", () => {
       ];
 
       await expect(
-        createRoundForGame(mockGameId, 1, invalidScores)
+        createRoundForGame(mockGameId, 1, invalidScores),
       ).rejects.toThrow("At least one player must blitz");
 
       // Verify PostHog capture was called with validation error
@@ -324,15 +351,102 @@ describe("Game Mutations", () => {
       });
     });
 
+    describe("when the round already exists", () => {
+      const mockGame = {
+        id: mockGameId,
+        kind: "CIRCLE",
+        organizationId: mockOrgId,
+        isFinished: false,
+        winnerId: null,
+        winThreshold: 75,
+        players: validRoster,
+      };
+      const stored = validScores.map((s) => ({ ...s, guestId: null }));
+
+      beforeEach(() => {
+        (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+        (prisma.round.create as jest.Mock).mockRejectedValue({ code: "P2002" });
+      });
+
+      it("stays idempotent when the same device submits twice", async () => {
+        const existing = { id: "round-1", round: 1, scores: stored };
+        (prisma.round.findFirst as jest.Mock).mockResolvedValue(existing);
+        // 1: the scoring-access check, 2: the completion re-read that follows
+        // the early return.
+        (prisma.game.findUnique as jest.Mock)
+          .mockResolvedValueOnce(mockGame)
+          .mockResolvedValueOnce({ ...mockGame, players: [], rounds: [] });
+
+        await expect(
+          createRoundForGame(mockGameId, 1, validScores),
+        ).resolves.toEqual({ ok: true, round: existing });
+        expect(prisma.score.createMany).not.toHaveBeenCalled();
+      });
+
+      it("refuses to discard scores another player already recorded", async () => {
+        (prisma.round.findFirst as jest.Mock).mockResolvedValue({
+          id: "round-1",
+          round: 1,
+          // Same players, different numbers — a competing submission, not a
+          // re-send of the same tap.
+          scores: stored.map((s) => ({ ...s, totalCardsPlayed: 39 })),
+        });
+
+        await expect(
+          createRoundForGame(mockGameId, 1, validScores),
+        ).resolves.toMatchObject({ ok: false, reason: "round_conflict" });
+        expect(prisma.score.createMany).not.toHaveBeenCalled();
+      });
+
+      it("treats a different roster size as a competing submission", async () => {
+        (prisma.round.findFirst as jest.Mock).mockResolvedValue({
+          id: "round-1",
+          round: 1,
+          scores: [stored[0]],
+        });
+
+        await expect(
+          createRoundForGame(mockGameId, 1, validScores),
+        ).resolves.toMatchObject({ ok: false, reason: "round_conflict" });
+      });
+    });
+
+    it("rejects score submissions for players outside the game roster", async () => {
+      const mockGame = {
+        id: mockGameId,
+        kind: "CIRCLE",
+        organizationId: mockOrgId,
+        players: validRoster,
+      };
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+
+      await expect(
+        createRoundForGame(mockGameId, 1, [
+          { userId: "player1", blitzPileRemaining: 0, totalCardsPlayed: 10 },
+          {
+            userId: "not-in-game",
+            blitzPileRemaining: 5,
+            totalCardsPlayed: 20,
+          },
+        ]),
+      ).rejects.toThrow("Scores must match the players in this game");
+      expect(prisma.round.create).not.toHaveBeenCalled();
+    });
+
     it("should throw error if database operation fails", async () => {
-      const mockGame = { id: mockGameId, organizationId: mockOrgId };
+      const mockGame = {
+        id: mockGameId,
+        kind: "CIRCLE",
+        organizationId: mockOrgId,
+        players: validRoster,
+      };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
       (prisma.round.create as jest.Mock).mockRejectedValue(
-        new Error("Database error")
+        new Error("Database error"),
       );
 
       await expect(
-        createRoundForGame(mockGameId, 1, validScores)
+        createRoundForGame(mockGameId, 1, validScores),
       ).rejects.toThrow("Database error");
     });
 
@@ -340,7 +454,7 @@ describe("Game Mutations", () => {
       (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
 
       await expect(
-        createRoundForGame(mockGameId, 1, validScores)
+        createRoundForGame(mockGameId, 1, validScores),
       ).rejects.toThrow("Unauthorized");
     });
 
@@ -348,7 +462,7 @@ describe("Game Mutations", () => {
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        createRoundForGame(mockGameId, 1, validScores)
+        createRoundForGame(mockGameId, 1, validScores),
       ).rejects.toThrow("Game not found");
     });
   });
@@ -369,7 +483,13 @@ describe("Game Mutations", () => {
     ];
 
     it("should update scores for a round", async () => {
-      const mockGame = { id: mockGameId, isFinished: false, organizationId: mockOrgId };
+      const mockGame = {
+        id: mockGameId,
+        kind: "CIRCLE",
+        isFinished: false,
+        organizationId: mockOrgId,
+        players: validRoster,
+      };
       (prisma.game.findUnique as jest.Mock)
         .mockResolvedValueOnce(mockGame)
         .mockResolvedValueOnce({
@@ -384,7 +504,7 @@ describe("Game Mutations", () => {
       const result = await updateRoundScores(
         mockGameId,
         mockRoundId,
-        validScores
+        validScores,
       );
 
       expect(prisma.$transaction).toHaveBeenCalled();
@@ -392,7 +512,13 @@ describe("Game Mutations", () => {
     });
 
     it("should throw error if validation fails", async () => {
-      const mockGame = { id: mockGameId, isFinished: false, organizationId: mockOrgId };
+      const mockGame = {
+        id: mockGameId,
+        kind: "CIRCLE",
+        isFinished: false,
+        organizationId: mockOrgId,
+        players: validRoster,
+      };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
       const invalidScores = [
@@ -404,7 +530,7 @@ describe("Game Mutations", () => {
       ];
 
       await expect(
-        updateRoundScores(mockGameId, mockRoundId, invalidScores)
+        updateRoundScores(mockGameId, mockRoundId, invalidScores),
       ).rejects.toThrow("At least one player must blitz");
 
       // Verify PostHog capture was called with validation error
@@ -421,8 +547,41 @@ describe("Game Mutations", () => {
       });
     });
 
+    it("rejects round edits for players outside the game roster", async () => {
+      const mockGame = {
+        id: mockGameId,
+        kind: "CIRCLE",
+        isFinished: false,
+        organizationId: mockOrgId,
+        players: validRoster,
+      };
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
+
+      await expect(
+        updateRoundScores(mockGameId, mockRoundId, [
+          {
+            userId: "player1",
+            blitzPileRemaining: 0,
+            totalCardsPlayed: 10,
+          },
+          {
+            userId: "not-in-game",
+            blitzPileRemaining: 5,
+            totalCardsPlayed: 20,
+          },
+        ]),
+      ).rejects.toThrow("Scores must match the players in this game");
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
     it("should allow editing finished games", async () => {
-      const mockGame = { id: mockGameId, isFinished: true, organizationId: mockOrgId };
+      const mockGame = {
+        id: mockGameId,
+        kind: "CIRCLE",
+        isFinished: true,
+        organizationId: mockOrgId,
+        players: validRoster,
+      };
       (prisma.game.findUnique as jest.Mock)
         .mockResolvedValueOnce(mockGame)
         .mockResolvedValueOnce({
@@ -437,7 +596,7 @@ describe("Game Mutations", () => {
       const result = await updateRoundScores(
         mockGameId,
         mockRoundId,
-        validScores
+        validScores,
       );
 
       expect(prisma.$transaction).toHaveBeenCalled();
@@ -448,8 +607,37 @@ describe("Game Mutations", () => {
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        updateRoundScores(mockGameId, mockRoundId, validScores)
+        updateRoundScores(mockGameId, mockRoundId, validScores),
       ).rejects.toThrow("Game not found");
+    });
+  });
+
+  describe("updateGameAsFinished", () => {
+    it("rejects a winner who is not on the game roster", async () => {
+      const game = {
+        id: mockGameId,
+        kind: "CIRCLE",
+        organizationId: mockOrgId,
+        players: [
+          {
+            userId: "player1",
+            guestId: null,
+            user: {
+              id: "player1",
+              username: "Player 1",
+              email: "player1@example.com",
+              clerk_user_id: "clerk-player1",
+            },
+            guestUser: null,
+          },
+        ],
+      };
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(game);
+
+      await expect(
+        updateGameAsFinished(mockGameId, "not-in-game"),
+      ).rejects.toThrow("Winner must be a player in this game");
+      expect(prisma.game.update).not.toHaveBeenCalled();
     });
   });
 
@@ -458,7 +646,7 @@ describe("Game Mutations", () => {
       // Interactive transaction: invoke the callback with the prisma mock as tx
       (prisma.$transaction as jest.Mock).mockImplementation(
         async (callback: (tx: typeof prisma) => Promise<unknown>) =>
-          callback(prisma)
+          callback(prisma),
       );
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: "prisma-user-id",
@@ -471,6 +659,35 @@ describe("Game Mutations", () => {
       (prisma.gamePlayers.createMany as jest.Mock).mockResolvedValue({
         count: 1,
       });
+    });
+
+    it("refuses to seat more than the maximum number of players", async () => {
+      const players = Array.from(
+        { length: GAME_RULES.MAX_PLAYERS + 1 },
+        (_, i) => ({ id: `player-${i}`, username: `Player${i}` }),
+      );
+
+      await expect(createGame(players)).rejects.toThrow(
+        `A game seats up to ${GAME_RULES.MAX_PLAYERS} players.`,
+      );
+      expect(prisma.game.create).not.toHaveBeenCalled();
+    });
+
+    it("seats a full table of the maximum number of players", async () => {
+      const players = Array.from(
+        { length: GAME_RULES.MAX_PLAYERS },
+        (_, i) => ({ id: `guest-${i}`, username: `Guest${i}`, isGuest: true }),
+      );
+      (prisma.guestUser.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.guestUser.create as jest.Mock).mockImplementation(
+        async ({ data }: { data: { name: string } }) => ({
+          id: `created-${data.name}`,
+          name: data.name,
+        }),
+      );
+
+      await expect(createGame(players)).resolves.toBeDefined();
+      expect(prisma.game.create).toHaveBeenCalled();
     });
 
     it("should create a game with organizationId from active circle", async () => {
@@ -572,10 +789,14 @@ describe("Game Mutations", () => {
           return Promise.resolve({
             data: memberships.slice(offset, offset + limit),
           });
-        }
+        },
       );
       (prisma.user.findMany as jest.Mock).mockResolvedValue([
-        { id: "player-12", clerk_user_id: "clerk-member-12", accentColor: null },
+        {
+          id: "player-12",
+          clerk_user_id: "clerk-member-12",
+          accentColor: null,
+        },
       ]);
 
       const result = await createGame([
@@ -592,7 +813,7 @@ describe("Game Mutations", () => {
       });
 
       await expect(createGame([{ id: "user-1" }])).rejects.toThrow(
-        "No active circle"
+        "No active circle",
       );
     });
   });
@@ -635,7 +856,7 @@ describe("Game Mutations", () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(requireAuthContext("orgWithPrismaId")).rejects.toThrow(
-        "User not found"
+        "User not found",
       );
     });
 
@@ -646,7 +867,7 @@ describe("Game Mutations", () => {
       });
 
       await expect(requireAuthContext("org")).rejects.toThrow(
-        "No active circle"
+        "No active circle",
       );
     });
 
@@ -665,16 +886,16 @@ describe("Game Mutations", () => {
       const mockGame = { id: mockGameId, organizationId: mockOrgId };
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
 
-      await expect(
-        requireGameInCircle(mockGameId, mockOrgId)
-      ).resolves.toEqual(mockGame);
+      await expect(requireGameInCircle(mockGameId, mockOrgId)).resolves.toEqual(
+        mockGame,
+      );
     });
 
     it("throws when the game does not exist", async () => {
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(requireGameInCircle(mockGameId, mockOrgId)).rejects.toThrow(
-        "Game not found"
+        "Game not found",
       );
     });
 
@@ -685,7 +906,7 @@ describe("Game Mutations", () => {
       });
 
       await expect(requireGameInCircle(mockGameId, mockOrgId)).rejects.toThrow(
-        "Game does not belong to your active circle"
+        "Game does not belong to your active circle",
       );
     });
   });

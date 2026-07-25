@@ -3,10 +3,18 @@
 import prisma from "@/server/db/db";
 import { Prisma } from "@/generated/prisma/client";
 import { after } from "next/server";
-import { requireAuthContext, assertGameInCircle } from "./common";
+import {
+  requireAuthContext,
+  assertGameInCircle,
+  assertGameScoringAccess,
+} from "./common";
 import { getOrgMemberClerkIds } from "../clerkOrgs";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
-import { resolvePlayerColor, assignColorsToPlayers } from "@/lib/scoring/colors";
+import {
+  resolvePlayerColor,
+  assignColorsToPlayers,
+} from "@/lib/scoring/colors";
+import { GAME_RULES } from "@/lib/validation/gameRules";
 
 // Create a new game with support for guest players
 export async function createGame(
@@ -16,15 +24,18 @@ export async function createGame(
     isGuest?: boolean;
     accentColor?: string;
   }[],
-  winThreshold?: number
+  winThreshold?: number,
 ) {
-  const { user, posthog, orgId, prismaUserId } = await requireAuthContext(
-    "orgWithPrismaId"
-  );
+  const { user, posthog, orgId, prismaUserId } =
+    await requireAuthContext("orgWithPrismaId");
 
-  const regularPlayerIds = users
-    .filter((u) => !u.isGuest)
-    .map((u) => u.id);
+  // The picker stops at this count, but the action is the boundary that
+  // actually holds — a stale tab or a direct call must not seat a ninth.
+  if (users.length > GAME_RULES.MAX_PLAYERS) {
+    throw new Error(`A game seats up to ${GAME_RULES.MAX_PLAYERS} players.`);
+  }
+
+  const regularPlayerIds = users.filter((u) => !u.isGuest).map((u) => u.id);
 
   // One lookup serves both membership validation and accent-color defaults
   const regularPlayers =
@@ -51,10 +62,12 @@ export async function createGame(
     const userDefault = regularPlayers.find((p) => p.id === u.id);
     return {
       id: u.id,
-      resolvedColor: u.accentColor ?? resolvePlayerColor({
-        gameColor: null,
-        userDefault: userDefault?.accentColor ?? null,
-      }),
+      resolvedColor:
+        u.accentColor ??
+        resolvePlayerColor({
+          gameColor: null,
+          userDefault: userDefault?.accentColor ?? null,
+        }),
     };
   });
   const playerColors = assignColorsToPlayers(colorInputs);
@@ -94,7 +107,7 @@ export async function createGame(
             return guestId ? [{ gameId: game.id, guestId, accentColor }] : [];
           }
           return [{ gameId: game.id, userId: player.id, accentColor }];
-        }
+        },
       );
 
       await tx.gamePlayers.createMany({ data: playerRows });
@@ -127,9 +140,9 @@ export async function createGame(
 export async function updateGameAsFinished(
   gameId: string,
   winnerId: string,
-  isGuestWinner: boolean = false
+  isGuestWinner: boolean = false,
 ) {
-  const { user, posthog, orgId } = await requireAuthContext("org");
+  const { user, userId, posthog } = await requireAuthContext("user");
 
   // Fetch game with all player details
   const game = await prisma.game.findUnique({
@@ -158,26 +171,19 @@ export async function updateGameAsFinished(
     },
   });
 
-  assertGameInCircle(game, orgId);
+  // This include is already a superset of what the check needs, so assert
+  // against it rather than re-loading the same row through the require* helper.
+  assertGameScoringAccess(game, { userId, orgId: user.orgId ?? undefined });
 
-  // Get winner's details
-  let winnerName = "";
-
-  if (isGuestWinner) {
-    const winner = await prisma.guestUser.findUnique({
-      where: { id: winnerId },
-      select: { name: true },
-    });
-    if (!winner) throw new Error("Guest winner not found");
-    winnerName = winner.name;
-  } else {
-    const winner = await prisma.user.findUnique({
-      where: { id: winnerId },
-      select: { username: true },
-    });
-    if (!winner) throw new Error("Winner not found");
-    winnerName = winner.username;
-  }
+  const winnerPlayer = game.players.find((player) =>
+    isGuestWinner
+      ? player.guestUser?.id === winnerId
+      : player.user?.id === winnerId,
+  );
+  if (!winnerPlayer) throw new Error("Winner must be a player in this game");
+  const winnerName = isGuestWinner
+    ? winnerPlayer.guestUser!.name
+    : winnerPlayer.user!.username;
 
   // Update game as finished
   await prisma.game.update({
@@ -237,7 +243,7 @@ export async function updateGameAsFinished(
 
         if (i < registeredPlayers.length - 1) {
           await new Promise((resolve) =>
-            setTimeout(resolve, EMAIL_INTER_SEND_DELAY_MS)
+            setTimeout(resolve, EMAIL_INTER_SEND_DELAY_MS),
           );
         }
       } catch (error) {
@@ -273,9 +279,8 @@ export async function updateGameAsFinished(
 
 // Save user's default accent color preference
 export async function saveUserAccentColor(color: string) {
-  const { user, posthog, prismaUserId } = await requireAuthContext(
-    "orgWithPrismaId"
-  );
+  const { user, posthog, prismaUserId } =
+    await requireAuthContext("orgWithPrismaId");
 
   await prisma.user.update({
     where: { id: prismaUserId },

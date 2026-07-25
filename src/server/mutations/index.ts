@@ -6,6 +6,7 @@ import { createGame, updateGameAsFinished, cloneGame, saveUserAccentColor } from
 import { createRoundForGame, updateRoundScores } from "./rounds";
 import { createGuestUser, getCircleGuestUsers, inviteGuestUser } from "./guests";
 import { inviteFriendToCircle } from "./circles";
+import { createPickupGame, joinPickupGame, joinPickupGameByCode, startPickupGame } from "./lobbies";
 
 // Re-export them
 export {
@@ -19,4 +20,8 @@ export {
   getCircleGuestUsers,
   inviteGuestUser,
   inviteFriendToCircle,
+  createPickupGame,
+  joinPickupGame,
+  joinPickupGameByCode,
+  startPickupGame,
 };

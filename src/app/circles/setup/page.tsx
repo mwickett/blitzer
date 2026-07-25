@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import CircleSetup from "./CircleSetup";
 
 export default async function CircleSetupPage() {
@@ -15,10 +16,20 @@ export default async function CircleSetupPage() {
         <h1 className="text-2xl font-bold mb-2">Welcome to Circles</h1>
         <p className="text-muted-foreground">
           Circles are groups of players you play Dutch Blitz with — your family,
-          game night crew, or coworkers. You need at least one to get started.
+          game night crew, or coworkers. They keep a regular group together so
+          you can start a game without sharing a code. For a one-off game, you
+          can skip this and start a pickup game instead.
         </p>
       </div>
       <CircleSetup hasCircle={!!orgId} />
+      {!orgId && (
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Just playing one game?{" "}
+          <Link href="/games/new?type=pickup" className="underline">
+            Start a pickup game instead
+          </Link>
+        </p>
+      )}
     </main>
   );
 }
