@@ -39,6 +39,10 @@ tunnel.log
 !.env.example
 # ensure tests env never tracked
 .env.test
+# `vercel env pull <file>` writes names like preview.env / dev.env, which the
+# leading-dot patterns above do not match. Safe alongside !.env.example, since
+# that name does not end in .env.
+*.env
 
 
 # vercel
