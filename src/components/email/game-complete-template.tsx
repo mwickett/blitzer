@@ -9,8 +9,8 @@ import {
   Section,
   Hr,
   Img,
-} from "@react-email/components";
-import { render } from "@react-email/render";
+  render,
+} from "react-email";
 import * as React from "react";
 
 interface GameCompleteEmailProps {
