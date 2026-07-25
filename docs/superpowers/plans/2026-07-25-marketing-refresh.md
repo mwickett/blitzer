@@ -2759,13 +2759,24 @@ describe("Why Blitzer page", () => {
     // friend approval was replaced by Circles (#205); there are no global
     // leaderboards; outlier showcases were never built; AI chat is Insights,
     // which is flag-gated and excluded from marketing entirely.
+    //
+    // Two earlier patterns here could never fire: /approve friendships/ does
+    // not match "approving friendships", and /ask questions of the data/ was
+    // narrower than any phrasing anyone would write. Both were decorative.
+    // And a per-opponent claim shipped past this list once already, which is
+    // why /against (one|a) specific/ is here. Treat a green run as a floor,
+    // not proof — a copy edit still needs a human to check the claim.
     for (const forbidden of [
-      /friend request/i,
-      /approve friendships/i,
+      /friend requests?/i,
+      /approv\w*\s+(a\s+)?friend/i,
       /best Dutch Blitz players in the world/i,
       /leaderboard/i,
       /AI chat/i,
-      /ask questions of the data/i,
+      /chat (with|to) (your|the) (data|stats)/i,
+      /quer(y|ying) (your|the) (data|stats)/i,
+      /ask (it |them )?(questions?|anything)/i,
+      /against (one|a) specific/i,
+      /these are all answerable/i,
     ]) {
       expect(copy).not.toMatch(forbidden);
     }
@@ -2829,15 +2840,16 @@ export default function WhyBlitzer() {
 
         <h2>The questions</h2>
         <p>
-          So: how did that game actually go? How have you been playing lately?
-          Have you changed as a player? What is your average per round, per
-          game, against one specific person? What is the longest game you have
-          ever been part of?
+          So: how did that game actually go? How have you changed as a player?
+          Who really has the better record against whom? What is the longest
+          game you have ever been part of?
         </p>
         <p>
-          These are all answerable, but only if somebody wrote the rounds down
-          in a form you can still use six months later. That is the job Blitzer
-          took.
+          None of that is answerable unless somebody wrote the rounds down in a
+          form that still means something six months later. Capturing the data
+          is the job Blitzer took first. What it can answer today is a shorter
+          list than the one above, and it is written out in{" "}
+          <Link href="/guide/reading-your-stats">Reading your stats</Link>.
         </p>
 
         <h2>The bar</h2>
