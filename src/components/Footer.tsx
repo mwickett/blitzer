@@ -82,7 +82,7 @@ export default function Footer() {
             endorsed by, or sponsored by Dutch Blitz Games Company.
           </p>
           <p className="mt-1.5">
-            For scoring and tracking statistics for{" "}
+            Score tracking and statistics for{" "}
             <a
               href="https://www.dutchblitz.com"
               className="font-medium text-brandAccent hover:underline"

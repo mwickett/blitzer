@@ -20,8 +20,8 @@ export default function ReadingYourStats() {
         <h2>Batting average</h2>
         <p>
           Your batting average is the share of rounds in which you emptied your
-          Blitz pile — where you were the one who called Blitz. Rounds blitzed,
-          divided by rounds played.
+          Blitz pile, the rounds where you were the one who called Blitz. Rounds
+          blitzed, divided by rounds played.
         </p>
         <p>
           It is not the share of rounds you outscored everyone. Those are
@@ -38,8 +38,8 @@ export default function ReadingYourStats() {
         <h2>Win odds during a game</h2>
         <p>
           Mid-game, Blitzer estimates each player&apos;s chance of winning by
-          simulating the rest of the game thousands of times, using how this
-          table has actually been scoring tonight rather than a generic
+          simulating the rest of the game thousands of times. The simulation
+          runs on how this table has been scoring tonight, not on a generic
           assumption. It normally needs three rounds before it has enough to go
           on. If it can lean on how the players have scored in earlier finished
           games, it can start sooner.
@@ -52,10 +52,10 @@ export default function ReadingYourStats() {
 
       <Prose>
         <p>
-          Because the simulation is driven by observed round scores, a player
+          Because the simulation runs on the round scores it has seen, a player
           who has been quietly posting big rounds can hold better odds than
-          someone a few points ahead of them. That is the point of it — the
-          standings tell you who is ahead, the odds tell you who is winning.
+          someone a few points ahead of them. The standings tell you who is
+          ahead; the odds tell you who is winning.
         </p>
 
         <h2>The charts</h2>
@@ -67,20 +67,20 @@ export default function ReadingYourStats() {
         <h3>Hot &amp; cold</h3>
         <p>
           Each player&apos;s per-round scores as an intensity grid, so you can
-          see streaks rather than totals. Each player&apos;s best round is
-          marked, unless none of their rounds gained them points.
+          see streaks rather than totals. Best rounds are marked, unless a
+          player has no round that gained them points.
         </p>
         <h3>Race track</h3>
         <p>
           Where everyone sits relative to the win threshold. When players are
-          close together their markers group so the track stays readable.
+          close together, their markers group so the track stays readable.
         </p>
 
         <h2>High and low single hand</h2>
         <p>
-          Your best and worst single-round scores. The worst one is usually the
-          more interesting number, and is usually the result of feeding the
-          Dutch piles while ignoring your own Blitz pile.
+          Your best and worst single-round scores. The worst one is the more
+          interesting number, and it usually comes from feeding the Dutch piles
+          while ignoring your own Blitz pile.
         </p>
       </Prose>
     </>

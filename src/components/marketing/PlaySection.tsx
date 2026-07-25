@@ -37,7 +37,7 @@ export function PlaySection() {
           </h2>
           <p className="mt-4 text-base leading-relaxed text-textBody">
             Built thumb-first for a phone propped against the card box. Enter
-            the blitz pile and cards played; the standings redraw before the
+            the Blitz pile and cards played; the standings redraw before the
             next deal.
           </p>
         </div>

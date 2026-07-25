@@ -13,9 +13,9 @@ export function SettleSection() {
             Not vibes.
           </h2>
           <p className="mt-4 text-base leading-relaxed text-[#c9b0a7]">
-            Blitzer simulates thousands of finishes from how your table has
-            actually been scoring tonight. So &ldquo;she&apos;s got this&rdquo;
-            stops being an opinion and becomes a number everyone can see.
+            Blitzer simulates thousands of finishes from how your table has been
+            scoring tonight. So &ldquo;she&apos;s got this&rdquo; stops being an
+            opinion and becomes a number everyone can see.
           </p>
         </div>
 

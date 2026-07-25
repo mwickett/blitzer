@@ -37,13 +37,12 @@ export default function HowScoringWorks() {
           The doubled penalty is the whole game. Playing lots of cards into the
           middle feels productive, but if you have been feeding the Dutch piles
           while your own Blitz pile sits untouched, you can finish a round with
-          a negative score — and negative rounds are common enough that Blitzer
-          shows them in red.
+          a negative score. Negative rounds are common enough that Blitzer shows
+          them in red.
         </p>
         <p>
-          It is why a round can swing the standings much harder than it looks
-          like it should, and why the win odds during a game are not simply a
-          function of who is ahead.
+          It is why a round can swing the standings harder than it looks, and
+          why the win odds during a game track more than who is ahead.
         </p>
 
         <h2>Worked example</h2>
@@ -68,7 +67,7 @@ export default function HowScoringWorks() {
 
         <h2>Winning</h2>
         <p>
-          Rounds keep going until someone crosses the win threshold — 75 by
+          Rounds keep going until someone crosses the win threshold, 75 by
           default. Because a strong round is worth double digits, a game is
           rarely as settled as the standings suggest, which is what the{" "}
           <Link href="/guide/reading-your-stats">win odds</Link> are for.
@@ -76,11 +75,11 @@ export default function HowScoringWorks() {
 
         <h2>A small piece of trivia</h2>
         <p>
-          Dutch Blitz was reportedly created in part to help teach the
-          designer&apos;s children arithmetic. Whether or not that is the whole
-          story, you can see it in the scoring: the doubling is exactly the kind
-          of mental sum that is easy to state and annoying to do forty times an
-          evening. Blitzer does it so you can keep playing.
+          The story goes that Dutch Blitz was created in part to help teach the
+          designer&apos;s children arithmetic. Whether or not that is true, you
+          can see it in the scoring: the doubling is exactly the kind of mental
+          sum that is easy to state and annoying to do forty times an evening.
+          Blitzer does it so you can keep playing.
         </p>
       </Prose>
     </>

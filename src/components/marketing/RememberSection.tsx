@@ -47,7 +47,7 @@ export function RememberSection() {
             write it down.
           </p>
           <p className="mt-3 text-base leading-relaxed text-textBody">
-            And every finished game gets a link anyone can open — no account, no
+            Every finished game also gets a link anyone can open. No account, no
             app, just send it to the group chat.
           </p>
         </div>

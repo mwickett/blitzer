@@ -22,13 +22,13 @@ export default function CirclesAndPickupGames() {
         <p>
           A pickup game is for right now. You open a lobby, everyone at the
           table joins with a code or a QR scan, and you play. There is no Circle
-          to create and nobody to invite in advance, and you can seat up to{" "}
+          to create and nobody to invite in advance. You can seat up to{" "}
           {MAX_PICKUP_PLAYERS} players.
         </p>
         <p>
-          Players joining from their own phone sign in as they come through —
-          it is free, and it does not put them in any of your Circles. Anyone
-          who would rather not make an account can be added as a guest instead.
+          Players joining from their own phone sign in as they come through. It
+          is free, and it does not put them in any of your Circles. Add anyone
+          who would rather not make an account as a guest instead.
         </p>
         <p>Use one when:</p>
         <ul>
@@ -44,7 +44,7 @@ export default function CirclesAndPickupGames() {
         <h2>Circles</h2>
         <p>
           A Circle is your regular group. Everyone in it can see the games
-          played within it, so your history lives in one place instead of
+          played within it, so your history lives in one place instead of being
           scattered across whoever happened to open the app that night.
         </p>
         <p>Use one when:</p>
@@ -57,8 +57,8 @@ export default function CirclesAndPickupGames() {
           <li>You want everyone in the group to see the same history.</li>
         </ul>
         <p>
-          You can belong to more than one Circle — the family one and the
-          Thursday one do not have to be the same group — and you switch between
+          You can belong to more than one Circle. The family one and the
+          Thursday one do not have to be the same group, and you switch between
           them from the header.
         </p>
 
@@ -72,15 +72,14 @@ export default function CirclesAndPickupGames() {
 
         <h2>Which should I use?</h2>
         <p>
-          If you are hesitating, start with a pickup game. It takes no setup and
-          nothing is lost — your own stats still accumulate from it. You can
-          create a Circle later, once it is clear the group is a regular thing.
+          If you are hesitating, start with a pickup game. It takes no setup,
+          and you can create a Circle later, once it is clear the group is a
+          regular thing.
         </p>
         <p>
           Either way your{" "}
           <Link href="/guide/reading-your-stats">stats</Link> count every round
-          you play — pickup games and Circle games are pooled together, so
-          starting with pickup costs you nothing.
+          you play. Pickup games and Circle games are pooled together.
         </p>
       </Prose>
     </>

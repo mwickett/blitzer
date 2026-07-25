@@ -6,7 +6,7 @@ const CARDS = [
     href: "/guide/how-scoring-works",
     title: "How scoring works",
     blurb:
-      "Cards played, minus twice your blitz pile. Why the maths is the way it is.",
+      "Cards played, minus twice your Blitz pile. Why the maths is the way it is.",
   },
   {
     href: "/guide/circles-and-pickup-games",
@@ -18,7 +18,7 @@ const CARDS = [
     href: "/guide/reading-your-stats",
     title: "Reading your stats",
     blurb:
-      "What batting average means here, and how the odds are calculated.",
+      "What batting average means here, and where the odds come from.",
   },
 ];
 
@@ -27,7 +27,7 @@ export function GuideTeaser() {
     <Section ground="white">
       <SectionEyebrow>The guide</SectionEyebrow>
       <h2 className="font-display text-3xl font-bold tracking-[-0.018em] text-brandAccent">
-        New to any of this? Start here.
+        Start here if you&apos;re new to any of this
       </h2>
 
       <div className="mt-6 grid gap-3 md:grid-cols-3">
