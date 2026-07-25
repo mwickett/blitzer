@@ -11,7 +11,7 @@ import { FinalCta } from "@/components/marketing/FinalCta";
 export const metadata: Metadata = {
   title: "Blitzer — scoring and stats for Dutch Blitz",
   description:
-    "Blitzer runs the scoring for your Dutch Blitz table — live standings, real win odds, and a permanent record of who's actually best.",
+    "Blitzer runs the scoring for your Dutch Blitz table: live standings, real win odds, and a permanent record of who's actually best.",
 };
 
 /**

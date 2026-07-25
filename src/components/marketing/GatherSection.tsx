@@ -15,9 +15,9 @@ export function GatherSection() {
             Everyone&apos;s in before the deck is shuffled
           </h2>
           <p className="mt-4 text-base leading-relaxed text-textBody">
-            Start a pickup game and show the code. They scan, sign in, and
-            they&apos;re at the table — up to {MAX_PICKUP_PLAYERS} players, with
-            no Circle to set up and no invitations to send.
+            Start a pickup game and show the code. Everyone scans, signs in, and
+            they&apos;re at the table. Up to {MAX_PICKUP_PLAYERS} players, no
+            Circle to set up, no invitations to send.
           </p>
           <p className="mt-3 text-base leading-relaxed text-textBody">
             Playing with someone who&apos;ll never sign up? Add them as a guest

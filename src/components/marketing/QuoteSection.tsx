@@ -17,7 +17,7 @@ export function QuoteSection() {
             href="/guide/why-blitzer"
             className="font-semibold text-brandAccent underline underline-offset-4"
           >
-            Read why I built this →
+            Why I built this →
           </Link>
         </figcaption>
       </figure>

@@ -23,7 +23,8 @@ export default function GettingStarted() {
           When you start a new game, Blitzer asks whether it is a pickup game or
           a Circle game. If tonight is a one-off, or you are playing with people
           who are not in a group with you, choose pickup. If you play with the
-          same crew regularly, a Circle keeps all your games together — see{" "}
+          same crew regularly, a Circle keeps all your games together. More on
+          the difference in{" "}
           <Link href="/guide/circles-and-pickup-games">
             Circles &amp; pickup games
           </Link>
@@ -33,17 +34,17 @@ export default function GettingStarted() {
         <h2>2. Get everyone in</h2>
         <p>
           A pickup game opens a lobby with a QR code and a short join code. Show
-          the screen; anyone who scans it or types the code signs in and joins
-          the game on their own phone. Joining does not add them to your Circle.
+          the screen; anyone who scans the code or types it in signs in and
+          joins from their own phone. Joining does not add them to your Circle.
           You can seat up to {MAX_PICKUP_PLAYERS} players.
         </p>
         <p>
-          Playing with someone who does not want an account? Add them as a guest
-          by name. They are scored exactly like everyone else — they just cannot
-          open the game on their own device.
+          Add anyone who does not want an account as a guest, by name. They are
+          scored exactly like everyone else; they just cannot open the game on
+          their own device.
         </p>
         <p>
-          Lobby codes expire twelve hours after the lobby is created, so an old
+          Lobby codes expire twelve hours after you create them, so an old
           screenshot cannot pull someone into a game that finished last week.
         </p>
 
@@ -52,9 +53,9 @@ export default function GettingStarted() {
           Each player gets a colour, which is how they are identified in the
           standings, the race track and every chart. In a Circle game, whoever
           sets it up picks colours for everyone on one screen before play
-          starts; if they put two players on the same colour, the one who had
-          it moves to the next free one. In a pickup game, Blitzer assigns
-          colours automatically as people join.
+          starts; if they put two players on the same colour, the player who had
+          it first moves to the next free colour. In a pickup game, Blitzer
+          assigns colours automatically as people join.
         </p>
         <p>
           There are six colours, so a seven- or eight-player game runs out and
@@ -80,8 +81,8 @@ export default function GettingStarted() {
           <Link href="/guide/how-scoring-works">How scoring works</Link>.
         </p>
         <p>
-          Entered something wrong? Rounds can be edited after the fact and
-          everything downstream recalculates — you do not need to start over.
+          If you enter something wrong, edit the round afterwards. Everything
+          downstream recalculates, so you never have to start over.
         </p>
 
         <h2>5. Finish the game</h2>

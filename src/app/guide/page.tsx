@@ -39,7 +39,7 @@ const TOPICS = [
 const FAQ = [
   {
     q: "Do all the players need an account?",
-    a: "Anyone joining from their own phone does — they sign in on the way through when they scan the code, and it is free. If someone would rather not make one, the host can add them as a guest instead: guests are scored exactly like everyone else, they just cannot open the game themselves.",
+    a: "Anyone joining from their own phone does. They sign in as they scan the code, and it is free. If someone would rather not make one, the host can add them as a guest instead. Guests are scored exactly like everyone else; they just cannot open the game themselves.",
   },
   {
     q: "How many people can play?",
@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: "Can I fix a score I entered wrong?",
-    a: "Yes. Rounds can be edited after they are recorded, and the standings and charts recalculate.",
+    a: "Yes. You can edit a round after it is recorded, and the standings and charts recalculate.",
   },
   {
     q: "Does a pickup game code expire?",
@@ -55,7 +55,7 @@ const FAQ = [
   },
   {
     q: "Can I share the result with people who do not use Blitzer?",
-    a: "Yes. Every finished game has a page anyone can open with the link — no account needed.",
+    a: "Yes. Every finished game has a page anyone can open with the link. No account needed.",
   },
   {
     q: "Is this made by Dutch Blitz?",
@@ -68,7 +68,7 @@ export default function GuideHub() {
     <>
       <GuidePageHeader
         title="Using Blitzer"
-        intro="Everything you need to run a game night, enter scores, and make sense of the numbers afterwards."
+        intro="How to run a game night, enter scores, and make sense of the numbers afterwards."
       />
 
       <div className="grid gap-3 sm:grid-cols-2">
