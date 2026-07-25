@@ -4,7 +4,7 @@
 
 **Goal:** Rebuild the unauthenticated marketing site — a chronological landing page that shows the real product via live components, plus a six-page `/guide` section — on a tightened version of the existing cream-and-espresso brand.
 
-**Architecture:** The landing page is composed of small server components in `src/components/marketing/`, each rendering one section. They embed the *actual* scoring components (`RaceTrack`, `Standings`, `WinProbabilityCard`, `ScoreProgressionCard`, `BasicStatBlock`) fed by a single shared fixture module, so the marketing page can never drift from the product's real UI. Guide pages are TSX (not MDX) so they can embed those same live components. Client boundaries are introduced only where a component needs hooks or callbacks.
+**Architecture:** The landing page is composed of small server components in `src/components/marketing/`, each rendering one section. They embed the *actual* scoring components (`RaceTrack`, `Standings`, `WinProbabilityCard`, `ScoreProgressionCard`, `ScoreEntryCard`) fed by a single shared fixture module, so the marketing page can never drift from the product's real UI. Guide pages are TSX (not MDX) so they can embed those same live components. Client boundaries are introduced only where a component needs hooks or callbacks.
 
 **Tech Stack:** Next.js App Router, React server components, Tailwind, Clerk (`Show`, `SignUpButton`), PostHog (`posthog-js/react`), Jest + Testing Library.
 
@@ -38,7 +38,8 @@ Every task's requirements implicitly include this section.
 | `src/components/marketing/MarketingCta.tsx` | `"use client"` — tracked, styled CTA link + auth-aware start-game CTA. |
 | `src/components/marketing/WinProbabilityDemo.tsx` | `"use client"` wrapper so `WinProbabilityCard` (which calls `useMemo` with no directive) can render on a server page. |
 | `src/components/marketing/ScoreEntryPreview.tsx` | `"use client"` wrapper supplying the no-op `onUpdate` that `ScoreEntryCard` requires. |
-| `src/components/marketing/Section.tsx` | Shared section shell — ground colour, padding, eyebrow rule. |
+| `src/components/marketing/Section.tsx` | Shared section shell — ground colour, padding, eyebrow rule (light/dark tone). |
+| `src/components/marketing/StatTile.tsx` | Flat espresso stat tile with a Fraunces numeral. Replaces `BasicStatBlock`, which carries a banned `shadow-sm`. |
 | `src/components/marketing/Hero.tsx` | Hero + live `RaceTrack`. |
 | `src/components/marketing/GatherSection.tsx` | Section 1 — lobby panel, static QR, guest players. |
 | `src/components/marketing/PlaySection.tsx` | Section 2 — score entry + live `Standings`. |
@@ -70,7 +71,7 @@ Every task's requirements implicitly include this section.
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: Tailwind classes `bg-surfaceRaised`, `bg-surfaceSubtle`, `border-borderWarm`, `text-textMuted`, `font-display`. Jest mocks for `@clerk/nextjs` (`Show`, `SignUpButton`, `SignInButton`, `UserButton`, `OrganizationSwitcher`) and `posthog-js/react` (`usePostHog`, `PostHogProvider`).
+- Produces: Tailwind classes `bg-surfaceRaised`, `bg-surfaceSubtle`, `border-borderWarm`, `text-textMuted`, `text-textBody`, `font-display`. Jest mocks for `@clerk/nextjs` (`Show`, `SignUpButton`, `SignInButton`, `UserButton`, `OrganizationSwitcher`) and `posthog-js/react` (`usePostHog`, `PostHogProvider`).
 
 - [ ] **Step 1: Add CSS variables**
 
@@ -82,6 +83,7 @@ In `src/app/globals.css`, inside the `:root` block immediately after `--brand-ac
     --surface-subtle: #faf5ed;
     --border-warm: #e6d7c3;
     --text-muted: #8b5e3c;
+    --text-body: #5b4038;
 ```
 
 - [ ] **Step 2: Add the display-font variation settings**
@@ -112,6 +114,7 @@ In `tailwind.config.ts`, add to `theme.extend.colors` (after the `brandAccent` l
         surfaceSubtle: "var(--surface-subtle)",
         borderWarm: "var(--border-warm)",
         textMuted: "var(--text-muted)",
+        textBody: "var(--text-body)",
 ```
 
 And add a sibling of `colors` inside `theme.extend`:
@@ -724,9 +727,25 @@ export function Section({
   );
 }
 
-export function SectionEyebrow({ children }: { children: React.ReactNode }) {
+const EYEBROW_TONES = {
+  light: "text-textMuted",
+  dark: "text-[#c4a99f]",
+} as const;
+
+export function SectionEyebrow({
+  tone = "light",
+  children,
+}: {
+  tone?: keyof typeof EYEBROW_TONES;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mb-3 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.13em] text-textMuted">
+    <div
+      className={cn(
+        "mb-3 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.13em]",
+        EYEBROW_TONES[tone]
+      )}
+    >
       {children}
       <span className="h-px flex-1 bg-current opacity-30" aria-hidden="true" />
     </div>
@@ -763,7 +782,7 @@ export function Hero() {
           Settle scores.
         </h1>
 
-        <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-[#5b4038]">
+        <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-textBody">
           Blitzer runs the scoring for your Dutch Blitz table — live standings,
           real win odds, and a permanent record of who&apos;s actually best.
         </p>
@@ -846,12 +865,12 @@ export function GatherSection() {
           <h2 className="font-display text-4xl font-bold leading-[1.08] text-brandAccent">
             Everyone&apos;s in before the deck is shuffled
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-[#5b4038]">
+          <p className="mt-4 text-base leading-relaxed text-textBody">
             Start a pickup game and show the code. They scan, they&apos;re in —
             up to {MAX_PICKUP_PLAYERS} players, and nobody needs an account
             first.
           </p>
-          <p className="mt-3 text-base leading-relaxed text-[#5b4038]">
+          <p className="mt-3 text-base leading-relaxed text-textBody">
             Playing with someone who&apos;ll never sign up? Add them as a guest
             and they&apos;re scored like anyone else.
           </p>
@@ -972,7 +991,7 @@ export function PlaySection() {
             Lower friction than pen and paper. That&apos;s a higher bar than it
             sounds.
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-[#5b4038]">
+          <p className="mt-4 text-base leading-relaxed text-textBody">
             Built thumb-first for a phone propped against the card box. Enter
             the blitz pile and cards played; the standings redraw before the
             next deal.
@@ -1012,7 +1031,7 @@ git commit -m "feat: add play section with live standings"
 Create `src/components/marketing/SettleSection.tsx`:
 
 ```tsx
-import { Section } from "./Section";
+import { Section, SectionEyebrow } from "./Section";
 import { WinProbabilityDemo } from "./WinProbabilityDemo";
 
 export function SettleSection() {
@@ -1020,11 +1039,7 @@ export function SettleSection() {
     <Section ground="espresso">
       <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
         <div>
-          {/* SectionEyebrow's muted colour is tuned for light grounds. */}
-          <div className="mb-3 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.13em] text-[#c4a99f]">
-            3 · Settle it
-            <span className="h-px flex-1 bg-[#5c2a25]" aria-hidden="true" />
-          </div>
+          <SectionEyebrow tone="dark">3 · Settle it</SectionEyebrow>
           <h2 className="font-display text-4xl font-bold leading-[1.08] text-brand">
             Real odds.
             <br />
@@ -1061,12 +1076,15 @@ git commit -m "feat: add settle section with win probability"
 ## Task 9: Remember section
 
 **Files:**
+- Create: `src/components/marketing/StatTile.tsx`
 - Create: `src/components/marketing/RememberSection.tsx`
 - Test: `src/components/__tests__/marketing/RememberSection.test.tsx`
 
 **Interfaces:**
-- Consumes: `Section`, `SectionEyebrow` (Task 5); `DEMO_PLAYERS`, `DEMO_SCORES_BY_ROUND`, `DEMO_WIN_THRESHOLD` (Task 2); `BasicStatBlock` from `@/components/BasicStatBlock`; `ScoreProgressionCard` from `@/components/scoring/graphs/ScoreProgressionCard`
-- Produces: `RememberSection()`
+- Consumes: `Section`, `SectionEyebrow` (Task 5); `DEMO_PLAYERS`, `DEMO_SCORES_BY_ROUND`, `DEMO_WIN_THRESHOLD` (Task 2); `ScoreProgressionCard` from `@/components/scoring/graphs/ScoreProgressionCard`
+- Produces: `StatTile({ label: string, value: string })`, `RememberSection()`
+
+**Why not `BasicStatBlock`:** it wraps `ui/card.tsx`, which hardcodes `shadow-sm` — banned by Global Constraints. It also renders its value in Inter, where the approved design uses Fraunces numerals. A purpose-built tile satisfies both and leaves the dashboard's `BasicStatBlock` untouched.
 
 **Why this one is tested:** this is the only section whose copy is constrained by a product limitation. Circles have no stats surface — `src/server/queries/stats.ts` is entirely `…ForUser` — so any group-stats wording would be a false claim. The test pins that down so a future copy edit cannot quietly reintroduce it.
 
@@ -1111,13 +1129,35 @@ describe("RememberSection", () => {
 Run: `npx jest src/components/__tests__/marketing/RememberSection.test.tsx`
 Expected: FAIL — `Cannot find module '@/components/marketing/RememberSection'`
 
-- [ ] **Step 3: Write the section**
+- [ ] **Step 3: Write the stat tile**
+
+Create `src/components/marketing/StatTile.tsx`:
+
+```tsx
+/**
+ * The dashboard's BasicStatBlock is not reused here: it wraps ui/card, which
+ * hardcodes shadow-sm, and the marketing page is flat throughout. This also
+ * lets the numeral use the display face.
+ */
+export function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-brandAccent p-4 text-brand">
+      <div className="text-[11px] font-medium opacity-70">{label}</div>
+      <div className="mt-1 font-display text-3xl font-bold leading-tight">
+        {value}
+      </div>
+    </div>
+  );
+}
+```
+
+- [ ] **Step 4: Write the section**
 
 Create `src/components/marketing/RememberSection.tsx`:
 
 ```tsx
 import { Section, SectionEyebrow } from "./Section";
-import BasicStatBlock from "@/components/BasicStatBlock";
+import { StatTile } from "./StatTile";
 import { ScoreProgressionCard } from "@/components/scoring/graphs/ScoreProgressionCard";
 import {
   DEMO_PLAYERS,
@@ -1138,8 +1178,8 @@ export function RememberSection() {
       <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
         <div>
           <div className="mb-3 grid grid-cols-2 gap-3">
-            <BasicStatBlock label="Batting Average" value=".412" />
-            <BasicStatBlock label="Games Won" value="17" />
+            <StatTile label="Batting average" value=".412" />
+            <StatTile label="Games won" value="17" />
           </div>
           <ScoreProgressionCard
             players={DEMO_PLAYERS}
@@ -1153,12 +1193,12 @@ export function RememberSection() {
           <h2 className="font-display text-4xl font-bold leading-[1.08] text-brandAccent">
             Your average — per round, per game, against one specific person?
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-[#5b4038]">
+          <p className="mt-4 text-base leading-relaxed text-textBody">
             Every game your group plays lands in your Circle, so the record is
             all in one place instead of scattered across whoever remembered to
             write it down.
           </p>
-          <p className="mt-3 text-base leading-relaxed text-[#5b4038]">
+          <p className="mt-3 text-base leading-relaxed text-textBody">
             And every finished game gets a link anyone can open — no account, no
             app, just send it to the group chat.
           </p>
@@ -1169,17 +1209,15 @@ export function RememberSection() {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run test to verify it passes**
 
 Run: `npx jest src/components/__tests__/marketing/RememberSection.test.tsx`
 Expected: PASS — 2 tests
 
-`BasicStatBlock` is `w-full max-w-sm`; if the two blocks look cramped side by side at desktop width, keep the grid and let them size down rather than adding a shadow or a new card style.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/components/marketing/RememberSection.tsx src/components/__tests__/marketing/RememberSection.test.tsx
+git add src/components/marketing/StatTile.tsx src/components/marketing/RememberSection.tsx src/components/__tests__/marketing/RememberSection.test.tsx
 git commit -m "feat: add remember section with constrained Circles claims"
 ```
 
@@ -1276,7 +1314,7 @@ export function GuideTeaser() {
             <h3 className="font-display text-base font-bold text-brandAccent">
               {card.title}
             </h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-[#5b4038]">
+            <p className="mt-1.5 text-sm leading-relaxed text-textBody">
               {card.blurb}
             </p>
             <span className="mt-3 inline-block text-[13px] font-semibold text-brandAccent">
@@ -1686,7 +1724,7 @@ export default function Footer() {
                 Blitzer
               </span>
             </div>
-            <p className="mt-3 max-w-[34ch] text-sm leading-relaxed text-[#5b4038]">
+            <p className="mt-3 max-w-[34ch] text-sm leading-relaxed text-textBody">
               Scoring and stats for people who take Thursday night far too
               seriously.
             </p>
@@ -1701,7 +1739,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-[#5b4038] transition-colors hover:text-brandAccent"
+                    className="text-sm text-textBody transition-colors hover:text-brandAccent"
                   >
                     {link.label}
                   </Link>
@@ -1719,7 +1757,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-[#5b4038] transition-colors hover:text-brandAccent"
+                    className="text-sm text-textBody transition-colors hover:text-brandAccent"
                   >
                     {link.label}
                   </Link>
@@ -1802,7 +1840,7 @@ export function Prose({
   return (
     <div
       className={cn(
-        "text-base leading-relaxed text-[#5b4038]",
+        "text-base leading-relaxed text-textBody",
         "[&>p]:mb-4",
         "[&>h2]:font-display [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-brandAccent [&>h2]:mt-10 [&>h2]:mb-3",
         "[&>h3]:font-display [&>h3]:text-lg [&>h3]:font-bold [&>h3]:text-brandAccent [&>h3]:mt-6 [&>h3]:mb-2",
@@ -1829,7 +1867,7 @@ export function GuidePageHeader({
       <h1 className="font-display text-4xl font-bold leading-[1.08] text-brandAccent">
         {title}
       </h1>
-      <p className="mt-3 text-lg leading-relaxed text-[#5b4038]">{intro}</p>
+      <p className="mt-3 text-lg leading-relaxed text-textBody">{intro}</p>
     </header>
   );
 }
@@ -1868,7 +1906,7 @@ export default function GuideLayout({
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="block rounded-md px-2 py-1.5 text-sm text-[#5b4038] transition-colors hover:bg-surfaceSubtle hover:text-brandAccent"
+                  className="block rounded-md px-2 py-1.5 text-sm text-textBody transition-colors hover:bg-surfaceSubtle hover:text-brandAccent"
                 >
                   {item.label}
                 </Link>
@@ -1997,7 +2035,7 @@ export default function GuideHub() {
             <h2 className="font-display text-base font-bold text-brandAccent">
               {topic.title}
             </h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-[#5b4038]">
+            <p className="mt-1.5 text-sm leading-relaxed text-textBody">
               {topic.blurb}
             </p>
           </Link>
