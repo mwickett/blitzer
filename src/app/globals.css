@@ -155,6 +155,5 @@
 @layer utilities {
   .font-display {
     font-variation-settings: "SOFT" 40, "WONK" 1;
-    letter-spacing: -0.018em;
   }
 }

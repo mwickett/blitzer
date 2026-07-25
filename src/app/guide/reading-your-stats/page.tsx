@@ -68,7 +68,7 @@ export default function ReadingYourStats() {
         <p>
           Each player&apos;s per-round scores as an intensity grid, so you can
           see streaks rather than totals. Each player&apos;s best round is
-          marked, unless every round they played lost them points.
+          marked, unless none of their rounds gained them points.
         </p>
         <h3>Race track</h3>
         <p>

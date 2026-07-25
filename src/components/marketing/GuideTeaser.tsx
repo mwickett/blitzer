@@ -26,7 +26,7 @@ export function GuideTeaser() {
   return (
     <Section ground="white">
       <SectionEyebrow>The guide</SectionEyebrow>
-      <h2 className="font-display text-3xl font-bold text-brandAccent">
+      <h2 className="font-display text-3xl font-bold tracking-[-0.018em] text-brandAccent">
         New to any of this? Start here.
       </h2>
 
@@ -37,7 +37,7 @@ export function GuideTeaser() {
             href={card.href}
             className="rounded-xl border-[1.5px] border-borderWarm bg-surfaceRaised p-4 transition-colors hover:border-brandAccent"
           >
-            <h3 className="font-display text-base font-bold text-brandAccent">
+            <h3 className="font-display text-base font-bold tracking-[-0.018em] text-brandAccent">
               {card.title}
             </h3>
             <p className="mt-1.5 text-sm leading-relaxed text-textBody">

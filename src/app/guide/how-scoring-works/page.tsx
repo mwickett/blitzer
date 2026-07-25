@@ -63,8 +63,7 @@ export default function HowScoringWorks() {
           </li>
         </ul>
         <p>
-          Priya played more than half a dozen cards and still went backwards.
-          That is normal.
+          Priya played six cards and still went backwards. That is normal.
         </p>
 
         <h2>Winning</h2>

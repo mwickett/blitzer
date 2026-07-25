@@ -5,7 +5,7 @@ export function QuoteSection() {
   return (
     <Section ground="cream">
       <figure className="mx-auto max-w-2xl text-center">
-        <blockquote className="font-display text-2xl font-normal leading-[1.42] text-brandAccent md:text-[25px]">
+        <blockquote className="font-display text-2xl font-normal leading-[1.42] tracking-[-0.018em] text-brandAccent md:text-[25px]">
           Dutch Blitz forces you to be in the moment. You can&apos;t play well
           and be thinking about anything else — that&apos;s one of the things I
           love about it. But afterwards, wouldn&apos;t you like to know how it

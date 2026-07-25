@@ -38,7 +38,7 @@ export function RememberSection() {
 
         <div>
           <SectionEyebrow>4 · Remember</SectionEyebrow>
-          <h2 className="font-display text-4xl font-bold leading-[1.08] text-brandAccent">
+          <h2 className="font-display text-4xl font-bold leading-[1.08] tracking-[-0.018em] text-brandAccent">
             The record keeps itself
           </h2>
           <p className="mt-4 text-base leading-relaxed text-textBody">

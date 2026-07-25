@@ -52,14 +52,14 @@ export default function GettingStarted() {
           Each player gets a colour, which is how they are identified in the
           standings, the race track and every chart. In a Circle game, whoever
           sets it up picks colours for everyone on one screen before play
-          starts. In a pickup game, Blitzer assigns them as people join. If two
-          players end up on the same colour, the one who had it moves to the
-          next free one.
+          starts; if they put two players on the same colour, the one who had
+          it moves to the next free one. In a pickup game, Blitzer assigns
+          colours automatically as people join.
         </p>
         <p>
           There are six colours, so a seven- or eight-player game runs out and
-          two people end up sharing. Everything still scores correctly; you just
-          have to look at the names rather than the colours.
+          one or two colours get used twice. Everything still scores correctly;
+          you just have to look at the names rather than the colours.
         </p>
 
         <h2>4. Score each round</h2>

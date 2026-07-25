@@ -78,7 +78,7 @@ export default function GuideHub() {
             href={topic.href}
             className="rounded-xl border-[1.5px] border-borderWarm bg-surfaceRaised p-4 transition-colors hover:border-brandAccent"
           >
-            <h2 className="font-display text-base font-bold text-brandAccent">
+            <h2 className="font-display text-base font-bold tracking-[-0.018em] text-brandAccent">
               {topic.title}
             </h2>
             <p className="mt-1.5 text-sm leading-relaxed text-textBody">

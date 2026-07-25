@@ -47,8 +47,8 @@ export function MarketingCta({
 }
 
 /**
- * The start-game CTA differs by auth state: a signed-out visitor needs the
- * Clerk sign-up modal, a signed-in one should go straight to /games/new.
+ * The start-game CTA differs by auth state: a signed-out visitor is sent to
+ * Clerk's sign-up flow, a signed-in one should go straight to /games/new.
  * Clerk's <Show> renders exactly one branch at runtime.
  */
 export function StartGameCta({

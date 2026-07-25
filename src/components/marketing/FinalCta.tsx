@@ -4,7 +4,7 @@ import { StartGameCta, MarketingCta } from "./MarketingCta";
 export function FinalCta() {
   return (
     <Section ground="espresso" className="text-center">
-      <h2 className="font-display text-4xl font-bold text-brand md:text-5xl">
+      <h2 className="font-display text-4xl font-bold tracking-[-0.018em] text-brand md:text-5xl">
         Get the table started
       </h2>
       <p className="mx-auto mt-4 max-w-md text-base text-[#c9b0a7]">
