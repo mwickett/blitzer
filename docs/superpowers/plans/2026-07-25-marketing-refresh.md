@@ -873,9 +873,9 @@ export function GatherSection() {
             Everyone&apos;s in before the deck is shuffled
           </h2>
           <p className="mt-4 text-base leading-relaxed text-textBody">
-            Start a pickup game and show the code. They scan, they&apos;re in —
-            up to {MAX_PICKUP_PLAYERS} players, and nobody needs an account
-            first.
+            Start a pickup game and show the code. They scan, sign in, and
+            they&apos;re at the table — up to {MAX_PICKUP_PLAYERS} players, with
+            no Circle to set up and no invitations to send.
           </p>
           <p className="mt-3 text-base leading-relaxed text-textBody">
             Playing with someone who&apos;ll never sign up? Add them as a guest
@@ -898,7 +898,7 @@ export function GatherSection() {
                 or enter code
               </div>
               <div className="font-display text-3xl font-bold tracking-[0.16em] text-brandAccent">
-                4KTQ
+                4KTQR8
               </div>
             </div>
           </div>
@@ -2000,7 +2000,7 @@ const TOPICS = [
 const FAQ = [
   {
     q: "Do all the players need an account?",
-    a: "No. Only the person hosting needs one. Everyone else can join a pickup game with a code, and anyone who does not want an account at all can be added as a guest and still be scored normally.",
+    a: "Anyone joining from their own phone does — they sign in on the way through when they scan the code, and it is free. If someone would rather not make one, the host can add them as a guest instead: guests are scored exactly like everyone else, they just cannot open the game themselves.",
   },
   {
     q: "How many people can play?",
@@ -2128,8 +2128,9 @@ export default function GettingStarted() {
         <h2>2. Get everyone in</h2>
         <p>
           A pickup game opens a lobby with a QR code and a short join code. Show
-          the screen; anyone who scans it or types the code joins the game on
-          their own phone. You can seat up to {MAX_PICKUP_PLAYERS} players.
+          the screen; anyone who scans it or types the code signs in and joins
+          the game on their own phone. Joining does not add them to your Circle.
+          You can seat up to {MAX_PICKUP_PLAYERS} players.
         </p>
         <p>
           Playing with someone who does not want an account? Add them as a guest
@@ -2363,9 +2364,14 @@ export default function CirclesAndPickupGames() {
         <h2>Pickup games</h2>
         <p>
           A pickup game is for right now. You open a lobby, everyone at the
-          table joins with a code or a QR scan, and you play. Nobody needs an
-          account except you, and you can seat up to {MAX_PICKUP_PLAYERS}{" "}
-          players.
+          table joins with a code or a QR scan, and you play. There is no Circle
+          to create and nobody to invite in advance, and you can seat up to{" "}
+          {MAX_PICKUP_PLAYERS} players.
+        </p>
+        <p>
+          Players joining from their own phone sign in as they come through —
+          it is free, and it does not put them in any of your Circles. Anyone
+          who would rather not make an account can be added as a guest instead.
         </p>
         <p>Use one when:</p>
         <ul>
