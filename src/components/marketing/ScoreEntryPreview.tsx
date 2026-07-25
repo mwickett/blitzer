@@ -1,7 +1,12 @@
 "use client";
 
 import { ScoreEntryCard } from "@/components/scoring/ScoreEntryCard";
-import { DEMO_PLAYERS, DEMO_DELTAS_BY_PLAYER } from "./fixtures";
+import {
+  DEMO_PLAYERS,
+  DEMO_SCORES_BY_ROUND,
+  DEMO_LAST_ROUND_ENTRIES,
+  DEMO_ROUNDS_PLAYED,
+} from "./fixtures";
 
 /**
  * ScoreEntryCard needs an onUpdate callback, and functions cannot be passed
@@ -9,6 +14,11 @@ import { DEMO_PLAYERS, DEMO_DELTAS_BY_PLAYER } from "./fixtures";
  *
  * This renders a static, non-interactive preview. Wiring it to local state to
  * make it playable is a deliberate follow-up, not an oversight.
+ *
+ * Each card shows the score *before* the round being keyed in, so that the
+ * "standings redraw before the next deal" claim has supporting demo: the
+ * phone screen and the standings panel beside it show different snapshots in
+ * time — entry in progress on the phone, post-update standings adjacent.
  */
 const noop = () => {};
 
@@ -19,15 +29,15 @@ export function ScoreEntryPreview() {
   return (
     <div className="space-y-2">
       {shown.map((player) => {
-        const deltas = DEMO_DELTAS_BY_PLAYER[player.id];
-        const lastDelta = deltas[deltas.length - 1];
+        const cumulative = DEMO_SCORES_BY_ROUND[player.id];
+        const scoreBeforeRound = cumulative[DEMO_ROUNDS_PLAYED - 2];
         return (
           <ScoreEntryCard
             key={player.id}
             name={player.name}
             color={player.color}
-            score={player.score}
-            entry={{ blitzRemaining: 0, cardsPlayed: lastDelta }}
+            score={scoreBeforeRound}
+            entry={DEMO_LAST_ROUND_ENTRIES[player.id]}
             status="complete"
             onUpdate={noop}
           />

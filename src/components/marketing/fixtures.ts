@@ -62,3 +62,24 @@ export const DEMO_SCORES_BY_ROUND: Record<string, number[]> = {
   priya: [7, 18, 28, 36],
   tom: [4, 11, 16, 21],
 };
+
+/**
+ * The raw entry each player would have keyed in for the final round — what
+ * ScoreEntryPreview shows on its phone screen.
+ *
+ * Exactly one player may have `blitzRemaining: 0`. Emptying the Blitz pile is
+ * what ends the round, so a screen showing three players at zero depicts a
+ * game that cannot happen — and the audience for this page plays the game.
+ *
+ * Each entry must reproduce that player's final delta through the real
+ * scoring formula (cards − 2 × blitz). fixtures.test.ts asserts it.
+ */
+export const DEMO_LAST_ROUND_ENTRIES: Record<
+  string,
+  { blitzRemaining: number; cardsPlayed: number }
+> = {
+  dana: { blitzRemaining: 0, cardsPlayed: 15 }, // 15 − 0  = 15, and Dana blitzed
+  mike: { blitzRemaining: 2, cardsPlayed: 15 }, // 15 − 4  = 11
+  priya: { blitzRemaining: 1, cardsPlayed: 10 }, // 10 − 2 =  8
+  tom: { blitzRemaining: 3, cardsPlayed: 11 }, // 11 − 6   =  5
+};
