@@ -16,8 +16,8 @@ export function GatherSection() {
           </h2>
           <p className="mt-4 text-base leading-relaxed text-textBody">
             Start a pickup game and show the code. Everyone scans, signs in, and
-            they&apos;re at the table. Up to {MAX_PICKUP_PLAYERS} players, no
-            Circle to set up, no invitations to send.
+            they&apos;re at the table. Up to {MAX_PICKUP_PLAYERS} players,
+            whether or not you&apos;ve played together before.
           </p>
           <p className="mt-3 text-base leading-relaxed text-textBody">
             Playing with someone who&apos;ll never sign up? Add them as a guest

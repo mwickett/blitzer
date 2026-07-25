@@ -42,9 +42,10 @@ export function RememberSection() {
             The record keeps itself
           </h2>
           <p className="mt-4 text-base leading-relaxed text-textBody">
-            Every game your group plays lands in your Circle, so the record is
-            all in one place instead of scattered across whoever remembered to
-            write it down.
+            A Circle is the group you play with regularly. Every game you play
+            together lands in your Circle, so years of Thursdays sit in one
+            place instead of scattered across whoever remembered to write it
+            down.
           </p>
           <p className="mt-3 text-base leading-relaxed text-textBody">
             Every finished game also gets a link anyone can open. No account, no
