@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { type PlayerWithScore, type RoundData } from "./types";
 import { type GameStats } from "@/lib/scoring/gameStats";
 import { RoundHistoryTable } from "./RoundHistoryTable";
@@ -11,7 +12,7 @@ interface GameOverViewProps {
   stats: GameStats;
   rounds: RoundData[];
   onEditRound?: (roundIndex: number) => void;
-  onRematch: () => void;
+  onRematch: () => Promise<void> | void;
   onBackToGames: () => void;
   /** When false, render as a read-only spectator view (no member actions) */
   canEdit?: boolean;
@@ -30,7 +31,29 @@ export function GameOverView({
   canRematch = true,
 }: GameOverViewProps) {
   const posthog = usePostHog();
+  const [isRematching, setIsRematching] = useState(false);
+  const [rematchError, setRematchError] = useState<string | null>(null);
+  const rematching = useRef(false);
   const sorted = [...players].sort((a, b) => b.score - a.score);
+  const handleRematch = async () => {
+    if (rematching.current) return;
+    rematching.current = true;
+    setIsRematching(true);
+    setRematchError(null);
+    try {
+      posthog.capture("game_over_rematch", { player_count: players.length });
+    } catch {
+      // Optional analytics must not prevent creating the next game.
+    }
+    try {
+      await onRematch();
+      // Keep the successful action disabled until the new game opens.
+    } catch {
+      rematching.current = false;
+      setIsRematching(false);
+      setRematchError("Unable to create the rematch. Please try again.");
+    }
+  };
 
   return (
     <div>
@@ -163,24 +186,18 @@ export function GameOverView({
       {/* Actions — participating editors only; spectators get a read-only result */}
       {canEdit && (
         <div className="px-4 pt-5 pb-6 space-y-2">
+          {rematchError && <p role="alert" className="text-sm text-destructive">{rematchError}</p>}
           {canRematch && (
             <button
-              onClick={() => {
-                try {
-                  posthog.capture("game_over_rematch", {
-                    player_count: players.length,
-                  });
-                } catch {
-                  // Optional analytics must not prevent creating the next game.
-                }
-                onRematch();
-              }}
+              onClick={handleRematch}
+              disabled={isRematching}
               className="w-full py-3.5 rounded-xl text-[15px] font-bold bg-[#290806] text-white hover:bg-[#3d1a0a] transition-colors cursor-pointer"
             >
-              New Game with Same Players
+              {isRematching ? "Creating rematch…" : "New Game with Same Players"}
             </button>
           )}
           <button
+            disabled={isRematching}
             onClick={() => {
               try {
                 posthog.capture("game_over_back_to_games");
