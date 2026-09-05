@@ -2,9 +2,6 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
 import posthogClient from "@/app/posthog";
 import { resolveClerkUser } from "@/server/users/provision";
-import type { Game } from "@/generated/prisma/client";
-import { assertGameInCircle, assertGameScoringAccess } from "../scoring/access";
-export { assertGameInCircle, assertGameScoringAccess, type ScoringAccessGame } from "../scoring/access";
 
 // One auth seam for all server actions. Declare what the action needs and
 // destructure a context guaranteed to satisfy it — instead of picking the
@@ -85,21 +82,6 @@ export async function requireAuthContext(
 }
 
 /**
- * Load a game and assert it belongs to the active circle.
- * @throws {Error} If the game is missing or belongs to another circle
- */
-export async function requireGameInCircle(
-  gameId: string,
-  orgId: string,
-): Promise<Game> {
-  const game = await prisma.game.findUnique({ where: { id: gameId } });
-  assertGameInCircle(game, orgId);
-  return game;
-}
-
-export { isUniqueConstraintError } from "@/server/users/provision";
-
-/**
  * Resolve (or provision) the local user for authenticated pickup-game flows.
  * Clerk webhooks normally create this row; doing it here as well removes the
  * race for somebody who signs up from a QR code and immediately taps Join.
@@ -115,49 +97,4 @@ export async function ensureCurrentPrismaUser() {
       avatarUrl: clerkUser.imageUrl,
     };
   });
-}
-
-/** Load a game and assert the caller may write scores for it. */
-export async function requireGameScoringAccess(gameId: string) {
-  const { user, userId } = await requireAuthContext("user");
-  const game = await prisma.game.findUnique({
-    where: { id: gameId },
-    include: {
-      players: {
-        select: {
-          userId: true,
-          guestId: true,
-          user: { select: { clerk_user_id: true } },
-        },
-      },
-    },
-  });
-
-  assertGameScoringAccess(game, { userId, orgId: user.orgId ?? undefined });
-  return game;
-}
-
-export function assertScoreRoster(
-  players: { userId: string | null; guestId: string | null }[],
-  scores: { userId?: string; guestId?: string }[],
-) {
-  const participantKey = (entry: {
-    userId?: string | null;
-    guestId?: string | null;
-  }) =>
-    entry.userId
-      ? `user:${entry.userId}`
-      : entry.guestId
-        ? `guest:${entry.guestId}`
-        : "";
-  const roster = new Set(players.map(participantKey));
-  const submitted = scores.map(participantKey);
-  if (
-    submitted.some((key) => !key) ||
-    new Set(submitted).size !== submitted.length ||
-    submitted.length !== roster.size ||
-    submitted.some((key) => !roster.has(key))
-  ) {
-    throw new Error("Scores must match the players in this game");
-  }
 }

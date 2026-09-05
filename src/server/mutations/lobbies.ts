@@ -3,6 +3,7 @@
 import { captureServerEvent } from "@/server/telemetry";
 
 import { randomBytes } from "node:crypto";
+import { isUniqueConstraintError } from "../users/provision";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
@@ -17,7 +18,6 @@ import {
 } from "@/lib/lobbies";
 import {
   ensureCurrentPrismaUser,
-  isUniqueConstraintError,
   requireAuthContext,
   type AuthedUserContext,
 } from "./common";

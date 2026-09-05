@@ -1,61 +1,37 @@
-import type {
-  Game,
-  User,
-  Score,
-  Round,
-  GuestUser,
-} from "@/generated/prisma/client";
+import type { GameDetail } from "@/server/queries/games";
 import { calculateRoundScore, isWinningScore } from "./validation/gameRules";
 import { breakTie } from "./scoring/tiebreak";
 
-type ScoredRound = Pick<Round, "id" | "round" | "revision"> & {
+// Score calculations consume only this projection of the query-owned shape.
+// Fixtures and callers need no contact, invitation, or persistence metadata.
+type GamePlayer = GameDetail["players"][number];
+type GameRound = GameDetail["rounds"][number];
+type ScoredRound = Pick<GameRound, "round"> & {
   scores: Pick<
-    Score,
+    GameRound["scores"][number],
     "userId" | "guestId" | "totalCardsPlayed" | "blitzPileRemaining"
   >[];
 };
-
-export interface GameWithPlayersAndScores extends Game {
-  players: {
-    id: string;
-    gameId: string;
-    userId?: string | null;
-    guestId?: string | null;
-    accentColor?: string | null;
-    user?: User | null;
-    guestUser?: GuestUser | null;
-  }[];
+export type ScoredGame = Pick<GameDetail, "isFinished" | "winThreshold"> & {
+  players: (Pick<GamePlayer, "id" | "userId" | "guestId" | "accentColor"> & {
+    user: Pick<NonNullable<GamePlayer["user"]>, "username"> | null;
+    guestUser: Pick<NonNullable<GamePlayer["guestUser"]>, "name"> | null;
+  })[];
   rounds: ScoredRound[];
-}
-
-export interface Player {
-  id: string;
-  username: string;
-  isGuest: boolean;
-  blitzPileRemaining: number;
-  totalCardsPlayed: number;
-}
+};
 
 export interface DisplayScores {
   id: string;
-  userId?: string; // Keep for backward compatibility with tests
   username: string;
   isGuest: boolean;
   scoresByRound: number[];
   total: number;
-  isInLead?: boolean;
-  isWinner?: boolean;
-  accentColor?: string | null;
+  isInLead: boolean;
+  isWinner: boolean;
+  accentColor: string | null;
 }
 
-export interface ProcessedPlayerScore {
-  id: string;
-  username: string;
-  isGuest: boolean;
-  scoresByRound: number[];
-  total: number;
-  accentColor?: string | null;
-}
+type AccumulatedPlayerScore = Omit<DisplayScores, "isInLead" | "isWinner">;
 
 export interface GameCompletion {
   winnerId: string | null;
@@ -64,7 +40,7 @@ export interface GameCompletion {
 }
 
 // Function to get player name - handles both regular users and guest users
-function getPlayerName(player: GameWithPlayersAndScores["players"][0]): string {
+function getPlayerName(player: ScoredGame["players"][0]): string {
   if (player.user) {
     return player.user.username;
   } else if (player.guestUser) {
@@ -74,22 +50,22 @@ function getPlayerName(player: GameWithPlayersAndScores["players"][0]): string {
 }
 
 // Function to get player ID - uses either userId or guestId
-function getPlayerId(player: GameWithPlayersAndScores["players"][0]): string {
+function getPlayerId(player: ScoredGame["players"][0]): string {
   return player.userId || player.guestId || player.id;
 }
 
 // Function to check if player is a guest
 function isGuestPlayer(
-  player: GameWithPlayersAndScores["players"][0],
+  player: ScoredGame["players"][0],
 ): boolean {
   return !!player.guestId;
 }
 
 // Function to initialize player scores map
 function initializePlayerScoresMap(
-  players: GameWithPlayersAndScores["players"],
-): Record<string, ProcessedPlayerScore> {
-  const playerScoresMap: Record<string, ProcessedPlayerScore> = {};
+  players: ScoredGame["players"],
+): Record<string, AccumulatedPlayerScore> {
+  const playerScoresMap: Record<string, AccumulatedPlayerScore> = {};
 
   players.forEach((player) => {
     const playerId = getPlayerId(player);
@@ -109,7 +85,7 @@ function initializePlayerScoresMap(
 // Function to process game scores
 function processGameScores(
   rounds: ScoredRound[],
-  playerScoresMap: Record<string, ProcessedPlayerScore>,
+  playerScoresMap: Record<string, AccumulatedPlayerScore>,
   winThreshold: number,
 ): {
   leaders: string[];
@@ -149,7 +125,7 @@ function processGameScores(
 
 // Function to determine the winner
 function determineWinner(
-  game: GameWithPlayersAndScores,
+  game: ScoredGame,
   playersAboveThreshold: { id: string; total: number }[],
 ): string | null {
   if (playersAboveThreshold.length > 0) {
@@ -186,7 +162,7 @@ function determineWinner(
 }
 
 export function getGameCompletion(
-  game: GameWithPlayersAndScores,
+  game: ScoredGame,
 ): GameCompletion {
   const playerScoresMap = initializePlayerScoresMap(game.players);
   const { playersAboveThreshold } = processGameScores(
@@ -210,7 +186,7 @@ export function getGameCompletion(
 
 // Main function
 export default function transformGameData(
-  game: GameWithPlayersAndScores,
+  game: ScoredGame,
 ): DisplayScores[] {
   // Initialize player scores map with all players
   const playerScoresMap = initializePlayerScoresMap(game.players);
@@ -229,7 +205,6 @@ export default function transformGameData(
   return Object.entries(playerScoresMap).map(
     ([id, { username, isGuest, scoresByRound, total, accentColor }]) => ({
       id,
-      userId: id, // Add userId for backward compatibility with tests
       username,
       isGuest,
       scoresByRound,

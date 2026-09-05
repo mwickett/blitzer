@@ -1,9 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import GameView from "../[id]/page";
-import { getGameById, getPredictionProfilesForGame } from "@/server/queries";
+import { getGameById } from "@/server/queries/games";
+import { getPredictionProfilesForGame } from "@/server/queries/predictionProfiles";
 
-jest.mock("@/server/queries", () => ({
-  getGameById: jest.fn(),
+jest.mock("@/server/queries/games", () => ({ getGameById: jest.fn() }));
+jest.mock("@/server/queries/predictionProfiles", () => ({
   getPredictionProfilesForGame: jest.fn().mockResolvedValue({}),
 }));
 jest.mock("@clerk/nextjs/server", () => ({
