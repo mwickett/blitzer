@@ -1,7 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
 import posthogClient from "@/app/posthog";
-import { generateRandomUsername } from "@/lib/utils";
+import { resolveClerkUser } from "@/server/users/provision";
 import type { Game } from "@/generated/prisma/client";
 
 // One auth seam for all server actions. Declare what the action needs and
@@ -109,85 +109,24 @@ export async function requireGameInCircle(
   return game;
 }
 
-export function isUniqueConstraintError(error: unknown) {
-  return (
-    error !== null &&
-    typeof error === "object" &&
-    "code" in error &&
-    error.code === "P2002"
-  );
-}
+export { isUniqueConstraintError } from "@/server/users/provision";
 
 /**
  * Resolve (or provision) the local user for authenticated pickup-game flows.
  * Clerk webhooks normally create this row; doing it here as well removes the
  * race for somebody who signs up from a QR code and immediately taps Join.
- *
- * Username selection deliberately matches the `user.created` webhook: that
- * webhook matches on email and will overwrite whatever this wrote moments
- * later, so picking a different scheme here would make a player's name visibly
- * change in the lobby a few seconds after they join.
  */
 export async function ensureCurrentPrismaUser() {
   const { userId } = await requireAuthContext("user");
-  const existing = await prisma.user.findUnique({
-    where: { clerk_user_id: userId },
+  return resolveClerkUser(userId, async () => {
+    const clerkUser = await currentUser();
+    if (!clerkUser) throw new Error("Unable to load your account");
+    return {
+      email: clerkUser.primaryEmailAddress?.emailAddress ?? "",
+      username: clerkUser.username,
+      avatarUrl: clerkUser.imageUrl,
+    };
   });
-  if (existing) return existing;
-
-  const clerkUser = await currentUser();
-  if (!clerkUser) throw new Error("Unable to load your account");
-  const email = clerkUser.primaryEmailAddress?.emailAddress;
-  if (!email) throw new Error("Your account needs an email address");
-
-  const emailMatch = await prisma.user.findUnique({ where: { email } });
-  if (emailMatch) {
-    // The Clerk webhook may have created the same identity between the first
-    // lookup and this email lookup. Treat that race as success, but never
-    // transfer an existing row to a different Clerk identity implicitly.
-    if (emailMatch.clerk_user_id === userId) return emailMatch;
-    throw new Error(
-      "An account already exists for this email. Sign in with that account to continue.",
-    );
-  }
-
-  // `username` is unique, so a collision is retryable — but only with a
-  // different name. Re-running with the same one would just fail again.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      return await prisma.user.create({
-        data: {
-          clerk_user_id: userId,
-          email,
-          username:
-            attempt === 0
-              ? clerkUser.username || generateRandomUsername()
-              : generateRandomUsername(),
-          avatarUrl: clerkUser.imageUrl,
-        },
-      });
-    } catch (error) {
-      if (!isUniqueConstraintError(error)) throw error;
-      // The webhook may have won the race while we were writing.
-      const racedUser = await prisma.user.findUnique({
-        where: { clerk_user_id: userId },
-      });
-      if (racedUser) return racedUser;
-      if (!uniqueConstraintTargets(error).includes("username")) throw error;
-    }
-  }
-
-  throw new Error("Unable to set up your account. Please try again.");
-}
-
-/** Which field(s) a Prisma P2002 collided on, when it says. */
-function uniqueConstraintTargets(error: unknown): string[] {
-  const target =
-    error && typeof error === "object" && "meta" in error
-      ? (error.meta as { target?: unknown } | undefined)?.target
-      : undefined;
-  if (Array.isArray(target)) return target.map(String);
-  return typeof target === "string" ? [target] : [];
 }
 
 /** The shape any game needs to have for its scoring access to be judged. */

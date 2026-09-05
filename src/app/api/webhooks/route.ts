@@ -1,127 +1,61 @@
-import { WebhookEvent, UserJSON } from "@clerk/nextjs/server";
+import type { WebhookEvent, UserJSON } from "@clerk/nextjs/server";
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
 import { type NextRequest } from "next/server";
-import prisma from "@/server/db/db";
-import { generateRandomUsername } from "@/lib/utils";
 import { sendWelcomeEmail } from "@/server/email";
+import {
+  AccountEmailConflictError,
+  resolveClerkUser,
+} from "@/server/users/provision";
 
 export async function POST(req: NextRequest) {
   let evt: WebhookEvent;
-
   try {
     evt = (await verifyWebhook(req)) as WebhookEvent;
-  } catch (err) {
-    // Log the specific error from verifyWebhook
-    console.error(
-      "Error verifying webhook:",
-      err instanceof Error ? err.message : err
-    );
-    // Return a clear error response
+  } catch {
+    console.error("Clerk webhook verification failed");
     return new Response("Webhook verification failed", { status: 400 });
   }
 
-  const eventType = evt.type;
-
-  if (eventType === "user.created") {
-    console.info("Processing Clerk user.created webhook", {
-      id: evt.data.id,
-      username: evt.data.username,
-    });
+  if (evt.type === "user.created" || evt.type === "user.updated") {
     try {
-      // Get user info
-      const email = getPrimaryEmail(evt.data);
-      const username = evt.data.username || generateRandomUsername();
+      const profile = evt.data;
+      const user = await resolveClerkUser(
+        profile.id,
+        () => ({
+          email: getPrimaryEmail(profile),
+          username: profile.username,
+          avatarUrl: profile.image_url,
+        }),
+        evt.type === "user.updated" ? "sync" : "provision",
+      );
 
-      // Check if user with this email already exists
-      let user = await prisma.user.findUnique({
-        where: { email },
-      });
-
-      if (user) {
-        // Update existing user with new Clerk ID
-        user = await prisma.user.update({
-          where: { email },
-          data: {
-            clerk_user_id: evt.data.id,
-            username, // Update username in case it changed
-            avatarUrl: evt.data.image_url,
-          },
-        });
-        console.info("Updated existing user from Clerk webhook", {
-          id: user.id,
+      if (evt.type === "user.created") {
+        // The pickup join may already have provisioned the row. Welcome that
+        // player too, with a stable identity key for provider retry deduplication.
+        const result = await sendWelcomeEmail({
           email: user.email,
+          username: user.username,
+          userId: user.id,
         });
-      } else {
-        // Create new user
-        user = await prisma.user.create({
-          data: {
-            clerk_user_id: evt.data.id,
-            email,
-            username,
-            avatarUrl: evt.data.image_url,
-          },
-        });
-        console.info("Created user from Clerk webhook", {
-          id: user.id,
-          email: user.email,
-        });
+        if (!result.success) {
+          console.error("Welcome email failed", { userId: user.id });
+        }
       }
-
-      // Send welcome email after user is created
-      const emailResult = await sendWelcomeEmail({
-        email,
-        username,
-      });
-
-      if (!emailResult.success) {
-        console.error("Welcome email failed:", emailResult.error);
-        // Continue since user creation was successful
+    } catch (error) {
+      if (error instanceof AccountEmailConflictError) {
+        console.error("Clerk account email conflict", { userId: evt.data.id });
+        return new Response("Account email conflict", { status: 409 });
       }
-    } catch (e) {
-      console.error("Failed to create user:", {
-        error: e instanceof Error ? e.message : "Unknown error",
+      console.error("Failed to synchronize Clerk user", {
         userId: evt.data.id,
+        eventType: evt.type,
       });
-      return new Response("Failed to create user", { status: 500 });
+      return new Response("Failed to synchronize user", { status: 500 });
     }
   }
 
-  if (eventType === "user.deleted") {
-    console.info("Processing Clerk user.deleted webhook", {
-      id: evt.data.id,
-    });
-    // Doing nothing with this for now because I don't want to delete users from the database as it leaves holes in the game history
-  }
-
-  if (eventType === "user.updated") {
-    console.info("Processing Clerk user.updated webhook", {
-      id: evt.data.id,
-      username: evt.data.username,
-    });
-    try {
-      const updateUser = await prisma.user.update({
-        where: {
-          clerk_user_id: evt.data.id,
-        },
-        data: {
-          email: getPrimaryEmail(evt.data),
-          username: evt.data.username || generateRandomUsername(),
-          avatarUrl: evt.data.image_url,
-        },
-      });
-      console.info("Updated user from Clerk webhook", {
-        id: updateUser.id,
-        username: updateUser.username,
-      });
-    } catch (e) {
-      console.error("Failed to update user:", {
-        error: e instanceof Error ? e.message : "Unknown error",
-        userId: evt.data.id,
-      });
-      return new Response("Failed to update user", { status: 500 });
-    }
-  }
-
+  // Retain deleted users to preserve game history. A recreated Clerk account
+  // is a distinct identity; account retention policy remains tracked in #70.
   return new Response("", { status: 200 });
 }
 
