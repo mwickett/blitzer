@@ -4,7 +4,7 @@ import CircleSetupPage from "../page";
 
 const mockReplace = jest.fn();
 const mockRefresh = jest.fn();
-const mockRedirect = jest.fn(() => { throw new Error("redirect"); });
+const mockRedirect = jest.fn((path: string) => { throw new Error(`redirect:${path}`); });
 const mockAccept = jest.fn();
 const mockSetActive = jest.fn();
 const mockRevalidate = jest.fn();
@@ -18,7 +18,7 @@ const mockState = {
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mockReplace, refresh: mockRefresh }),
-  redirect: () => mockRedirect(),
+  redirect: (path: string) => mockRedirect(path),
 }));
 jest.mock("@clerk/nextjs/server", () => ({ auth: () => mockAuth() }));
 jest.mock("@clerk/nextjs", () => ({
@@ -44,8 +44,8 @@ beforeEach(() => {
 
 it("redirects an already-onboarded visitor from the server page", async () => {
   mockAuth.mockResolvedValue({ userId: "user", orgId: "circle" });
-  await expect(CircleSetupPage()).rejects.toThrow("redirect");
-  expect(mockRedirect).toHaveBeenCalledTimes(1);
+  await expect(CircleSetupPage()).rejects.toThrow("redirect:/dashboard");
+  expect(mockRedirect).toHaveBeenCalledWith("/dashboard");
 });
 
 it("shows loading separately from a loaded user with no Circles", () => {
@@ -100,7 +100,8 @@ it("retries activation without accepting an already-accepted invitation again", 
   render(<CircleSetup />);
   fireEvent.click(screen.getByRole("button", { name: "Join" }));
   await screen.findByRole("alert");
-  fireEvent.click(screen.getByRole("button", { name: "Join" }));
+  expect(screen.queryByRole("button", { name: "Join" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Open Game night" }));
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard"));
   expect(mockAccept).toHaveBeenCalledTimes(1);
   expect(mockSetActive).toHaveBeenCalledTimes(2);

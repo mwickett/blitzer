@@ -27,8 +27,8 @@ export default function CircleSetup() {
   const [step, setStep] = useState<"invitations" | "create">("invitations");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [joinedCircle, setJoinedCircle] = useState<{ id: string; name: string } | null>(null);
   const pending = useRef(false);
-  const acceptedInvitations = useRef(new Set<string>());
 
   // When org becomes active after accepting an invitation,
   // redirect to dashboard. Circle creation uses Clerk's
@@ -55,7 +55,9 @@ export default function CircleSetup() {
     );
   }
 
-  const pendingInvitations = userInvitations?.data ?? [];
+  const pendingInvitations = (userInvitations?.data ?? []).filter(
+    (invitation) => invitation.publicOrganizationData.id !== joinedCircle?.id,
+  );
   const memberships = userMemberships?.data ?? [];
 
   const openCircle = async (organizationId: string, invitationId?: string) => {
@@ -64,11 +66,11 @@ export default function CircleSetup() {
     setPendingId(invitationId ?? organizationId);
     setError(null);
     try {
-      if (invitationId && !acceptedInvitations.current.has(invitationId)) {
+      if (invitationId) {
         const invitation = pendingInvitations.find((inv) => inv.id === invitationId);
         if (!invitation) throw new Error("Invitation unavailable");
         await invitation.accept();
-        acceptedInvitations.current.add(invitationId);
+        setJoinedCircle({ id: organizationId, name: invitation.publicOrganizationData.name });
       }
       await setActive({ organization: organizationId });
       router.replace("/dashboard");
@@ -83,7 +85,17 @@ export default function CircleSetup() {
 
   return (
     <div className="space-y-6">
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {joinedCircle && pendingId !== null && <p role="status">Opening {joinedCircle.name}…</p>}
+      {error && (
+        <div className="space-y-2">
+          <p role="alert" className="text-sm text-destructive">{error}</p>
+          {joinedCircle && (
+            <Button disabled={pendingId !== null} onClick={() => openCircle(joinedCircle.id)}>
+              Open {joinedCircle.name}
+            </Button>
+          )}
+        </div>
+      )}
       {(userInvitations.error || userMemberships.error) && (
         <div role="alert" className="space-y-2 text-sm text-destructive">
           <p>Unable to load your Circles. Please try again.</p>
