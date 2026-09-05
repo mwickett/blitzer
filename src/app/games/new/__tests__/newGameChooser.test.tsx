@@ -26,7 +26,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockStep = null;
   mockIsLoaded = true;
-  mockCreateGame.mockResolvedValue({ gameId: "new-game" });
+  mockCreateGame.mockResolvedValue({ ok: true, gameId: "new-game" });
   mockSaveDefault.mockResolvedValue(undefined);
 });
 
@@ -78,7 +78,7 @@ it("retains the roster and threshold across Back and Forward step navigation", a
 });
 
 it("creates once during a slow request and waits for navigation before enabling another action", async () => {
-  let finish!: (value: { gameId: string }) => void;
+  let finish!: (value: { ok: true; gameId: string }) => void;
   mockCreateGame.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
   await selectGuestAndColors();
   const start = screen.getByRole("button", { name: "Start Game" });
@@ -87,7 +87,7 @@ it("creates once during a slow request and waits for navigation before enabling 
   expect(mockCreateGame).toHaveBeenCalledTimes(1);
   expect(start).toBeDisabled();
   expect(screen.getByRole("button", { name: "Back" })).toBeDisabled();
-  await act(async () => { finish({ gameId: "new-game" }); });
+  await act(async () => { finish({ ok: true, gameId: "new-game" }); });
   expect(mockRouter.replace).toHaveBeenCalledWith("/games/new-game");
   expect(start).toBeDisabled();
 });
