@@ -31,6 +31,29 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Verification
+
+Run `npm run typecheck`, `npm run lint`, and `npm test -- --runInBand` for source checks.
+Test discovery excludes nested agent worktrees.
+
+`npm run test:integration` requires Docker. It creates an empty PostgreSQL 17 container
+on a random loopback port, applies the complete migration history, runs the integration
+tests, and removes the container. It always overrides `DATABASE_URL`; it never uses a
+shared development or production database.
+
+## Preview fixtures
+
+Run `npm run db:seed` explicitly when initializing a development database. Configure
+the `SEED_*` variables in `.env.example` and use a Clerk development key (`sk_test_`).
+The command also synchronizes Clerk users and ensures the configured Circle memberships.
+It preserves existing fixture games, edited scores, added rounds, and rematches. Existing
+fixtures are never reset; use a fresh isolated database when a clean scenario is needed.
+Failures exit nonzero, and production exits before reading preview configuration.
+
+Vercel builds apply migrations and build the app; they do not seed data or modify Clerk
+memberships. Historical seeding plans under `docs/superpowers` describe the former
+delete-and-recreate behavior and are superseded by this workflow.
+
 ## Making schema changes / Using Prisma
 
 If you make changes to the schema, you'll need to run `npx prisma migrate dev` to create and apply a migration to your local DB. You should ensure you commit those migration files so that they can be applied to production as well (this will happen automatically as part of the build).
