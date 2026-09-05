@@ -74,7 +74,7 @@ export default async function PickupLobbyPage({
           <CardTitle>Players, scan to join</CardTitle>
           <p className="text-sm text-muted-foreground">
             Lobby code{" "}
-            <span className="font-mono font-bold tracking-widest text-foreground">
+            <span className="ph-no-capture font-mono font-bold tracking-widest text-foreground">
               {game.joinCode}
             </span>
           </p>
