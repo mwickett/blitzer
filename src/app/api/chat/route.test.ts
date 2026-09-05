@@ -1,5 +1,7 @@
 /** @jest-environment node */
 import { MockLanguageModelV3 } from "ai/test";
+import { DefaultChatTransport } from "ai";
+import { Chat } from "@ai-sdk/react";
 import { POST } from "./route";
 
 let mockModel: MockLanguageModelV3;
@@ -63,6 +65,8 @@ test.each([
   { messages: [{ ...userMessage, role: "system" }] },
   { messages: [{ ...userMessage, parts: [{ type: "file", url: "https://example.invalid" }] }] },
   { messages: [{ ...userMessage, parts: [{ type: "text", text: 10 }] }] },
+  { messages: [{ ...userMessage, parts: [] }] },
+  { messages: [{ ...userMessage, parts: [{ type: "text", text: "   " }] }] },
   { messages: Array.from({ length: 41 }, () => userMessage) },
 ])("rejects malformed or unsupported history before fetching private context: %p", async (body) => {
   expect((await POST(request(body))).status).toBe(400);
@@ -96,4 +100,38 @@ test("asynchronous stream errors are recorded and expose a safe retry message", 
   expect(text).toContain("Unable to finish the response. Please try again.");
   expect(text).not.toContain("private provider detail");
   expect(mockCapture).toHaveBeenCalledWith(expect.objectContaining({ event: "llm_error" }));
+});
+
+test("actual chat transport can send another turn after the provider fails before producing text", async () => {
+  const successfulModel = mockModel;
+  mockModel = new MockLanguageModelV3({ doStream: {
+    stream: new ReadableStream({ start(controller) {
+      controller.enqueue({ type: "text-start", id: "empty-text" });
+      controller.enqueue({ type: "error", error: new Error("provider interrupted") });
+      controller.close();
+    } }),
+  } });
+  const statuses: number[] = [];
+  const chat = new Chat({ transport: new DefaultChatTransport({
+    api: "https://example.invalid/api/chat",
+    fetch: async (input, init) => {
+      const response = await POST(new Request(input, init));
+      statuses.push(response.status);
+      return response;
+    },
+  }) });
+  await chat.sendMessage({ text: "How many games?" });
+  expect(chat.status).toBe("error");
+  mockModel = successfulModel;
+  await chat.sendMessage({ text: "Please try again." });
+  expect(statuses).toEqual([200, 200]);
+  expect(chat.status).toBe("ready");
+  expect(successfulModel.doStreamCalls[0].prompt).toEqual([
+    { role: "system", content: "Use this user's game statistics." },
+    { role: "user", content: [{ type: "text", text: "How many games?" }] },
+    { role: "user", content: [{ type: "text", text: "Please try again." }] },
+  ]);
+  expect(chat.messages.at(-1)?.parts).toEqual(expect.arrayContaining([
+    expect.objectContaining({ type: "text", text: "Three games." }),
+  ]));
 });

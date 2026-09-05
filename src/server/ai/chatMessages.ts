@@ -7,16 +7,16 @@ const messageSchema = z.object({
   parts: z.array(z.discriminatedUnion("type", [
     z.object({ type: z.literal("text"), text: z.string().max(8000) }),
     z.object({ type: z.literal("step-start") }),
-  ])).min(1).max(16),
+  ])).max(16),
 });
 const historySchema = z.object({ messages: z.array(messageSchema).min(1).max(40) })
   .refine(({ messages }) => messages.at(-1)?.role === "user", "The last message must be from the user")
   .refine(({ messages }) => messages.reduce((size, message) => size + message.parts.reduce(
     (total, part) => total + (part.type === "text" ? part.text.length : 0), 0,
   ), 0) <= 32_000, "Conversation is too long")
-  .refine(({ messages }) => messages.every((message) => message.parts.some(
+  .refine(({ messages }) => messages.every((message) => message.role === "assistant" || message.parts.some(
     (part) => part.type === "text" && part.text.trim().length > 0,
-  )), "Every message must contain text");
+  )), "Every user message must contain text");
 
 export class ChatInputError extends Error {
   constructor(message: string, public readonly status: 400 | 413 = 400) {
@@ -51,5 +51,9 @@ export async function readChatMessages(request: Request) {
   }
   const result = historySchema.safeParse(parsed);
   if (!result.success) throw new ChatInputError("Send up to 40 text messages within the conversation limit.");
-  return result.data.messages;
+  // Interrupted streams can leave an assistant placeholder with no text in
+  // the SDK's history. It has no model context, but must not poison later turns.
+  return result.data.messages.filter((message) => message.parts.some(
+    (part) => part.type === "text" && part.text.trim().length > 0,
+  ));
 }
