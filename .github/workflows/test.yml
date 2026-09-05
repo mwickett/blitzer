@@ -35,3 +35,15 @@ jobs:
 
       - name: Test PostgreSQL transactions and fixtures
         run: npm run test:integration
+
+      - name: Build production bundle
+        run: npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          # Synthetic credentials allow module initialization; no service calls
+          # or shared database migrations are part of this build check.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5pbnZhbGlkJA
+          CLERK_SECRET_KEY: sk_test_fixture
+          RESEND_API_KEY: re_fixture
+          OPENAI_API_KEY: sk_fixture
+          NEXT_PUBLIC_POSTHOG_KEY: phc_fixture
