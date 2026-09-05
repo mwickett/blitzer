@@ -1,9 +1,10 @@
 import { GAME_RULES } from "@/lib/validation/gameRules";
+import { hasForecastEvidence, MIN_HISTORICAL_ROUNDS } from "./forecastInput";
 
 const SIMULATION_COUNT = 10_000;
 const MAX_FUTURE_ROUNDS = 50;
 const UNRESOLVED_OUTCOME_ID = "__unresolved";
-const MIN_HISTORICAL_ROUNDS = 5;
+
 const HISTORY_BLEND_ROUND_CAP = 8;
 const SWING_ROUND_SCORE = 20;
 export const MIN_SIMULATED_ROUND_SCORE = -20;
@@ -576,12 +577,8 @@ export function calcRaceForecast(
   deltasByPlayer?: Record<string, number[]>,
   options: RaceForecastOptions = {}
 ): RaceForecast | null {
-  if (players.length === 0) return null;
+  if (!hasForecastEvidence({ players, winThreshold, deltasByPlayer, options })) return null;
   const roundsPlayed = players[0].roundsPlayed;
-  const hasHistoricalEvidence = players.some((p) =>
-    hasUsableHistory(options.predictionProfiles?.[p.id])
-  );
-  if (roundsPlayed < 3 && !hasHistoricalEvidence) return null;
 
   const orderedPlayers = [...players].sort((a, b) => a.id.localeCompare(b.id));
 

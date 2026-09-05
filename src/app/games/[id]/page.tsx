@@ -75,8 +75,8 @@ export default async function GameView(props: {
   // read-only spectator view of the same scoring UI.
   const isCircleMember =
     !!userId && !!game.organizationId && game.organizationId === orgId;
-  const predictionProfiles = isCircleMember
-    ? await getPredictionProfilesForGame(params.id)
+  const predictionProfiles = isCircleMember && !isFinished && game.rounds.length > 0
+    ? await getPredictionProfilesForGame(game, { userId, orgId })
     : {};
 
   return (

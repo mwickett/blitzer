@@ -1,7 +1,7 @@
 import { useMemo } from "react";
+import { useRaceForecast } from "./useRaceForecast";
 import { type PlayerWithScore } from "../types";
 import {
-  calcRaceForecast,
   type ForecastRange,
   type PlayerForecast,
   type RaceForecast,
@@ -26,23 +26,12 @@ export function WinProbabilityCard({
   predictionProfiles,
   roundSamplesByPlayer,
 }: WinProbabilityCardProps) {
-  const forecast = useMemo(
-    () =>
-      calcRaceForecast(
-        players.map((p) => ({ id: p.id, score: p.score, roundsPlayed })),
-        winThreshold,
-        deltasByPlayer,
-        { predictionProfiles, roundSamplesByPlayer }
-      ),
-    [
-      players,
-      roundsPlayed,
-      winThreshold,
-      deltasByPlayer,
-      predictionProfiles,
-      roundSamplesByPlayer,
-    ]
-  );
+  const { forecast, status, containerRef } = useRaceForecast({
+    players: players.map((p) => ({ id: p.id, score: p.score, roundsPlayed })),
+    winThreshold,
+    deltasByPlayer,
+    options: { predictionProfiles, roundSamplesByPlayer },
+  });
 
   const sorted = useMemo(
     () =>
@@ -50,20 +39,27 @@ export function WinProbabilityCard({
         ? [...players].sort(
             (a, b) =>
               (forecast.players[b.id]?.winProbability ?? 0) -
-              (forecast.players[a.id]?.winProbability ?? 0)
+              (forecast.players[a.id]?.winProbability ?? 0),
           )
         : players,
-    [players, forecast]
+    [players, forecast],
   );
 
   if (!forecast) {
     return (
-      <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-4">
+      <div
+        ref={containerRef}
+        className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-4"
+      >
         <div className="text-base md:text-sm font-bold text-[#290806] mb-0.5">
           Win Probability
         </div>
-        <div className="text-[13px] md:text-xs text-[#8b5e3c]">
-          Available after 3 rounds
+        <div role="status" className="text-[13px] md:text-xs text-[#8b5e3c]">
+          {status === "insufficient"
+            ? "Available after 3 rounds"
+            : status === "loading"
+              ? "Calculating forecast…"
+              : "Forecast unavailable. You can keep scoring."}
         </div>
       </div>
     );
@@ -75,7 +71,10 @@ export function WinProbabilityCard({
   const topSwingThreat = getTopSwingThreat(sorted, forecast);
 
   return (
-    <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-4">
+    <div
+      ref={containerRef}
+      className="bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-4"
+    >
       <div className="text-base md:text-sm font-bold text-[#290806] mb-0.5">
         Win Probability
       </div>
@@ -147,12 +146,14 @@ export function WinProbabilityCard({
         </div>
         {forecast.unresolvedProbability > 0 && (
           <div className="mt-2 text-[12px] md:text-[11px] text-[#8b5e3c]">
-            {forecast.unresolvedProbability}% still open after the forecast window
+            {forecast.unresolvedProbability}% still open after the forecast
+            window
           </div>
         )}
         {forecast.usesHistoricalData && (
           <div className="mt-2 text-[12px] md:text-[11px] text-[#8b5e3c]">
-            History-backed from {forecast.historicalSampleCount} prior player scores
+            History-backed from {forecast.historicalSampleCount} prior player
+            scores
           </div>
         )}
       </div>
@@ -184,16 +185,18 @@ function getWinningRoundText(playerForecast?: PlayerForecast): string {
 
 function getPlayerLabel(
   playerForecast: PlayerForecast | undefined,
-  isTopPlayer: boolean
+  isTopPlayer: boolean,
 ): string {
-  if (!playerForecast || playerForecast.winProbability === 0) return "Long shot";
+  if (!playerForecast || playerForecast.winProbability === 0)
+    return "Long shot";
   if (playerForecast.nextRoundBlitzWinProbability >= 10) {
     return "Blitz-out threat";
   }
   if (playerForecast.nextRoundWinProbability >= 25) return "Can close now";
   if (playerForecast.nextRoundWinProbability >= 10) return "Next-round threat";
   if (playerForecast.nextRoundSwingProbability >= 35) return "Swing threat";
-  if (isTopPlayer && playerForecast.winProbability >= 45) return "Steady favorite";
+  if (isTopPlayer && playerForecast.winProbability >= 45)
+    return "Steady favorite";
   if (playerForecast.winProbability >= 25) return "In the mix";
   if (playerForecast.winProbability >= 10) return "Needs a swing round";
   return "Chaos path";
@@ -231,7 +234,7 @@ function formatRoundCount(roundsPlayed: number): string {
 
 function getTopNextThreat(
   players: PlayerWithScore[],
-  forecast: RaceForecast
+  forecast: RaceForecast,
 ): { player: PlayerWithScore; pct: number } | null {
   let top: { player: PlayerWithScore; pct: number } | null = null;
   for (const player of players) {
@@ -245,7 +248,7 @@ function getTopNextThreat(
 
 function getTopBlitzThreat(
   players: PlayerWithScore[],
-  forecast: RaceForecast
+  forecast: RaceForecast,
 ): { player: PlayerWithScore; pct: number } | null {
   let top: { player: PlayerWithScore; pct: number } | null = null;
   for (const player of players) {
@@ -259,7 +262,7 @@ function getTopBlitzThreat(
 
 function getTopSwingThreat(
   players: PlayerWithScore[],
-  forecast: RaceForecast
+  forecast: RaceForecast,
 ): { player: PlayerWithScore; pct: number } | null {
   let top: { player: PlayerWithScore; pct: number } | null = null;
   for (const player of players) {
