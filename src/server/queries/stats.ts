@@ -2,7 +2,7 @@ import "server-only";
 
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
-import { getUserIdFromAuth } from "@/server/utils";
+import { requireAuthContext } from "../mutations/common";
 import { ROUND_SCORE_SQL } from "@/lib/validation/gameRules";
 import { getRoundStatsForUser } from "./playerStats";
 
@@ -11,11 +11,9 @@ const scoreExpr = Prisma.raw(ROUND_SCORE_SQL);
 
 // The ...ForUser variants take an explicit internal user id and an optional
 // Prisma client, so callers that already resolved the user don't repeat the lookup. The
-// zero-arg exports resolve the authenticated user and delegate.
+// dashboard entry resolves the authenticated user and delegates.
 
 type Db = PrismaClient | typeof prisma;
-
-export { getGameStatsForUser, getRoundStatsForUser } from "./playerStats";
 
 type CountRow = {
   totalHandsPlayed: number | bigint;
@@ -93,10 +91,6 @@ export async function getPlayerBattingAverageForUser(
   };
 }
 
-export async function getPlayerBattingAverage() {
-  return getPlayerBattingAverageForUser(await getUserIdFromAuth());
-}
-
 // Highest / lowest single-round score, each fetched with ORDER BY + LIMIT 1
 // so the database does the aggregation instead of JS reducing every row
 export async function getHighestAndLowestScoreForUser(
@@ -145,10 +139,6 @@ export async function getHighestAndLowestScoreForUser(
   return { highest, lowest };
 }
 
-export async function getHighestAndLowestScore() {
-  return getHighestAndLowestScoreForUser(await getUserIdFromAuth());
-}
-
 // Cumulative score
 export async function getCumulativeScoreForUser(
   userId: string,
@@ -163,10 +153,6 @@ export async function getCumulativeScoreForUser(
   );
 
   return Number(rows[0]?.totalScore ?? 0);
-}
-
-export async function getCumulativeScore() {
-  return getCumulativeScoreForUser(await getUserIdFromAuth());
 }
 
 // Longest / shortest finished game by round count, aggregated with GROUP BY
@@ -203,10 +189,6 @@ export async function getLongestAndShortestGamesByRoundsForUser(
   };
 }
 
-export async function getLongestAndShortestGamesByRounds() {
-  return getLongestAndShortestGamesByRoundsForUser(await getUserIdFromAuth());
-}
-
 export async function getDashboardStatsForUser(
   userId: string,
   db: Db = prisma
@@ -231,5 +213,6 @@ export async function getDashboardStatsForUser(
 }
 
 export async function getDashboardStats() {
-  return getDashboardStatsForUser(await getUserIdFromAuth());
+  const { prismaUserId } = await requireAuthContext("prismaId");
+  return getDashboardStatsForUser(prismaUserId);
 }

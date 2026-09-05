@@ -4,7 +4,6 @@ import React from "react";
 import { Resend } from "resend";
 import { WelcomeEmail } from "@/components/email/welcome-template";
 import { GameCompleteEmail } from "@/components/email/game-complete-template";
-import { GuestInvitationEmail } from "@/components/email/guest-invitation-template";
 import posthogClient from "@/app/posthog";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -30,7 +29,7 @@ async function sendEmail(options: {
   subject: string;
   react: React.ReactElement;
   text: string;
-  emailType?: string; // Type of email for analytics (welcome, game_complete, friend_request, etc.)
+  emailType?: string; // Type of email for analytics (welcome or game_complete)
   userId?: string; // User ID for analytics if available
   idempotencyKey?: string;
 }): Promise<EmailResult> {
@@ -293,33 +292,6 @@ export async function sendGameCompleteEmail(params: {
     idempotencyKey: createIdempotencyKey(
       "game-complete",
       params.gameId,
-      params.email
-    ),
-  });
-}
-
-export async function sendGuestInvitationEmail(params: {
-  email: string;
-  guestName: string;
-  inviterUsername: string;
-  guestId: string;
-  userId?: string;
-}): Promise<EmailResult> {
-  const emailTemplate = GuestInvitationEmail({
-    guestName: params.guestName,
-    inviterUsername: params.inviterUsername,
-  });
-
-  return await sendEmail({
-    to: [params.email],
-    subject: `${params.inviterUsername} invited you to join Blitzer`,
-    react: emailTemplate.component,
-    text: await emailTemplate.text,
-    emailType: "guest_invitation",
-    userId: params.userId,
-    idempotencyKey: createIdempotencyKey(
-      "guest-invitation",
-      params.guestId,
       params.email
     ),
   });

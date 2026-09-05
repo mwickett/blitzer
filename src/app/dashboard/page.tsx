@@ -1,4 +1,4 @@
-import { getDashboardStats } from "@/server/queries";
+import { getDashboardStats } from "@/server/queries/stats";
 import BasicStatBlock from "@/components/BasicStatBlock";
 import CircleCtaSection from "./_components/CircleCtaSection";
 

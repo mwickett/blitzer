@@ -2,15 +2,11 @@ import { describe, it, expect } from "@jest/globals";
 import {
   validateGameRules,
   ValidationError,
-  isValidBlitz,
-  hasBlitz,
   calculateRoundScore,
-  calculateCumulativeScore,
   isWinningScore,
   GAME_RULES,
   ROUND_SCORE_SQL,
 } from "../validation/gameRules";
-import { type Score, type ScoreValidation } from "../validation/schema";
 
 // Test data helpers
 const createValidScore = (
@@ -107,37 +103,12 @@ describe("Game Rules", () => {
       expect(isWinningScore(50, 50)).toBe(true);
     });
 
-    it("should identify valid blitz scores", () => {
-      expect(isValidBlitz({ blitzPileRemaining: 0, totalCardsPlayed: 4 })).toBe(
-        true
-      );
-      expect(isValidBlitz({ blitzPileRemaining: 0, totalCardsPlayed: 3 })).toBe(
-        false
-      );
-      expect(isValidBlitz({ blitzPileRemaining: 5, totalCardsPlayed: 0 })).toBe(
-        true
-      );
-    });
-
-    it("should correctly identify if round has blitz", () => {
-      const scoresWithBlitz = [
-        { blitzPileRemaining: 0, totalCardsPlayed: 10 },
-        { blitzPileRemaining: 5, totalCardsPlayed: 5 },
-      ];
-      const scoresWithoutBlitz = [
-        { blitzPileRemaining: 1, totalCardsPlayed: 10 },
-        { blitzPileRemaining: 5, totalCardsPlayed: 5 },
-      ];
-
-      expect(hasBlitz(scoresWithBlitz)).toBe(true);
-      expect(hasBlitz(scoresWithoutBlitz)).toBe(false);
-    });
   });
 
   describe("Cumulative Scores", () => {
     it("should compute the cumulative score from summed totals", () => {
       expect(
-        calculateCumulativeScore({
+        calculateRoundScore({
           totalCardsPlayed: 100,
           blitzPileRemaining: 20,
         })
@@ -164,12 +135,12 @@ describe("Game Rules", () => {
         { totalCardsPlayed: 0, blitzPileRemaining: 0 }
       );
 
-      expect(calculateCumulativeScore(totals)).toBe(summedPerRound);
+      expect(calculateRoundScore(totals)).toBe(summedPerRound);
     });
 
     it("should score a perfect blitz run as total cards played", () => {
       expect(
-        calculateCumulativeScore({ totalCardsPlayed: 42, blitzPileRemaining: 0 })
+        calculateRoundScore({ totalCardsPlayed: 42, blitzPileRemaining: 0 })
       ).toBe(42);
     });
   });

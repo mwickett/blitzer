@@ -4,7 +4,8 @@ import { captureServerEvent } from "@/server/telemetry";
 
 import prisma from "@/server/db/db";
 import { Prisma } from "@/generated/prisma/client";
-import { requireAuthContext, assertGameInCircle } from "./common";
+import { requireAuthContext } from "./common";
+import { assertGameInCircle } from "../scoring/access";
 import { getOrgMemberClerkIds } from "../clerkOrgs";
 import {
   resolvePlayerColor,

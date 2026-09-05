@@ -1,7 +1,8 @@
 import { ScoringShell } from "@/components/scoring/ScoringShell";
-import { getGameById, getPredictionProfilesForGame } from "@/server/queries";
+import { getGameById } from "@/server/queries/games";
+import { getPredictionProfilesForGame } from "@/server/queries/predictionProfiles";
 import { notFound, redirect } from "next/navigation";
-import transformGameData, { GameWithPlayersAndScores } from "@/lib/gameLogic";
+import transformGameData from "@/lib/gameLogic";
 import {
   resolvePlayerColor,
   assignColorsToPlayers,
@@ -23,8 +24,7 @@ export default async function GameView(props: {
     notFound();
   }
 
-  // The query layer guarantees this shape — no per-request adaptation needed
-  const game: GameWithPlayersAndScores = gameData;
+  const game = gameData;
 
   const isPickupPlayer =
     !!userId &&

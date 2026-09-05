@@ -21,8 +21,8 @@ jest.mock("@clerk/nextjs/server", () => ({
   currentUser: jest.fn(),
 }));
 
-// Only the two auth seams are stubbed — the pure helpers (isUniqueConstraintError)
-// stay real so this suite exercises the same collision detection as production.
+// Only the two auth seams are stubbed; collision detection still runs through
+// the real provisioning helper.
 jest.mock("../mutations/common", () => ({
   ...jest.requireActual("../mutations/common"),
   ensureCurrentPrismaUser: jest.fn(),

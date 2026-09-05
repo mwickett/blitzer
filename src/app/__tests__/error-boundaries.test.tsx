@@ -1,4 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import posthog from "posthog-js";
+import * as Sentry from "@sentry/nextjs";
 import GamesListError from "../games/error";
 import DashboardError from "../dashboard/error";
 import GameDetailError from "../games/[id]/error";
@@ -39,5 +41,21 @@ describe("route error boundaries outside development", () => {
   it("does not leak the raw error message", () => {
     render(<GamesListError error={makeError()} reset={() => {}} />);
     expect(screen.queryByText(/boom/)).not.toBeInTheDocument();
+  });
+});
+
+
+it("keeps game context, reset, and recovery navigation in the shared boundary", () => {
+  const error = makeError();
+  const reset = jest.fn();
+  render(<GameDetailError error={error} reset={reset} />);
+  fireEvent.click(screen.getByRole("button", { name: "Try Again" }));
+  expect(reset).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("link", { name: "Return to Games List" })).toHaveAttribute("href", "/games");
+  expect(Sentry.captureException).toHaveBeenCalledWith(error, {
+    tags: { section: "game-detail" }, contexts: { game: { gameId: "game-123" } },
+  });
+  expect(posthog.captureException).toHaveBeenCalledWith(error, {
+    errorSource: "game-detail", errorDigest: error.digest, gameId: "game-123",
   });
 });

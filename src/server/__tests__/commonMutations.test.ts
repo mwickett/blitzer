@@ -1,10 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "../db/db";
-import {
-  assertScoreRoster,
-  ensureCurrentPrismaUser,
-  requireGameScoringAccess,
-} from "../mutations/common";
+import { ensureCurrentPrismaUser } from "../mutations/common";
 
 jest.mock("@clerk/nextjs/server", () => ({
   auth: jest.fn(),
@@ -72,20 +68,6 @@ describe("shared mutation authorization", () => {
     expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
-  it("preserves the established no-active-circle error", async () => {
-    (prisma.game.findUnique as jest.Mock).mockResolvedValue({
-      id: "game-id",
-      kind: "CIRCLE",
-      organizationId: "org-game",
-      players: [],
-    });
-
-    await expect(requireGameScoringAccess("game-id")).rejects.toThrow(
-      "No active circle",
-    );
-    expect(auth).toHaveBeenCalledTimes(1);
-  });
-
   it("takes the Clerk username so the webhook does not rename the player", async () => {
     (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
     (prisma.user.create as jest.Mock).mockImplementation(({ data }) => data);
@@ -121,112 +103,5 @@ describe("shared mutation authorization", () => {
     expect(prisma.user.create).toHaveBeenCalledTimes(2);
     // The retry cannot reuse the name that just collided.
     expect(created.username).not.toBe("current");
-  });
-});
-
-describe("pickup game scoring authorization", () => {
-  const pickupGame = ({ started = true }: { started?: boolean } = {}) => ({
-    id: "game-id",
-    kind: "PICKUP",
-    organizationId: null,
-    startedAt: started ? new Date() : null,
-    players: [
-      { userId: "p1", guestId: null, user: { clerk_user_id: "clerk-current" } },
-      { userId: null, guestId: "g1", user: null },
-    ],
-  });
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (auth as unknown as jest.Mock).mockResolvedValue({
-      userId: "clerk-current",
-      orgId: null,
-    });
-  });
-
-  it("authorizes a registered player of a started pickup game", async () => {
-    const game = pickupGame();
-    (prisma.game.findUnique as jest.Mock).mockResolvedValue(game);
-
-    await expect(requireGameScoringAccess("game-id")).resolves.toBe(game);
-  });
-
-  it("rejects somebody who is not on the pickup roster", async () => {
-    (auth as unknown as jest.Mock).mockResolvedValue({
-      userId: "clerk-stranger",
-      orgId: null,
-    });
-    (prisma.game.findUnique as jest.Mock).mockResolvedValue(pickupGame());
-
-    await expect(requireGameScoringAccess("game-id")).rejects.toThrow(
-      "You are not a player in this game",
-    );
-  });
-
-  it("rejects scoring a pickup game that has not started", async () => {
-    (prisma.game.findUnique as jest.Mock).mockResolvedValue(
-      pickupGame({ started: false }),
-    );
-
-    await expect(requireGameScoringAccess("game-id")).rejects.toThrow(
-      "You are not a player in this game",
-    );
-  });
-
-  it("rejects scoring a legacy game through the pickup path", async () => {
-    (prisma.game.findUnique as jest.Mock).mockResolvedValue({
-      id: "game-id",
-      kind: "LEGACY",
-      organizationId: null,
-      startedAt: new Date(),
-      players: [
-        {
-          userId: "p1",
-          guestId: null,
-          user: { clerk_user_id: "clerk-current" },
-        },
-      ],
-    });
-
-    await expect(requireGameScoringAccess("game-id")).rejects.toThrow(
-      "You are not a player in this game",
-    );
-  });
-});
-
-describe("assertScoreRoster", () => {
-  const roster = [
-    { userId: "p1", guestId: null },
-    { userId: null, guestId: "g1" },
-  ];
-
-  it("accepts an exact match across registered players and guests", () => {
-    expect(() =>
-      assertScoreRoster(roster, [{ userId: "p1" }, { guestId: "g1" }]),
-    ).not.toThrow();
-  });
-
-  it("rejects a guest id that is not on the roster", () => {
-    expect(() =>
-      assertScoreRoster(roster, [{ userId: "p1" }, { guestId: "g-other" }]),
-    ).toThrow("Scores must match the players in this game");
-  });
-
-  it("rejects a duplicate submission for the same player", () => {
-    expect(() =>
-      assertScoreRoster(roster, [{ userId: "p1" }, { userId: "p1" }]),
-    ).toThrow("Scores must match the players in this game");
-  });
-
-  it("rejects a roster member with no score", () => {
-    expect(() => assertScoreRoster(roster, [{ userId: "p1" }])).toThrow(
-      "Scores must match the players in this game",
-    );
-  });
-
-  it("rejects a score entry identifying nobody", () => {
-    expect(() => assertScoreRoster(roster, [{ userId: "p1" }, {}])).toThrow(
-      "Scores must match the players in this game",
-    );
   });
 });

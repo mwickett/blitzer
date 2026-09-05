@@ -1,8 +1,7 @@
 import transformGameData, {
-  GameWithPlayersAndScores,
+  ScoredGame,
   getGameCompletion,
 } from "../gameLogic";
-import { Game, User, Round, Score } from "@/generated/prisma/client";
 
 describe("transformGameData", () => {
   beforeEach(() => {
@@ -20,50 +19,21 @@ describe("transformGameData", () => {
       }>;
     }>,
     winThreshold = 75
-  ): GameWithPlayersAndScores => {
-    const mockGame: GameWithPlayersAndScores = {
-      id: "test-game-id",
-      createdAt: new Date(),
-      endedAt: null,
+  ): ScoredGame => {
+    const mockGame: ScoredGame = {
       isFinished: false,
-      winnerId: null,
       winThreshold,
-      organizationId: null,
-      kind: "CIRCLE",
-      startedAt: new Date(),
-      hostUserId: null,
-      joinToken: null,
-      joinCode: null,
       players: players.map((player) => ({
         id: `game-player-${player.userId}`,
         userId: player.userId,
-        gameId: "test-game-id",
-        user: {
-          id: player.userId,
-          clerk_user_id: `clerk-${player.userId}`,
-          email: `${player.username}@test.com`,
-          username: player.username,
-          avatarUrl: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as User,
+        guestId: null,
+        accentColor: null,
+        user: { username: player.username },
+        guestUser: null,
       })),
-      rounds: rounds.map((round, index) => ({
-        id: `round-${index}`,
-        gameId: "test-game-id",
+      rounds: rounds.map((round) => ({
         round: round.roundNumber,
-        revision: 0,
-        createdAt: new Date(),
-        scores: round.scores.map((score) => ({
-          id: `score-${score.userId}-${round.roundNumber}`,
-          userId: score.userId,
-          guestId: null,
-          roundId: `round-${index}`,
-          blitzPileRemaining: score.blitzPileRemaining,
-          totalCardsPlayed: score.totalCardsPlayed,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })),
+        scores: round.scores.map((score) => ({ ...score, guestId: null })),
       })),
     };
 
@@ -93,14 +63,14 @@ describe("transformGameData", () => {
     expect(result).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          userId: "user1",
+          id: "user1",
           username: "Player 1",
           scoresByRound: [10], // 20 - (5 * 2) = 10
           total: 10,
           isInLead: true,
         }),
         expect.objectContaining({
-          userId: "user2",
+          id: "user2",
           username: "Player 2",
           scoresByRound: [9], // 15 - (3 * 2) = 9
           total: 9,
@@ -140,13 +110,13 @@ describe("transformGameData", () => {
     expect(result).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          userId: "user1",
+          id: "user1",
           scoresByRound: [10, 21], // [20-(5*2), 25-(2*2)]
           total: 31,
           isInLead: false,
         }),
         expect.objectContaining({
-          userId: "user2",
+          id: "user2",
           scoresByRound: [9, 30], // [15-(3*2), 30-(0*2)]
           total: 39,
           isInLead: true,
@@ -183,7 +153,7 @@ describe("transformGameData", () => {
 
     const winner = result.find((player) => player.isWinner);
     expect(winner).toBeDefined();
-    expect(winner?.userId).toBe("user1");
+    expect(winner?.id).toBe("user1");
     expect(winner?.total).toBeGreaterThanOrEqual(75);
   });
 
@@ -252,8 +222,8 @@ describe("transformGameData", () => {
       const result = await transformGameData(mockGame);
 
       // Both players should be at 78
-      const player1 = result.find((p) => p.userId === "user1");
-      const player2 = result.find((p) => p.userId === "user2");
+      const player1 = result.find((p) => p.id === "user1");
+      const player2 = result.find((p) => p.id === "user2");
       expect(player1?.total).toBe(78);
       expect(player2?.total).toBe(78);
 
@@ -289,80 +259,20 @@ describe("transformGameData", () => {
   });
 
   it("marks guest winners correctly without mutating games", async () => {
-    const mockGame: GameWithPlayersAndScores = {
-      id: "guest-game-id",
-      createdAt: new Date(),
-      endedAt: null,
+    const mockGame: ScoredGame = {
       isFinished: false,
-      winnerId: null,
       winThreshold: 75,
-      organizationId: null,
-      kind: "LEGACY",
-      startedAt: new Date(),
-      hostUserId: null,
-      joinToken: null,
-      joinCode: null,
       players: [
-        {
-          id: "gp-guest",
-          gameId: "guest-game-id",
-          guestId: "guest-1",
-          guestUser: {
-            id: "guest-1",
-            name: "Guest Winner",
-            createdById: "owner-1",
-            invitationSent: false,
-            invitationSentAt: null,
-            emailSent: null,
-            organizationId: null,
-            createdAt: new Date(),
-          },
-        },
-        {
-          id: "gp-user",
-          gameId: "guest-game-id",
-          userId: "user-1",
-          user: {
-            id: "user-1",
-            clerk_user_id: "clerk-user-1",
-            email: "user1@test.com",
-            username: "Player 1",
-            avatarUrl: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          } as User,
-        },
+        { id: "gp-guest", guestId: "guest-1", userId: null, accentColor: null, user: null, guestUser: { name: "Guest Winner" } },
+        { id: "gp-user", userId: "user-1", guestId: null, accentColor: null, user: { username: "Player 1" }, guestUser: null },
       ],
-      rounds: [
-        {
-          id: "round-1",
-          gameId: "guest-game-id",
-          round: 1,
-          createdAt: new Date(),
-          scores: [
-            {
-              id: "score-guest",
-              userId: null,
-              guestId: "guest-1",
-              roundId: "round-1",
-              blitzPileRemaining: 0,
-              totalCardsPlayed: 80,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            } as Score,
-            {
-              id: "score-user",
-              userId: "user-1",
-              guestId: null,
-              roundId: "round-1",
-              blitzPileRemaining: 0,
-              totalCardsPlayed: 20,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            } as Score,
-          ],
-        } as Round & { scores: Score[] },
-      ],
+      rounds: [{
+        round: 1,
+        scores: [
+          { userId: null, guestId: "guest-1", blitzPileRemaining: 0, totalCardsPlayed: 80 },
+          { userId: "user-1", guestId: null, blitzPileRemaining: 0, totalCardsPlayed: 20 },
+        ],
+      }],
     };
 
     const result = await transformGameData(mockGame);

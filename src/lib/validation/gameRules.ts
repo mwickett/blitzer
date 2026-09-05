@@ -1,5 +1,4 @@
-import { z } from "zod";
-import { type Score, type ScoreValidation } from "./schema";
+import { type ScoreValidation } from "./schema";
 
 // Game constants
 export const GAME_RULES = {
@@ -18,8 +17,6 @@ export const GAME_RULES = {
 export const ERROR_MESSAGES = {
   NO_BLITZ: "At least one player must blitz (have 0 cards remaining)",
   INVALID_BLITZ: "Players who blitz must play at least 4 cards",
-  INVALID_SCORE:
-    "Invalid scores: Blitz pile must be 0-10 cards, total cards played must be 0-40",
 } as const;
 
 export class ValidationError extends Error {
@@ -29,7 +26,7 @@ export class ValidationError extends Error {
   }
 }
 
-export function validateGameRules(scores: Score[] | ScoreValidation[]) {
+export function validateGameRules(scores: ScoreValidation[]) {
   // Check if at least one player has blitzed
   const atLeastOneBlitzed = scores.some(
     (score) => score.blitzPileRemaining === 0
@@ -51,35 +48,12 @@ export function validateGameRules(scores: Score[] | ScoreValidation[]) {
   return true;
 }
 
-// Helper function to check if a single score represents a valid blitz
-export function isValidBlitz(score: Score | ScoreValidation): boolean {
-  if (score.blitzPileRemaining === 0) {
-    return score.totalCardsPlayed >= GAME_RULES.MIN_CARDS_FOR_BLITZ;
-  }
-  return true;
-}
-
-// Helper function to check if any player has blitzed
-export function hasBlitz(scores: Score[] | ScoreValidation[]): boolean {
-  return scores.some((score) => score.blitzPileRemaining === 0);
-}
-
 // Calculate score for a round
-export function calculateRoundScore(score: Score | ScoreValidation): number {
+export function calculateRoundScore(score: ScoreValidation): number {
   return (
     -(score.blitzPileRemaining * GAME_RULES.BLITZ_PENALTY_MULTIPLIER) +
     score.totalCardsPlayed
   );
-}
-
-// Cumulative score across many rounds, from pre-summed totals. The formula
-// is linear, so the aggregate form is the per-round form applied to sums —
-// delegating makes that explicit and keeps one owner for the arithmetic.
-export function calculateCumulativeScore(totals: {
-  totalCardsPlayed: number;
-  blitzPileRemaining: number;
-}): number {
-  return calculateRoundScore(totals);
 }
 
 // Canonical SQL expression for a single-round score. Server queries

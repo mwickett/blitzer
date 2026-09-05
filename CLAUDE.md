@@ -1,110 +1,71 @@
-# CLAUDE.md
+# Repository guidance
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Blitzer is a Dutch Blitz scoring app built with Next.js App Router, React, TypeScript, Clerk, and PostgreSQL/Prisma. [README.md](README.md) describes setup and the current product contracts. Historical plans in `docs/superpowers` may describe removed flows; verify live callers before treating them as implementation guidance.
 
-## Project Overview
-
-Blitzer is a companion web app for Dutch Blitz card game players to track scores and analyze gameplay statistics. Built with Next.js, it features user authentication, Circles (player groups built on Clerk organizations), score tracking, and statistical analysis.
-
-## Essential Commands
+## Commands
 
 ```bash
-# Development
-npm run dev                  # Start development server with turbopack
-npm install                  # Install dependencies (runs prisma generate via postinstall)
-
-# Testing
-npm test                     # Run Jest tests
-npm run test:watch           # Run tests in watch mode
-npm run test:coverage        # Run tests with coverage report
-
-# Database
-npx prisma migrate dev       # Create and apply migration (after schema changes)
-npx prisma studio           # Open database viewer
-npx prisma generate          # Generate Prisma client (to src/generated/prisma/)
-
-# Build & Quality
-npm run build               # Build for production (includes migrations)
-npm run lint                # Run ESLint
+npm ci                         # Install locked dependencies and generate Prisma
+npm run dev                    # Start Next with Turbopack
+npm run typecheck
+npm run lint
+npm test -- --runInBand         # Jest source tests
+npm run test:integration        # Disposable PostgreSQL integration tests; Docker required
+npx next build                 # Bundle check only; no migration or seeding
+npm run build                  # Apply migrations to DATABASE_URL, then build
+npm run vercel-build           # Generate Prisma, apply migrations, then build
+npm run db:seed                # Explicit dev/preview fixtures; writes DB and Clerk
 ```
 
-## Architecture & Data Model
+Use the Node versions declared in `package.json`. Copy `.env.example` to `.env` and fill in development settings; do not commit credentials, contact exports, or generated files. Jest's `src/` discovery excludes nested worktrees. Keep agent worktrees outside `src/` and browser artifacts in ignored directories.
 
-### Core Data Entities
+## Code ownership and interfaces
 
-- **User**: Authenticated users (via Clerk)
-- **GuestUser**: Non-authenticated players created by registered users
-- **Game**: A complete Dutch Blitz game session, scoped to a Circle via `organizationId`
-- **Round**: Individual rounds within a game
-- **Score**: Player scores for each round (totalCardsPlayed, blitzPileRemaining)
-- **OrganizationMembership**: Synced Clerk organization memberships — Circles are Clerk organizations and are the social container for games (the old Friend/FriendRequest system was removed in March 2026)
+- Import actions from `src/server/mutations/games`, `rounds`, or `lobbies` directly; no compatibility facades.
+- `mutations/common.ts` owns `requireAuthContext("user" | "prismaId" | "org" | "orgWithPrismaId")` and `ensureCurrentPrismaUser`. The former verifies the requested identity/active-Circle context; the latter handles webhook races by provisioning from Clerk.
+- `server/users/provision.ts` is the shared identity resolver for pickup actions and webhooks. Match immutable `clerk_user_id`, reject email collisions, preserve generated usernames on duplicate creation, and never relink a recreated identity by email.
+- `server/scoring/access.ts` owns assertions for already-loaded games. `server/scoring/writeRound.ts` validates submissions and rechecks authorization inside the game-lock transaction. Keep score writes, revision checks, and completion reconciliation together.
+- `lib/validation/submissions.ts` owns action schemas; `gameRules.ts` owns game rules and the shared TS/SQL score formula. `lib/gameLogic.ts` calculates final cumulative standings and deterministic winners from a small `ScoredGame` projection of the query-owned `GameDetail` shape. Participant display IDs have one field, `id`.
+- `components/scoring/types.ts` owns the client score-entry and round DTOs. Scoring components share `RoundEditor` and `useScoringDraft`. Server success acknowledgements update local revisions; stale edits preserve the draft until the user chooses how to recover.
+- Import queries from `server/queries/<domain>` directly. Games lists use `GameListPage` from `lib/gameList.ts`, not the full game detail graph. Keep page-size limits and filters in the database.
+- `queries/playerStats.ts` provides shared bounded aggregate results. Started games and completed-game win-rate denominators must match across dashboard and Insights.
+- Historical prediction queries are bounded per player and optional; worker forecasting is cancellable and cached. Keep it off the score-entry critical path.
+- `components/RouteError.tsx` shares route error presentation, reset/navigation, and section telemetry. Root and component boundaries have their own lifecycles.
 
-### Key Patterns
+## Authentication and data model
 
-**Server Actions Organization**: Domain-based modular structure in `src/server/mutations/`:
+`User` maps a Clerk identity to local score history. `GuestUser` is a non-authenticated participant added during game setup. `Game` is `CIRCLE`, `PICKUP`, or `LEGACY`; `GamePlayers`, `Round`, and `Score` store its roster and history.
 
-- `games.ts` - Game creation, updates, completion
-- `rounds.ts` - Score entry and round management
-- `guests.ts` - Guest user management
+Circle membership and invitations are managed by Clerk, with paginated membership reads in `server/clerkOrgs.ts`. Score mutations require a matching active Circle or membership in a started pickup game. Public game detail links are spectator views; write authorization must be enforced on the server. Unstarted pickup lobbies have a separate participant view. Legacy games are read-only.
 
-**Authentication Flow**: All server actions start with `getAuthenticatedUser()` or `getAuthenticatedUserPrismaId()` from `src/server/mutations/common.ts`
+The `OrganizationMembership` table and old guest invitation fields remain in the schema but have no active synchronization or application use. Dropping them requires a separate migration review. Deleted Clerk users remain stored to preserve game history; account retention remains a separate policy decision.
 
-**Error Handling**: Multi-layered approach:
+Clerk webhooks verify `CLERK_WEBHOOK_SIGNING_SECRET` using the SDK. Circle setup uses Clerk organizations; the legacy contact-import/invitation flow is retired. Do not restore contact exports, old guest-email invitation actions, or historical data migration prompts.
 
-- Global error boundary: `src/app/global-error.tsx`
-- Section-specific boundaries: `src/app/*/error.tsx`
-- Component boundary: `src/components/ErrorBoundary.tsx`
+## Prisma and fixtures
 
-## Key Technical Details
+- Schema: `src/server/db/schema.prisma`; config: `prisma.config.ts`.
+- Generated Prisma 7 client: `src/generated/prisma/` (ignored). Import types from `@/generated/prisma/client`, not `@prisma/client`.
+- Connections use `@prisma/adapter-pg`. Create additive migrations with `npx prisma migrate dev --name <change>` against an isolated database; never rewrite historical migrations.
+- Integration tests create their own database and override inherited connection settings. Do not replace this runner with a shared database URL.
+- Explicit fixture seeding preserves existing games, edits, guest names, added rounds, and rematches. It requires configured `SEED_*` values and a Clerk development key and may change development memberships. Builds must never seed.
 
-**Database**: PostgreSQL via Neon, managed through Prisma 7
+## Analytics, flags, and Insights
 
-- Schema: `src/server/db/schema.prisma`
-- Config: `prisma.config.ts` (datasource URL, schema path, migrations path)
-- Generated client: `src/generated/prisma/` (gitignored, regenerated on `npm install`)
-- Import Prisma types from `@/generated/prisma/client`, not `@prisma/client`
-- Uses `@prisma/adapter-pg` driver adapter for database connections
-- Always run `npx prisma migrate dev` after schema changes
+The public PostHog project key (`NEXT_PUBLIC_POSTHOG_KEY`) is intentionally public; other secrets remain sensitive. Use snake_case event names and keep names, emails, IPs, join tokens, subjects, and chat contents out of analytics event properties.
 
-**Authentication**: Clerk handles auth, user data synced via webhooks. Circle setup and invitations use Clerk's organization components; do not commit contact exports or restore the retired legacy-friend invitation flow.
+Use `captureServerEvent` for server product events. It schedules `captureImmediate` within Next's `after` lifetime and contains delivery failures. Do not shut down the shared client after each request or let analytics failures fail committed actions. Email recipients/content belong only in the provider request; email telemetry records counts, categories, and results. Provider idempotency is not a durable outbox.
 
-**Feature Flags**: PostHog-based system
+Client pageviews must wait for loaded Clerk identity/profile state and synchronize identify/reset before capture. Use `identify(userId)` without profile traits. Email and username are feature-flag evaluation overrides only. URL sanitization covers event envelopes, session-entry properties, and replay URLs. Automatic initial referrer/campaign attribution is deliberately retired; the provider clears persisted initial-origin keys before flag requests. Retain the actual-SDK regression when changing PostHog configuration or upgrading its SDK.
 
-- Server: `isFeatureEnabled()` from `src/featureFlags.ts`
-- Client: `useFeatureFlag()` from `src/hooks/useFeatureFlag.ts`
-- Active flag: `llm-features` (controls Insights nav link visibility)
+`llm-features` gates the nav, Insights UI, and `/api/chat`; only boolean `true` enables it. Server flags use a 60-second, 1,000-user cache with failed-entry eviction. Clerk email/username targeting works on both server and client. See `src/FEATURE_FLAGS.md`.
 
-**Analytics & Error Tracking**:
+Chat uses AI SDK UI messages, server-side input limits/system prompt, and `gpt-3.5-turbo` through `@ai-sdk/openai`. Its context is the caller's aggregate statistics; no runtime SQL/analytics tools exist. `@posthog/ai` tracing uses privacy mode and immediate capture. Future tool-based plans must adapt to the current aggregate/query boundaries rather than restore the retired read-only client.
 
-- PostHog for analytics and feature flags
-- Sentry for error monitoring
-- Server actions should include PostHog event tracking
+Sentry instrumentation receives Next's real request-error context. Preserve route-pattern attribution. Slack reports require a valid fresh signature plus the configured workspace and named operators, and return ephemeral responses without email addresses.
 
-**Testing**: Jest with Testing Library, configured for Next.js App Router
+## Working style
 
-## Working Style
+Keep changes scoped to the request. Verify runtime consumers before retaining compatibility aliases or deleting code. Prefer existing domain functions and small DTOs over another layer. Update supported-interface tests when removing dead wrappers; preserve regression coverage for authorization, conflicts, retries, and data contracts.
 
-- When reviewing code or making changes, avoid excessive modifications beyond what was requested. Focus on the specific ask before suggesting broader refactors.
-- When asked to review or explain the codebase, provide a concise summary first before diving into details. Do not generate report files or offer to write files unless explicitly asked.
-- Only change what is requested. Flag issues but don't fix them unless asked.
-
-## Analytics / PostHog
-
-- PostHog is used for analytics and feature flags. The public PostHog project key exposed to the client (via `NEXT_PUBLIC_POSTHOG_KEY`) is intentionally public — do not flag it as a security issue. All other PostHog keys or secrets (personal API keys, server-side secrets) must be treated as sensitive.
-- When adding tracking events, ensure no PII (emails, names, IPs) is included in event properties.
-- Use consistent event naming conventions (snake_case) across both client-side and server-side API routes.
-- Server actions should include PostHog event tracking — maintain this pattern when adding new actions.
-
-## Development Workflow
-
-1. **Schema Changes**: Modify `src/server/db/schema.prisma` → Run `npx prisma migrate dev`
-2. **Server Actions**: Add to appropriate domain file in `src/server/mutations/`
-3. **Components**: Use existing ShadCN UI components from `src/components/ui/`
-4. **Authentication**: Always authenticate server actions before data operations
-5. **Error Handling**: Wrap complex components in ErrorBoundary when appropriate
-
-## Test Environment
-
-- Test user credentials: ask the human developer to provide these for you.
-- Use `npm test` for unit tests, `npm run test:watch` for development
-- Database operations require test database setup via environment variables
+Use mocked service boundaries for unit tests and synthetic local fixtures for database/browser verification. Real Clerk, email, and production database writes require the user's authorization. Do not infer authorization from an old plan or fixture script.

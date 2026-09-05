@@ -7,13 +7,9 @@ jest.mock("resend", () => ({
   })),
 }));
 
-import {
-  createGame,
-  createRoundForGame,
-  updateRoundScores,
-  cloneGame,
-} from "../mutations";
-import { requireAuthContext, requireGameInCircle } from "../mutations/common";
+import { createGame, cloneGame } from "../mutations/games";
+import { createRoundForGame, updateRoundScores } from "../mutations/rounds";
+import { requireAuthContext } from "../mutations/common";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
@@ -584,33 +580,4 @@ describe("Game Mutations", () => {
     });
   });
 
-  describe("requireGameInCircle", () => {
-    it("returns the game when it belongs to the active circle", async () => {
-      const mockGame = { id: mockGameId, organizationId: mockOrgId };
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
-
-      await expect(requireGameInCircle(mockGameId, mockOrgId)).resolves.toEqual(
-        mockGame,
-      );
-    });
-
-    it("throws when the game does not exist", async () => {
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(requireGameInCircle(mockGameId, mockOrgId)).rejects.toThrow(
-        "Game not found",
-      );
-    });
-
-    it("throws when the game belongs to another circle", async () => {
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
-        id: mockGameId,
-        organizationId: "org_other",
-      });
-
-      await expect(requireGameInCircle(mockGameId, mockOrgId)).rejects.toThrow(
-        "Game does not belong to your active circle",
-      );
-    });
-  });
 });
