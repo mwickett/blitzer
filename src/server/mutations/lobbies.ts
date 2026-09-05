@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
+import { pickupGameSchema } from "@/lib/validation/submissions";
 import { assignColorsToPlayers } from "@/lib/scoring/colors";
 import {
   MAX_PICKUP_PLAYERS,
@@ -59,43 +60,44 @@ export async function createPickupGame(input: {
   guestNames?: string[];
 }): Promise<Result<{ gameId: string; joinToken: string }>> {
   const { user, posthog } = await requireAuthContext("user");
-  const host = await ensureCurrentPrismaUser();
   const tracking = {
     posthog,
     distinctId: user.userId,
     event: "create_pickup_game_rejected",
   };
 
-  const winThreshold = input.winThreshold ?? 75;
-  if (
-    !Number.isInteger(winThreshold) ||
-    winThreshold < 25 ||
-    winThreshold > 200
-  ) {
+  const parsed = pickupGameSchema.safeParse(input);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue.path[0] === "winThreshold") {
+      return reject(
+        tracking,
+        "invalid_threshold",
+        "Points to win must be a whole number between 25 and 200.",
+      );
+    }
+    if (issue.code === "too_big" && issue.path.length === 1) {
+      return reject(
+        tracking,
+        "too_many_guests",
+        `A pickup game seats up to ${MAX_PICKUP_PLAYERS} players.`,
+      );
+    }
+    if (issue.code === "too_big") {
+      return reject(
+        tracking,
+        "guest_name_too_long",
+        "Guest names must be 50 characters or fewer.",
+      );
+    }
     return reject(
       tracking,
-      "invalid_threshold",
-      "Points to win must be a whole number between 25 and 200.",
+      "invalid_input",
+      "Enter a valid game configuration and nonblank guest names.",
     );
   }
-  const guestNames = (input.guestNames ?? [])
-    .map((name) => name.trim())
-    .filter(Boolean);
-  if (guestNames.some((name) => name.length > 50)) {
-    return reject(
-      tracking,
-      "guest_name_too_long",
-      "Guest names must be 50 characters or fewer.",
-    );
-  }
-  // The host occupies a seat too, so guests can only fill what is left.
-  if (guestNames.length + 1 > MAX_PICKUP_PLAYERS) {
-    return reject(
-      tracking,
-      "too_many_guests",
-      `A pickup game seats up to ${MAX_PICKUP_PLAYERS} players.`,
-    );
-  }
+  const { winThreshold, guestNames } = parsed.data;
+  const host = await ensureCurrentPrismaUser();
 
   let game;
   for (let attempt = 0; attempt < 3; attempt++) {

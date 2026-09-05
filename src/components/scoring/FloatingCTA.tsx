@@ -8,14 +8,16 @@ export type CTAState =
 export function FloatingCTA({
   state,
   onAction,
+  disabled = false,
 }: {
   state: CTAState;
   onAction: () => void;
+  disabled?: boolean;
 }) {
   if (state.mode === "gameOver") return null;
 
   const isSubmit = state.mode === "submit";
-  const disabled = isSubmit && !state.allComplete;
+  const isDisabled = disabled || (isSubmit && !state.allComplete);
   const label = isSubmit
     ? state.allComplete
       ? "Submit Round"
@@ -26,10 +28,11 @@ export function FloatingCTA({
     <div className="sticky bottom-0 z-40 p-4 bg-gradient-to-t from-[#fff7ea] via-[#fff7ea] to-transparent pt-8">
       <div className="max-w-[440px] mx-auto">
         <button
+          type="button"
           onClick={onAction}
-          disabled={disabled}
+          disabled={isDisabled}
           className={`w-full py-3.5 rounded-xl text-[15px] font-bold transition-all ${
-            disabled
+            isDisabled
               ? "bg-[#f0e6d2] text-[#d1bfa8] cursor-not-allowed"
               : isSubmit
                 ? "bg-[#2a6517] text-white hover:bg-[#1d4a10] cursor-pointer"

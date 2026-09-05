@@ -52,6 +52,7 @@ describe("transformGameData", () => {
         id: `round-${index}`,
         gameId: "test-game-id",
         round: round.roundNumber,
+        revision: 0,
         createdAt: new Date(),
         scores: round.scores.map((score) => ({
           id: `score-${score.userId}-${round.roundNumber}`,
@@ -374,6 +375,36 @@ describe("transformGameData", () => {
       isGuestWinner: true,
       gameShouldBeFinalized: true,
     });
+  });
+
+  it("uses final cumulative totals for leaders after a negative round", () => {
+    const game = createMockGame(
+      [{ userId: "a", username: "A" }, { userId: "b", username: "B" }],
+      [
+        { roundNumber: 1, scores: [
+          { userId: "a", totalCardsPlayed: 40, blitzPileRemaining: 0 },
+          { userId: "b", totalCardsPlayed: 10, blitzPileRemaining: 0 },
+        ] },
+        { roundNumber: 2, scores: [
+          { userId: "a", totalCardsPlayed: 0, blitzPileRemaining: 10 },
+          { userId: "b", totalCardsPlayed: 20, blitzPileRemaining: 0 },
+        ] },
+      ],
+    );
+    expect(transformGameData(game).filter((p) => p.isInLead).map((p) => p.id)).toEqual(["b"]);
+  });
+
+  it("reopens an edited history when final totals fall below the threshold", () => {
+    const game = createMockGame(
+      [{ userId: "a", username: "A" }, { userId: "b", username: "B" }],
+      [30, 30, -20].map((points, index) => ({ roundNumber: index + 1, scores: [
+        { userId: "a", totalCardsPlayed: Math.max(0, points), blitzPileRemaining: points < 0 ? 10 : 0 },
+        { userId: "b", totalCardsPlayed: 4, blitzPileRemaining: 0 },
+      ] })),
+      50,
+    );
+    expect(getGameCompletion(game).winnerId).toBeNull();
+    expect(transformGameData(game).every((p) => !p.isWinner)).toBe(true);
   });
 
 });

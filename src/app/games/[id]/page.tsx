@@ -37,10 +37,9 @@ export default async function GameView(props: {
 
   const displayScores = transformGameData(game);
 
-  // Completion is synced when scores are written, but a winner can still be
-  // derived from the loaded rounds before the snapshot reflects it — trust
-  // the computed scores over the isFinished flag we read.
-  const isFinished = game.isFinished || displayScores.some((s) => s.isWinner);
+  // Final totals also keep games written by older finalizers editable when
+  // their persisted completion flag disagrees with the score history.
+  const isFinished = displayScores.some((s) => s.isWinner);
 
   // calculate the current round number
   const currentRoundNumber = game.rounds.length + 1;
@@ -101,6 +100,7 @@ export default async function GameView(props: {
         predictionProfiles={predictionProfiles}
         rounds={game.rounds.map((r) => ({
           id: r.id,
+          revision: r.revision,
           scores: r.scores.map((s) => ({
             userId: s.userId,
             guestId: s.guestId,

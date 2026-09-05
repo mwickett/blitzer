@@ -1,9 +1,20 @@
-import { Game, User, Score, Round, GuestUser } from "@/generated/prisma/client";
+import type {
+  Game,
+  User,
+  Score,
+  Round,
+  GuestUser,
+} from "@/generated/prisma/client";
 import { calculateRoundScore, isWinningScore } from "./validation/gameRules";
 import { breakTie } from "./scoring/tiebreak";
 
-// Accepts both the raw Prisma payload (null-able fields) and looser
-// hand-built shapes, so query results flow in without adaptation
+type ScoredRound = Pick<Round, "id" | "round" | "revision"> & {
+  scores: Pick<
+    Score,
+    "userId" | "guestId" | "totalCardsPlayed" | "blitzPileRemaining"
+  >[];
+};
+
 export interface GameWithPlayersAndScores extends Game {
   players: {
     id: string;
@@ -14,7 +25,7 @@ export interface GameWithPlayersAndScores extends Game {
     user?: User | null;
     guestUser?: GuestUser | null;
   }[];
-  rounds: (Round & { scores: Score[] })[];
+  rounds: ScoredRound[];
 }
 
 export interface Player {
@@ -69,14 +80,14 @@ function getPlayerId(player: GameWithPlayersAndScores["players"][0]): string {
 
 // Function to check if player is a guest
 function isGuestPlayer(
-  player: GameWithPlayersAndScores["players"][0]
+  player: GameWithPlayersAndScores["players"][0],
 ): boolean {
   return !!player.guestId;
 }
 
 // Function to initialize player scores map
 function initializePlayerScoresMap(
-  players: GameWithPlayersAndScores["players"]
+  players: GameWithPlayersAndScores["players"],
 ): Record<string, ProcessedPlayerScore> {
   const playerScoresMap: Record<string, ProcessedPlayerScore> = {};
 
@@ -97,84 +108,73 @@ function initializePlayerScoresMap(
 
 // Function to process game scores
 function processGameScores(
-  rounds: (Round & { scores: Score[] })[],
+  rounds: ScoredRound[],
   playerScoresMap: Record<string, ProcessedPlayerScore>,
-  winThreshold: number
+  winThreshold: number,
 ): {
-  maxScore: number;
   leaders: string[];
   playersAboveThreshold: { id: string; total: number }[];
 } {
-  let maxScore = -Infinity;
-  let leaders: string[] = [];
-  const playersAboveThreshold: { id: string; total: number }[] = [];
-
-  rounds.forEach((round, roundIndex) => {
-    round.scores.forEach((score) => {
-      // Get the player ID from either userId or guestId
-      const playerId = score.userId || score.guestId;
-
-      if (!playerId) return; // Skip if no valid ID
-
-      const playerScore = playerScoresMap[playerId];
-      if (!playerScore) return; // Skip if player not found in map
-
-      const { totalCardsPlayed, blitzPileRemaining } = score;
-      const scoreValue = calculateRoundScore({
-        blitzPileRemaining,
-        totalCardsPlayed,
-      });
-
-      if (!playerScore.scoresByRound[roundIndex]) {
-        playerScore.scoresByRound[roundIndex] = scoreValue;
-      } else {
-        playerScore.scoresByRound[roundIndex] += scoreValue;
+  [...rounds]
+    .sort((a, b) => a.round - b.round)
+    .forEach((round, roundIndex) => {
+      for (const player of Object.values(playerScoresMap)) {
+        player.scoresByRound[roundIndex] = 0;
       }
-
-      playerScore.total += scoreValue;
-
-      if (playerScore.total > maxScore) {
-        maxScore = playerScore.total;
-        leaders = [playerId];
-      } else if (playerScore.total === maxScore) {
-        leaders.push(playerId);
-      }
-
-      if (isWinningScore(playerScore.total, winThreshold)) {
-        playersAboveThreshold.push({
-          id: playerId,
-          total: playerScore.total,
-        });
+      for (const score of round.scores) {
+        const playerId = score.userId || score.guestId;
+        const player = playerId ? playerScoresMap[playerId] : undefined;
+        if (!player) continue;
+        const points = calculateRoundScore(score);
+        player.scoresByRound[roundIndex] += points;
+        player.total += points;
       }
     });
-  });
 
-  return { maxScore, leaders, playersAboveThreshold };
+  // Historical edits retain every round, so leaders and completion must use
+  // the final cumulative snapshot rather than a peak reached along the way.
+  const totals = Object.values(playerScoresMap);
+  const maxScore = Math.max(...totals.map((player) => player.total));
+  const leaders = rounds.length
+    ? totals
+        .filter((player) => player.total === maxScore)
+        .map((player) => player.id)
+    : [];
+  const playersAboveThreshold = rounds.length
+    ? totals.filter((player) => isWinningScore(player.total, winThreshold))
+    : [];
+
+  return { leaders, playersAboveThreshold };
 }
 
 // Function to determine the winner
 function determineWinner(
   game: GameWithPlayersAndScores,
-  playersAboveThreshold: { id: string; total: number }[]
+  playersAboveThreshold: { id: string; total: number }[],
 ): string | null {
   if (playersAboveThreshold.length > 0) {
     const highestScore = Math.max(
-      ...playersAboveThreshold.map((player) => player.total)
+      ...playersAboveThreshold.map((player) => player.total),
     );
-    const potentialWinners = playersAboveThreshold.filter(
-      (player) => player.total === highestScore
-    );
+    const potentialWinners = playersAboveThreshold
+      .filter((player) => player.total === highestScore)
+      .sort((a, b) => a.id.localeCompare(b.id));
 
     // Tie-breaking: when multiple players have the same highest score,
     // the player with fewer blitz cards remaining in the final round wins.
     let winnerId: string;
     if (potentialWinners.length > 1) {
-      const finalRound = game.rounds[game.rounds.length - 1];
+      const finalRound = [...game.rounds]
+        .sort((a, b) => a.round - b.round)
+        .at(-1)!;
       const candidates = potentialWinners.map((pw) => {
         const score = finalRound.scores.find(
-          (s) => s.userId === pw.id || s.guestId === pw.id
+          (s) => s.userId === pw.id || s.guestId === pw.id,
         );
-        return { playerId: pw.id, blitzPileRemaining: score?.blitzPileRemaining ?? 10 };
+        return {
+          playerId: pw.id,
+          blitzPileRemaining: score?.blitzPileRemaining ?? 10,
+        };
       });
       winnerId = breakTie(candidates);
     } else {
@@ -185,17 +185,19 @@ function determineWinner(
   return null;
 }
 
-export function getGameCompletion(game: GameWithPlayersAndScores): GameCompletion {
+export function getGameCompletion(
+  game: GameWithPlayersAndScores,
+): GameCompletion {
   const playerScoresMap = initializePlayerScoresMap(game.players);
   const { playersAboveThreshold } = processGameScores(
     game.rounds,
     playerScoresMap,
-    game.winThreshold
+    game.winThreshold,
   );
   const winnerId = determineWinner(game, playersAboveThreshold);
   const winnerPlayer = winnerId
     ? game.players.find(
-        (player) => player.guestId === winnerId || player.userId === winnerId
+        (player) => player.guestId === winnerId || player.userId === winnerId,
       )
     : undefined;
 
@@ -208,16 +210,16 @@ export function getGameCompletion(game: GameWithPlayersAndScores): GameCompletio
 
 // Main function
 export default function transformGameData(
-  game: GameWithPlayersAndScores
+  game: GameWithPlayersAndScores,
 ): DisplayScores[] {
   // Initialize player scores map with all players
   const playerScoresMap = initializePlayerScoresMap(game.players);
 
   // Process scores from all rounds
-  const { maxScore, leaders, playersAboveThreshold } = processGameScores(
+  const { leaders, playersAboveThreshold } = processGameScores(
     game.rounds,
     playerScoresMap,
-    game.winThreshold
+    game.winThreshold,
   );
 
   // Determine the winner
@@ -235,6 +237,6 @@ export default function transformGameData(
       isInLead: leaders.includes(id),
       isWinner: id === winnerId,
       accentColor,
-    })
+    }),
   );
 }

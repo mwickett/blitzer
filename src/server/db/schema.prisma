@@ -73,6 +73,7 @@ model Round {
   createdAt DateTime @default(now()) @map("created_at")
   gameId    String
   round     Int
+  revision  Int      @default(0)
   game      Game     @relation(fields: [gameId], references: [id])
   scores    Score[]
 

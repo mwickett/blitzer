@@ -35,5 +35,6 @@ export interface RoundScoreData {
 
 export interface RoundData {
   id: string;
+  revision: number;
   scores: RoundScoreData[];
 }

@@ -199,6 +199,7 @@ export default function NewGameChooser({
         accentColor: playerColors[p.id],
       }));
       const result = await createGame(playersWithColors, winThreshold);
+      if (!result.ok) throw new Error(result.message);
 
       // Fire-and-forget: saving the creator's default must not block
       // navigation or cause a retry that duplicates the game.

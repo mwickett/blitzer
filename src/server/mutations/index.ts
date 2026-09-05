@@ -2,7 +2,7 @@
 // This maintains backward compatibility with existing imports
 
 // Import and re-export async functions directly
-import { createGame, updateGameAsFinished, cloneGame, saveUserAccentColor } from "./games";
+import { createGame, cloneGame, saveUserAccentColor } from "./games";
 import { createRoundForGame, updateRoundScores } from "./rounds";
 import { createGuestUser, getCircleGuestUsers, inviteGuestUser } from "./guests";
 import { createPickupGame, joinPickupGame, joinPickupGameByCode, startPickupGame } from "./lobbies";
@@ -10,7 +10,6 @@ import { createPickupGame, joinPickupGame, joinPickupGameByCode, startPickupGame
 // Re-export them
 export {
   createGame,
-  updateGameAsFinished,
   cloneGame,
   saveUserAccentColor,
   createRoundForGame,

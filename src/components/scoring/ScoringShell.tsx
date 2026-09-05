@@ -1,32 +1,20 @@
 "use client";
 
-import {
-  useState,
-  useCallback,
-  useEffect,
-  useMemo,
-  useTransition,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePostHog } from "posthog-js/react";
 import { ScoreEntryView } from "./ScoreEntryView";
 import { BetweenRoundsView } from "./BetweenRoundsView";
 import { CelebrationOverlay } from "./CelebrationOverlay";
 import { GameOverView } from "./GameOverView";
 import { RoundEditor } from "./RoundEditor";
+import { roundEditButtonId } from "./RoundHistoryTable";
 import { findPlayerScore } from "./utils";
-import { useRoundEditing } from "./useRoundEditing";
-import {
-  type PlayerWithScore,
-  type RoundData,
-  type RoundScoreData,
-} from "./types";
+import { newRoundDraft, useScoringDraft } from "./useScoringDraft";
+import { type PlayerWithScore, type RoundData } from "./types";
 import { calcGameStats, type RoundResult } from "@/lib/scoring/gameStats";
 import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
 import { cloneGame } from "@/server/mutations/games";
-
-export type ScoringMode = "entry" | "betweenRounds" | "gameOver";
 
 interface ScoringShellProps {
   gameId: string;
@@ -38,24 +26,16 @@ interface ScoringShellProps {
   endedAt?: string;
   rounds: RoundData[];
   predictionProfiles?: PredictionProfilesByPlayer;
-  /**
-   * When false, render as a read-only spectator view — for people viewing a
-   * game outside their circle, or via a public shared link. No score entry or
-   * round editing; rematch availability is controlled separately.
-   */
   canEdit?: boolean;
-  /** Pickup games require a new lobby, so only Circle games can clone a roster. */
   canRematch?: boolean;
-  /**
-   * Whether players are expected to score from their own devices at once, in
-   * which case this view polls for rounds it did not write itself. Only pickup
-   * games opt in: a Circle game re-runs the per-player prediction-profile
-   * queries on every refresh, which is not worth paying on a poll.
-   */
   sharedScoring?: boolean;
 }
 
-export function ScoringShell({
+export function ScoringShell(props: ScoringShellProps) {
+  return <ScoringSession key={props.gameId} {...props} />;
+}
+
+function ScoringSession({
   gameId,
   currentRoundNumber,
   players,
@@ -70,240 +50,306 @@ export function ScoringShell({
   sharedScoring = false,
 }: ScoringShellProps) {
   const router = useRouter();
-  const posthog = usePostHog();
-  const [, startTransition] = useTransition();
+  const [savedRound, setSavedRound] = useState<RoundData | null>(null);
+  const initialDraft = () =>
+    canEdit && !isFinished && rounds.length === 0
+      ? newRoundDraft(players, currentRoundNumber)
+      : null;
+  const session = useScoringDraft(gameId, initialDraft, (round) => {
+    setSavedRound(round);
+    router.refresh();
+  });
+  const { draft, isSaving, hasConflict } = session;
+  const returnFocusTo = useRef<string | null>(null);
 
-  // showEntry is a client override — when user taps "Enter Next Round" we flip to entry.
-  // Reset when currentRoundNumber changes (i.e. after a round is submitted + refresh).
-  // Uses React's "adjust state during render" pattern to avoid useEffect lint issues.
-  const [showEntry, setShowEntry] = useState(false);
-  const [prevRound, setPrevRound] = useState(currentRoundNumber);
-
-  // Optimistic round data — appended after a round is submitted so the UI
-  // transitions to betweenRounds immediately without waiting for server refresh.
-  const [optimisticRound, setOptimisticRound] = useState<RoundData | null>(
-    null,
+  // The action returns real persisted scores. Wait for the page snapshot too,
+  // so neither another edit nor the next round uses stale completion state.
+  const awaitingRefresh =
+    !!savedRound &&
+    !rounds.some(
+      (round) =>
+        round.id === savedRound.id && round.revision >= savedRound.revision,
+    );
+  const effectiveRounds = useMemo(() => {
+    if (!savedRound || !awaitingRefresh) return rounds;
+    return rounds.some((round) => round.id === savedRound.id)
+      ? rounds.map((round) => (round.id === savedRound.id ? savedRound : round))
+      : [...rounds, savedRound];
+  }, [rounds, savedRound, awaitingRefresh]);
+  const effectivePlayers = useMemo(
+    () =>
+      !awaitingRefresh
+        ? players
+        : players.map((player) => ({
+            ...player,
+            score: effectiveRounds.reduce((total, round) => {
+              const score = findPlayerScore(player, round.scores);
+              return total + (score ? calculateRoundScore(score) : 0);
+            }, 0),
+          })),
+    [players, effectiveRounds, awaitingRefresh],
   );
 
-  // Celebration: only show for recently-finished games (within 30s of endedAt).
-  // useState initializer runs once on mount — safe to call Date.now() there.
-  const [hasSeenCelebration, setHasSeenCelebration] = useState(() => {
-    if (!endedAt) return true;
-    return Date.now() - new Date(endedAt).getTime() >= 30_000;
-  });
-
-  // Editing state — shared hook for game-over round editing
-  const {
-    editingRoundIndex,
-    editError,
-    handleEditRound,
-    handleSaveEdit,
-    cancelEdit,
-  } = useRoundEditing({ gameId, rounds, players });
-
-  if (currentRoundNumber !== prevRound) {
-    setPrevRound(currentRoundNumber);
-    setShowEntry(false);
-    setOptimisticRound(null); // server data caught up — drop the optimistic round
-  }
-
-  // The very first round opens the entry form on its own, with no tap on
-  // "Enter Next Round" — so `showEntry` is still false while that player is
-  // typing. `mode` below reads this too, so the form and the polling guard
-  // cannot drift apart.
-  const isFirstRoundAutoEntry = canEdit && rounds.length === 0 && !optimisticRound;
-
-  // Notice rounds this device did not write — without it a stale device
-  // submits a round somebody else already recorded. Paused while this player
-  // is mid-entry: a refresh that changes currentRoundNumber runs the reset
-  // above and would close the entry sheet under them, discarding what they
-  // typed. That includes the automatic first-round form.
-  const isEnteringScores =
-    showEntry || isFirstRoundAutoEntry || editingRoundIndex !== null;
-  const shouldPollForRounds =
-    sharedScoring && canEdit && !isFinished && !isEnteringScores;
+  const shouldPoll =
+    sharedScoring &&
+    canEdit &&
+    !isFinished &&
+    !draft &&
+    !isSaving &&
+    !awaitingRefresh;
   useEffect(() => {
-    if (!shouldPollForRounds) return;
-
-    const refreshWhenVisible = () => {
+    if (!shouldPoll) return;
+    const refreshVisible = () => {
       if (document.visibilityState === "visible") router.refresh();
     };
-    const timer = window.setInterval(refreshWhenVisible, 5_000);
-    document.addEventListener("visibilitychange", refreshWhenVisible);
-
+    const timer = window.setInterval(refreshVisible, 5_000);
+    document.addEventListener("visibilitychange", refreshVisible);
     return () => {
       window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshVisible);
     };
-  }, [router, shouldPollForRounds]);
+  }, [router, shouldPoll]);
 
-  // Merge optimistic round into rounds and players for downstream components
-  const effectiveRounds = useMemo(
-    () => (optimisticRound ? [...rounds, optimisticRound] : rounds),
-    [rounds, optimisticRound],
+  useEffect(() => {
+    if (!draft && !isSaving && !awaitingRefresh && returnFocusTo.current) {
+      document.getElementById(returnFocusTo.current)?.focus();
+      returnFocusTo.current = null;
+    }
+  }, [draft, isSaving, awaitingRefresh]);
+
+  const [seenCompletions, setSeenCompletions] = useState(
+    () =>
+      new Set<string>(
+        isFinished &&
+          endedAt &&
+          Date.now() - new Date(endedAt).getTime() >= 30_000
+          ? [endedAt]
+          : [],
+      ),
   );
-  const effectivePlayers = useMemo(() => {
-    if (!optimisticRound) return players;
-    return players.map((p) => {
-      const s = optimisticRound.scores.find(
-        (sc) => (sc.userId ?? sc.guestId) === p.id,
-      );
-      if (!s) return p;
-      return { ...p, score: p.score + calculateRoundScore(s) };
-    });
-  }, [players, optimisticRound]);
-
-  const handleRoundSubmitted = useCallback(
-    (scoreData: RoundScoreData[]) => {
-      setOptimisticRound({ id: `optimistic-${Date.now()}`, scores: scoreData });
-      setShowEntry(false);
-      startTransition(() => {
-        router.replace(`/games/${gameId}`);
-      });
-    },
-    [router, gameId, startTransition],
-  );
-
-  // Derive mode from props + client override. Spectators (!canEdit) never see
-  // the score-entry form — they only ever observe betweenRounds / gameOver.
-  const mode: ScoringMode = isFinished
-    ? "gameOver"
-    : isFirstRoundAutoEntry || (canEdit && showEntry)
-      ? "entry"
-      : "betweenRounds";
-
-  // Compute game stats only when rounds/players change (not on every render)
+  const completionKey = isFinished ? endedAt : undefined;
+  const winner = winnerId
+    ? effectivePlayers.find((player) => player.id === winnerId)
+    : undefined;
+  const showCelebration =
+    !!completionKey &&
+    !seenCompletions.has(completionKey) &&
+    !draft &&
+    !awaitingRefresh;
   const gameStats = useMemo(() => {
-    const roundResults: RoundResult[] = effectiveRounds.map((round) => {
+    const results: RoundResult[] = effectiveRounds.map((round) => {
       const deltas: Record<string, number> = {};
       const blitzCounts: Record<string, number> = {};
       for (const score of round.scores) {
-        const pid = score.userId ?? score.guestId ?? "";
-        deltas[pid] = calculateRoundScore(score);
-        blitzCounts[pid] = score.blitzPileRemaining === 0 ? 1 : 0;
+        const id = score.userId ?? score.guestId ?? "";
+        deltas[id] = calculateRoundScore(score);
+        blitzCounts[id] = score.blitzPileRemaining === 0 ? 1 : 0;
       }
       return { deltas, blitzCounts };
     });
-    const playerNameMap = Object.fromEntries(
-      players.map((p) => [p.id, p.name]),
+    return calcGameStats(
+      results,
+      Object.fromEntries(players.map((player) => [player.id, player.name])),
     );
-    return calcGameStats(roundResults, playerNameMap);
   }, [effectiveRounds, players]);
 
-  // Use server-resolved winnerId (includes tie-breaking) instead of client sort
-  const winner = winnerId ? players.find((p) => p.id === winnerId) : undefined;
-
-  const showCelebration = isFinished && !hasSeenCelebration;
-
-  const handleCelebrationComplete = useCallback(() => {
-    setHasSeenCelebration(true);
-  }, []);
-
-  const handleRematch = async () => {
-    const newGameId = await cloneGame(gameId);
-    router.push(`/games/${newGameId}`);
+  const handleEdit = (index: number) => {
+    if (!canEdit || isSaving || awaitingRefresh || !rounds[index]) return;
+    returnFocusTo.current = roundEditButtonId(rounds[index].id);
+    session.edit(players, rounds[index], index + 1);
   };
+  const latestRound = draft?.round
+    ? rounds.find((round) => round.id === draft.round!.id)
+    : draft
+      ? rounds[draft.roundNumber - 1]
+      : undefined;
+  const canReconcile =
+    hasConflict &&
+    latestRound &&
+    (!draft?.round || latestRound.revision > draft.round.revision);
+  const editEnabled = canEdit ? handleEdit : undefined;
+  const showEntry = draft && !draft.round;
 
-  const handleBackToGames = () => {
-    router.push("/games");
-  };
-
-  // A spectator on a game that hasn't started yet has nothing to observe —
-  // the graph/standings views assume at least one round of data.
-  if (!canEdit && !isFinished && effectiveRounds.length === 0) {
+  if (!canEdit && !draft && !isFinished && rounds.length === 0) {
     return (
-      <div className="px-4 py-16 text-center text-sm text-[#8b5e3c]">
+      <p className="px-4 py-16 text-center text-sm">
         This game hasn&rsquo;t started yet.
-      </div>
-    );
-  }
-
-  if (mode === "gameOver") {
-    return (
-      <>
-        {showCelebration && winner && (
-          <CelebrationOverlay
-            winnerName={winner.name}
-            winnerScore={winner.score}
-            winnerColor={winner.color}
-            onComplete={handleCelebrationComplete}
-          />
-        )}
-
-        {editError && (
-          <div className="mx-4 mb-2 p-3 bg-[#fef2f2] border border-[#fecaca] rounded-lg text-sm text-[#b91c1c]">
-            {editError}
-          </div>
-        )}
-
-        {/* Inline round editor for finished games — members only */}
-        {canEdit &&
-          editingRoundIndex !== null &&
-          editingRoundIndex < effectiveRounds.length && (
-            <RoundEditor
-              roundIndex={editingRoundIndex}
-              players={players}
-              roundData={Object.fromEntries(
-                players.map((p) => {
-                  const s = findPlayerScore(
-                    p,
-                    effectiveRounds[editingRoundIndex].scores,
-                  );
-                  return [
-                    p.id,
-                    {
-                      blitzPileRemaining: s?.blitzPileRemaining ?? 0,
-                      totalCardsPlayed: s?.totalCardsPlayed ?? 0,
-                    },
-                  ];
-                }),
-              )}
-              onSave={handleSaveEdit}
-              onCancel={cancelEdit}
-            />
-          )}
-
-        {winner && (
-          <GameOverView
-            winner={winner}
-            players={effectivePlayers}
-            stats={gameStats}
-            rounds={effectiveRounds}
-            onEditRound={canEdit ? handleEditRound : undefined}
-            onRematch={handleRematch}
-            onBackToGames={handleBackToGames}
-            canEdit={canEdit}
-            canRematch={canRematch}
-          />
-        )}
-      </>
-    );
-  }
-
-  if (mode === "betweenRounds") {
-    return (
-      <BetweenRoundsView
-        gameId={gameId}
-        players={effectivePlayers}
-        rounds={effectiveRounds}
-        winThreshold={winThreshold}
-        nextRoundNumber={
-          optimisticRound ? currentRoundNumber + 1 : currentRoundNumber
-        }
-        onEnterScores={() => setShowEntry(true)}
-        canEdit={canEdit}
-        predictionProfiles={predictionProfiles}
-      />
+      </p>
     );
   }
 
   return (
-    <ScoreEntryView
-      gameId={gameId}
-      currentRoundNumber={currentRoundNumber}
-      players={players}
-      winThreshold={winThreshold}
-      onRoundSubmitted={handleRoundSubmitted}
-    />
+    <>
+      {showCelebration && winner && completionKey && (
+        <CelebrationOverlay
+          key={completionKey}
+          winnerName={winner.name}
+          winnerScore={winner.score}
+          winnerColor={winner.color}
+          onComplete={() =>
+            setSeenCompletions((seen) => new Set([...seen, completionKey]))
+          }
+        />
+      )}
+
+      {awaitingRefresh && (
+        <div role="status" className="mx-4 my-3 rounded-lg border p-3 text-sm">
+          Scores saved. Waiting for the updated game…{" "}
+          <button
+            type="button"
+            className="underline"
+            onClick={() => router.refresh()}
+          >
+            Refresh scores
+          </button>
+        </div>
+      )}
+      {draft && isFinished && (
+        <p role="status" className="mx-4 my-3 text-sm">
+          This game is complete. Your unsaved scores are still here.
+        </p>
+      )}
+      {session.error && (
+        <p
+          role="alert"
+          className="mx-4 my-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+        >
+          {session.error}
+        </p>
+      )}
+
+      {hasConflict && draft && (
+        <section
+          className="mx-4 my-3 space-y-3 rounded-lg border p-3"
+          aria-label="Review score conflict"
+        >
+          <p className="text-sm">
+            Your draft is still here. Refresh to compare it with the saved
+            round.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.refresh()}
+            className="underline"
+          >
+            Refresh current scores
+          </button>
+          {canReconcile && (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <caption className="text-left font-semibold">
+                    Round {draft.roundNumber}: cards played / blitz left
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Player</th>
+                      <th scope="col">Your draft</th>
+                      <th scope="col">Saved scores</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draft.players.map((player) => {
+                      const saved = findPlayerScore(player, latestRound.scores);
+                      const entry = draft.entries[player.id];
+                      return (
+                        <tr key={player.id}>
+                          <th scope="row" className="break-words p-2 text-left">
+                            {player.name}
+                          </th>
+                          <td className="p-2 text-center">
+                            {entry.cardsPlayed ?? "—"} /{" "}
+                            {entry.blitzRemaining ?? "—"}
+                          </td>
+                          <td className="p-2 text-center">
+                            {saved?.totalCardsPlayed ?? "—"} /{" "}
+                            {saved?.blitzPileRemaining ?? "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <button
+                type="button"
+                className="mr-3 underline"
+                onClick={() => session.reconcile(latestRound)}
+              >
+                Edit saved round using my draft
+              </button>
+              <button
+                type="button"
+                className="underline"
+                onClick={session.cancel}
+              >
+                Use saved round
+              </button>
+            </>
+          )}
+        </section>
+      )}
+
+      {draft?.round && (
+        <RoundEditor
+          key={draft.round.id}
+          draft={draft}
+          isSaving={isSaving}
+          blocked={hasConflict || !canEdit}
+          onUpdate={session.update}
+          onSave={session.submit}
+          onCancel={session.cancel}
+        />
+      )}
+      {showEntry && (
+        <ScoreEntryView
+          draft={draft}
+          winThreshold={winThreshold}
+          isSaving={isSaving}
+          blocked={hasConflict || !canEdit}
+          onUpdate={session.update}
+          onSubmit={session.submit}
+          onCancel={rounds.length || isFinished ? session.cancel : undefined}
+        />
+      )}
+
+      {!showEntry &&
+        (isFinished && winner ? (
+          <fieldset disabled={isSaving || awaitingRefresh}>
+            <GameOverView
+              winner={winner}
+              players={effectivePlayers}
+              stats={gameStats}
+              rounds={effectiveRounds}
+              onEditRound={editEnabled}
+              canEdit={canEdit && !draft}
+              canRematch={canRematch}
+              onRematch={async () => {
+                const id = await cloneGame(gameId);
+                router.push(`/games/${id}`);
+              }}
+              onBackToGames={() => router.push("/games")}
+            />
+          </fieldset>
+        ) : (
+          <BetweenRoundsView
+            players={effectivePlayers}
+            rounds={effectiveRounds}
+            winThreshold={winThreshold}
+            nextRoundNumber={
+              awaitingRefresh ? effectiveRounds.length + 1 : currentRoundNumber
+            }
+            canEdit={canEdit}
+            onEditRound={editEnabled}
+            showNextRound={!draft}
+            disabled={isSaving || awaitingRefresh}
+            onEnterScores={() => {
+              if (!awaitingRefresh && !isSaving)
+                session.open(newRoundDraft(players, currentRoundNumber));
+            }}
+            predictionProfiles={predictionProfiles}
+          />
+        ))}
+    </>
   );
 }

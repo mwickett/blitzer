@@ -2,19 +2,13 @@
 
 import prisma from "@/server/db/db";
 import { Prisma } from "@/generated/prisma/client";
-import { after } from "next/server";
-import {
-  requireAuthContext,
-  assertGameInCircle,
-  assertGameScoringAccess,
-} from "./common";
+import { requireAuthContext, assertGameInCircle } from "./common";
 import { getOrgMemberClerkIds } from "../clerkOrgs";
-import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 import {
   resolvePlayerColor,
   assignColorsToPlayers,
 } from "@/lib/scoring/colors";
-import { GAME_RULES } from "@/lib/validation/gameRules";
+import { circleGameSchema } from "@/lib/validation/submissions";
 
 // Create a new game with support for guest players
 export async function createGame(
@@ -29,11 +23,16 @@ export async function createGame(
   const { user, posthog, orgId, prismaUserId } =
     await requireAuthContext("orgWithPrismaId");
 
-  // The picker stops at this count, but the action is the boundary that
-  // actually holds — a stale tab or a direct call must not seat a ninth.
-  if (users.length > GAME_RULES.MAX_PLAYERS) {
-    throw new Error(`A game seats up to ${GAME_RULES.MAX_PLAYERS} players.`);
+  const parsed = circleGameSchema.safeParse({ users, winThreshold });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      reason: "invalid_input" as const,
+      message: parsed.error.issues[0].message,
+    };
   }
+  users = parsed.data.users;
+  winThreshold = parsed.data.winThreshold;
 
   const regularPlayerIds = users.filter((u) => !u.isGuest).map((u) => u.id);
 
@@ -46,13 +45,25 @@ export async function createGame(
         })
       : [];
 
+  if (regularPlayers.length !== regularPlayerIds.length) {
+    return {
+      ok: false as const,
+      reason: "invalid_input" as const,
+      message: "One or more players are no longer available.",
+    };
+  }
+
   // Validate that non-guest players are members of the active circle
   if (regularPlayerIds.length > 0) {
     const memberClerkIds = await getOrgMemberClerkIds(orgId);
 
     for (const player of regularPlayers) {
       if (!memberClerkIds.has(player.clerk_user_id)) {
-        throw new Error("All players must be members of the active circle");
+        return {
+          ok: false as const,
+          reason: "invalid_input" as const,
+          message: "All players must be members of the active circle.",
+        };
       }
     }
   }
@@ -79,7 +90,7 @@ export async function createGame(
       const game = await tx.game.create({
         data: {
           organizationId: orgId,
-          ...(winThreshold && winThreshold !== 75 ? { winThreshold } : {}),
+          winThreshold,
         },
       });
 
@@ -90,7 +101,7 @@ export async function createGame(
         if (player.isGuest && player.username) {
           const guestUser = await tx.guestUser.create({
             data: {
-              name: player.username,
+              name: player.username.trim(),
               createdById: prismaUserId,
               organizationId: orgId,
             },
@@ -129,152 +140,11 @@ export async function createGame(
 
     // Return the game ID instead of redirecting
     // This prevents the NEXT_REDIRECT error in the logs
-    return { gameId: newGame.id };
+    return { ok: true as const, gameId: newGame.id };
   } catch (error) {
     console.error("Error creating game:", error);
     throw error;
   }
-}
-
-// Update game as finished
-export async function updateGameAsFinished(
-  gameId: string,
-  winnerId: string,
-  isGuestWinner: boolean = false,
-) {
-  const { user, userId, posthog } = await requireAuthContext("user");
-
-  // Fetch game with all player details
-  const game = await prisma.game.findUnique({
-    where: {
-      id: gameId,
-    },
-    include: {
-      players: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              username: true,
-              clerk_user_id: true,
-            },
-          },
-          guestUser: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  // This include is already a superset of what the check needs, so assert
-  // against it rather than re-loading the same row through the require* helper.
-  assertGameScoringAccess(game, { userId, orgId: user.orgId ?? undefined });
-
-  const winnerPlayer = game.players.find((player) =>
-    isGuestWinner
-      ? player.guestUser?.id === winnerId
-      : player.user?.id === winnerId,
-  );
-  if (!winnerPlayer) throw new Error("Winner must be a player in this game");
-  const winnerName = isGuestWinner
-    ? winnerPlayer.guestUser!.name
-    : winnerPlayer.user!.username;
-
-  // Update game as finished
-  await prisma.game.update({
-    where: {
-      id: gameId,
-    },
-    data: {
-      isFinished: true,
-      winnerId: winnerId,
-      endedAt: new Date(),
-    },
-  });
-
-  posthog.capture({
-    distinctId: user.userId,
-    event: "update_game_as_finished",
-    properties: {
-      gameId: gameId,
-      winnerId: winnerId,
-      isGuestWinner: isGuestWinner,
-    },
-  });
-
-  // Schedule emails after the response is sent — the platform keeps the
-  // runtime alive until the callback resolves (replaces fire-and-forget IIFE).
-  const registeredPlayers = game.players.filter((player) => player.user);
-
-  after(async () => {
-    posthog.capture({
-      distinctId: user.userId,
-      event: "email_batch_started",
-      properties: {
-        gameId,
-        emailType: "game_complete",
-        recipientCount: registeredPlayers.length,
-        winnerName,
-        isGuestWinner,
-      },
-    });
-
-    for (let i = 0; i < registeredPlayers.length; i++) {
-      const player = registeredPlayers[i];
-      const userEmail = player.user!.email;
-      const username = player.user!.username;
-      const pUserId = player.user!.id;
-      const userClerkId = player.user!.clerk_user_id || user.userId;
-
-      try {
-        await sendGameCompleteEmail({
-          email: userEmail,
-          username: username,
-          winnerUsername: winnerName,
-          isWinner: isGuestWinner ? false : pUserId === winnerId,
-          gameId,
-          userId: userClerkId,
-        });
-
-        if (i < registeredPlayers.length - 1) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, EMAIL_INTER_SEND_DELAY_MS),
-          );
-        }
-      } catch (error) {
-        console.error(`Failed to send email to ${username}:`, error);
-        posthog.capture({
-          distinctId: user.userId,
-          event: "email_batch_item_failed",
-          properties: {
-            gameId,
-            recipientEmail: userEmail,
-            recipientUsername: username,
-            recipientId: pUserId,
-            errorMessage:
-              error instanceof Error ? error.message : String(error),
-          },
-        });
-      }
-    }
-
-    posthog.capture({
-      distinctId: user.userId,
-      event: "email_batch_completed",
-      properties: {
-        gameId,
-        emailType: "game_complete",
-        recipientCount: registeredPlayers.length,
-        winnerName,
-        isGuestWinner,
-      },
-    });
-  });
 }
 
 // Save user's default accent color preference

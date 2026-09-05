@@ -1,10 +1,11 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { GameOverView } from "../../scoring/GameOverView";
 import { type PlayerWithScore } from "../../scoring/types";
 import { type GameStats } from "@/lib/scoring/gameStats";
 
+const mockCapture = jest.fn();
 jest.mock("posthog-js/react", () => ({
-  usePostHog: () => ({ capture: jest.fn() }),
+  usePostHog: () => ({ capture: mockCapture }),
 }));
 
 const players: PlayerWithScore[] = [
@@ -38,6 +39,7 @@ const stats: GameStats = {
 const rounds = [
   {
     id: "r1",
+    revision: 0,
     scores: [
       { userId: "p1", blitzPileRemaining: 0, totalCardsPlayed: 30 },
       { userId: "p2", blitzPileRemaining: 5, totalCardsPlayed: 20 },
@@ -55,6 +57,25 @@ const baseProps = {
 };
 
 describe("GameOverView spectator mode", () => {
+  beforeEach(() => mockCapture.mockReset());
+
+  it("creates a rematch even when optional analytics throws", async () => {
+    mockCapture.mockImplementation(() => { throw new Error("Analytics unavailable"); });
+    const onRematch = jest.fn().mockResolvedValue(undefined);
+    render(<GameOverView {...baseProps} onRematch={onRematch} />);
+    fireEvent.click(screen.getByRole("button", { name: "New Game with Same Players" }));
+    await waitFor(() => expect(onRematch).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("returns to games even when optional analytics throws", () => {
+    mockCapture.mockImplementation(() => { throw new Error("Analytics unavailable"); });
+    const onBackToGames = jest.fn();
+    render(<GameOverView {...baseProps} onBackToGames={onBackToGames} />);
+    fireEvent.click(screen.getByRole("button", { name: "Back to Games" }));
+    expect(onBackToGames).toHaveBeenCalledTimes(1);
+  });
+
   it("shows member actions by default (interactive)", () => {
     render(<GameOverView {...baseProps} />);
     // Winner name appears in both the winner card and the standings row
