@@ -20,7 +20,16 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => ({
     get: jest.fn(),
   }),
+  usePathname: () => '/',
 }))
+
+// Clerk's <Show when="signed-in|signed-out"> renders exactly one branch at
+// runtime. Tests select which via global.__setClerkAuthState. Defaults to
+// signed-out, the state the marketing pages are written for.
+let mockClerkAuthState = 'signed-out'
+global.__setClerkAuthState = (state) => {
+  mockClerkAuthState = state
+}
 
 // Mock clerk/nextjs
 jest.mock('@clerk/nextjs', () => ({
@@ -31,6 +40,11 @@ jest.mock('@clerk/nextjs', () => ({
     id: 'test-user-id',
     email: 'test@example.com',
   }),
+  Show: ({ when, children }) => (when === mockClerkAuthState ? children : null),
+  SignInButton: ({ children }) => children,
+  SignUpButton: ({ children }) => children,
+  UserButton: () => null,
+  OrganizationSwitcher: () => null,
 }))
 
 // Mock PostHog
@@ -39,4 +53,10 @@ jest.mock('@/app/posthog', () => ({
   default: () => ({
     capture: jest.fn(),
   }),
+}))
+
+// Mock posthog-js/react (client-side analytics)
+jest.mock('posthog-js/react', () => ({
+  usePostHog: () => ({ capture: jest.fn() }),
+  PostHogProvider: ({ children }) => children,
 }))
