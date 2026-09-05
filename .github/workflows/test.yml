@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
   test:
@@ -33,3 +32,6 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Test PostgreSQL transactions and fixtures
+        run: npm run test:integration
