@@ -36,7 +36,7 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
 
   // When org becomes active after accepting an invitation,
   // redirect to dashboard. Circle creation uses Clerk's
-  // afterCreateOrganizationUrl to redirect to /circles/invite-friends
+  // afterCreateOrganizationUrl to redirect to /dashboard
   // directly, which survives component remounts.
   // Note: only redirect, don't setState — avoids cascading renders.
   useEffect(() => {
@@ -127,8 +127,7 @@ export default function CircleSetup({ hasCircle }: CircleSetupProps) {
           </CardHeader>
           <CardContent>
             <CreateOrganization
-              skipInvitationScreen={true}
-              afterCreateOrganizationUrl="/circles/invite-friends"
+              afterCreateOrganizationUrl="/dashboard"
             />
           </CardContent>
         </Card>
