@@ -23,7 +23,8 @@ test("seeding twice preserves edited rounds, new rounds, and rematches sharing f
   };
   await seedGameData(prisma, config, users);
   const gameId = seedId(2, 3);
-  const initialCount = await prisma.game.count();
+  const fixtureScope = { organizationId: { in: [config.orgA, config.orgB] } };
+  const initialCount = await prisma.game.count({ where: fixtureScope });
   await prisma.score.update({ where: { id: seedId(5, 1) }, data: { totalCardsPlayed: 27 } });
   const added = await prisma.round.create({ data: {
     gameId, round: 3, scores: { create: {
@@ -37,7 +38,7 @@ test("seeding twice preserves edited rounds, new rounds, and rematches sharing f
   }, include: { players: true } });
   await prisma.guestUser.update({ where: { id: seedId(1, 1) }, data: { name: "Renamed fixture guest" } });
   await Promise.all([seedGameData(prisma, config, users), seedGameData(prisma, config, users)]);
-  assert.equal(await prisma.game.count(), initialCount + 1);
+  assert.equal(await prisma.game.count({ where: fixtureScope }), initialCount + 1);
   assert.deepEqual(await prisma.round.findUnique({ where: { id: added.id }, include: { scores: true } }), added);
   assert.deepEqual(await prisma.game.findUnique({ where: { id: rematch.id }, include: { players: true } }), rematch);
   assert.equal((await prisma.score.findUniqueOrThrow({ where: { id: seedId(5, 1) } })).totalCardsPlayed, 27);
