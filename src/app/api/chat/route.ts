@@ -1,137 +1,58 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { openai } from "@ai-sdk/openai";
-import { streamText } from "ai";
+import { convertToModelMessages, streamText } from "ai";
 import { withTracing } from "@posthog/ai";
 import { buildEnhancedSystemPrompt } from "@/server/ai/enhancedSystemPrompt";
+import { ChatInputError, readChatMessages } from "@/server/ai/chatMessages";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import PostHogClient from "@/app/posthog";
 
-// Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
   const user = await currentUser();
-
-  // Check authentication
-  if (!user) {
-    return new Response("Unauthorized", { status: 401 });
+  if (!user) return new Response("Unauthorized", { status: 401 });
+  if (!(await isLlmFeaturesEnabled())) {
+    return Response.json({ error: "This feature is currently disabled" }, { status: 403 });
   }
 
-  // Check feature flag
-  const llmFeaturesEnabled = await isLlmFeaturesEnabled();
-
-  if (!llmFeaturesEnabled) {
-    return new Response(
-      JSON.stringify({ error: "This feature is currently disabled" }),
-      {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
-
-  try {
-    // Parse the request body
-    const { messages } = await req.json();
-
-    // Check if API key is configured
-    const hasApiKey = !!process.env.OPENAI_API_KEY;
-
-    if (!hasApiKey) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "OpenAI API key not configured. Please add your API key to the .env file.",
-        }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Build enhanced system prompt with user data and include as system message
-    const systemContent = await buildEnhancedSystemPrompt(
-      user.id,
-      user?.username || "unknown"
-    );
-
-    // Prepare the messages array with the system prompt
-    const fullMessages = [
-      { role: "system", content: systemContent },
-      ...messages,
-    ];
-
-    // Get conversation context for tracking
-    const conversationId = `chat_${user.id}_${Date.now()}`;
-    const messageCount = messages.length;
-
-    // Define message part interface
-    interface MessagePart {
-      type: string;
-      text?: string;
-    }
-
-    // Extract first user message for topic
-    const firstUserMessage =
-      messages.length > 0 && messages[0].parts
-        ? messages[0].parts
-            .filter((p: MessagePart) => p.type === "text")
-            .map((p: MessagePart) => p.text || "")
-            .join(" ")
-            .substring(0, 100)
-        : "No user message";
-
-    // Get PostHog client
-    const posthogClient = PostHogClient();
-
-    // Create a traced OpenAI model
-    const tracedModel = withTracing(openai("gpt-3.5-turbo"), posthogClient, {
-      posthogDistinctId: user.id,
-      posthogProperties: {
-        username: user.username,
-        user_id: user.id,
-        conversation_id: conversationId,
-        message_count: messageCount,
-        topic: firstUserMessage,
-      },
-    });
-
-    // Use the streamText helper from ai with traced model
-    const result = streamText({
-      model: tracedModel,
-      messages: fullMessages,
-    });
-
-    // We'll let the posthog client manage its own lifecycle
-    // The tracing happens asynchronously and doesn't require
-    // immediate shutdown of the client
-
-    // Return streaming response
-    return result.toUIMessageStreamResponse();
-  } catch (error) {
-    console.error("Error calling OpenAI:", error);
-
-    // For errors, we still capture the error event
-    const posthogClient = PostHogClient();
-    posthogClient.capture({
+  const posthog = PostHogClient();
+  const recordError = (error: unknown) => {
+    posthog.capture({
       distinctId: user.id,
       event: "llm_error",
-      properties: {
-        error_message: error instanceof Error ? error.message : String(error),
-        error_type:
-          error instanceof Error ? error.constructor.name : typeof error,
-      },
+      properties: { error_type: error instanceof Error ? error.name : "UnknownError" },
     });
+  };
 
-    return new Response(
-      JSON.stringify({ error: "Failed to generate response" }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+  try {
+    const messages = await readChatMessages(req);
+    if (!process.env.OPENAI_API_KEY) {
+      return Response.json({ error: "Chat is temporarily unavailable" }, { status: 503 });
+    }
+    const system = await buildEnhancedSystemPrompt(user.id, user.username || "unknown");
+    const model = withTracing(openai("gpt-3.5-turbo"), posthog, {
+      posthogDistinctId: user.id,
+      posthogPrivacyMode: true,
+      posthogCaptureImmediate: true,
+      posthogProperties: { message_count: messages.length },
+    });
+    const result = streamText({
+      model,
+      system,
+      messages: await convertToModelMessages(messages),
+      maxOutputTokens: 1024,
+      abortSignal: req.signal,
+      onError: ({ error }) => recordError(error),
+    });
+    return result.toUIMessageStreamResponse({
+      onError: () => "Unable to finish the response. Please try again.",
+    });
+  } catch (error) {
+    if (error instanceof ChatInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
+    recordError(error);
+    return Response.json({ error: "Failed to generate response" }, { status: 500 });
   }
 }

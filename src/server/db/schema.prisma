@@ -66,6 +66,7 @@ model Game {
   @@index([organizationId])
   @@index([hostUserId])
   @@index([kind, startedAt])
+  @@index([createdAt, id])
 }
 
 model Round {

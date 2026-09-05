@@ -2,16 +2,14 @@
  * Enhanced system prompt builder with user data context
  */
 
-import { getUserGameSummary, getUserStats } from "./utils";
+import { getUserStatistics } from "./utils";
 import { GAME_RULES } from "@/lib/validation/gameRules";
 
 export async function buildEnhancedSystemPrompt(
   userId: string,
   username: string
 ) {
-  // Get basic user data
-  const userSummary = await getUserGameSummary(userId);
-  const userStats = await getUserStats(userId);
+  const { games: userSummary, rounds: userStats } = await getUserStatistics(userId);
 
   return `
     You are an AI assistant for a Dutch Blitz card game scoring app called Blitzer.
@@ -21,6 +19,14 @@ export async function buildEnhancedSystemPrompt(
     User Statistics:
     - Games played: ${userSummary.gamesCount}
     - Games won: ${userSummary.winCount}
+    - Games lost: ${userSummary.lossCount}
+    - Completed games: ${userSummary.completedGames}
+    - Completed games with a recorded winner: ${userSummary.decidedGames}
+    - Win rate among completed games with a recorded winner: ${userSummary.winRate.toFixed(2)}%
+    - Games in progress: ${userSummary.inProgressGames}
+    - Games ended without completion: ${userSummary.endedGames}
+    - Waiting pickup lobbies (not games played): ${userSummary.waitingLobbies}
+    - Expired pickup lobbies (not games played): ${userSummary.expiredLobbies}
     - Total rounds played: ${userStats.totalRounds}
     - Total blitzes: ${userStats.totalBlitzes}
     - Total cards played: ${userStats.totalCardsPlayed}
@@ -37,7 +43,7 @@ export async function buildEnhancedSystemPrompt(
     - The first player to reach ${GAME_RULES.POINTS_TO_WIN} points wins the game
     
     When answering questions, provide specific insights based on the user's statistics shown above.
-    For example, if they ask about their win rate, you can calculate it from games won divided by games played.
+    Win rate uses completed games with a recorded winner; waiting lobbies and games in progress are excluded.
     
     If they ask a question that requires data not available in the statistics provided, explain what data would be needed and that this functionality will be available in future updates.
     

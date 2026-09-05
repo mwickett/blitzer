@@ -4,16 +4,18 @@ import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { getUserIdFromAuth } from "@/server/utils";
 import { ROUND_SCORE_SQL } from "@/lib/validation/gameRules";
+import { getRoundStatsForUser } from "./playerStats";
 
 // Canonical single-round score expression — see ROUND_SCORE_SQL
 const scoreExpr = Prisma.raw(ROUND_SCORE_SQL);
 
 // The ...ForUser variants take an explicit internal user id and an optional
-// Prisma client, so callers that already resolved the user — or that read
-// from the replica, like the AI tool layer — don't repeat the lookup. The
+// Prisma client, so callers that already resolved the user don't repeat the lookup. The
 // zero-arg exports resolve the authenticated user and delegate.
 
 type Db = PrismaClient | typeof prisma;
+
+export { getGameStatsForUser, getRoundStatsForUser } from "./playerStats";
 
 type CountRow = {
   totalHandsPlayed: number | bigint;
@@ -209,18 +211,21 @@ export async function getDashboardStatsForUser(
   userId: string,
   db: Db = prisma
 ): Promise<DashboardStats> {
-  const [battingAverage, scoreExtremes, cumulativeScore, gameRoundExtremes] =
+  const [roundStats, scoreExtremes, gameRoundExtremes] =
     await Promise.all([
-      getPlayerBattingAverageForUser(userId, db),
+      getRoundStatsForUser(userId, db),
       getHighestAndLowestScoreForUser(userId, db),
-      getCumulativeScoreForUser(userId, db),
       getLongestAndShortestGamesByRoundsForUser(userId, db),
     ]);
 
   return {
-    battingAverage,
+    battingAverage: {
+      totalHandsPlayed: roundStats.totalRounds,
+      totalHandsWon: roundStats.totalBlitzes,
+      battingAverage: (roundStats.blitzPercentage / 100).toFixed(3),
+    },
     scoreExtremes,
-    cumulativeScore,
+    cumulativeScore: roundStats.cumulativeScore,
     gameRoundExtremes,
   };
 }
