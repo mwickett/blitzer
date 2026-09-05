@@ -9,6 +9,9 @@ export default async function CircleSetupPage() {
   if (!userId) {
     redirect("/sign-in");
   }
+  if (orgId) {
+    redirect("/dashboard");
+  }
 
   return (
     <main className="container mx-auto p-4 max-w-lg py-8">
@@ -21,7 +24,7 @@ export default async function CircleSetupPage() {
           can skip this and start a pickup game instead.
         </p>
       </div>
-      <CircleSetup hasCircle={!!orgId} />
+      <CircleSetup />
       {!orgId && (
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Just playing one game?{" "}
