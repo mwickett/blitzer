@@ -54,6 +54,14 @@ Vercel builds apply migrations and build the app; they do not seed data or modif
 memberships. Historical seeding plans under `docs/superpowers` describe the former
 delete-and-recreate behavior and are superseded by this workflow.
 
+## Slack reports
+
+The Slack `/whois` endpoint requires `SLACK_SIGNING_SECRET`, `SLACK_WHOIS_TEAM_ID`,
+and a comma-separated `SLACK_WHOIS_USER_IDS` list of permitted operators. Configure
+these before enabling the command; missing configuration denies access. Reports are
+ephemeral and omit email addresses. Signed requests must be within five minutes of
+server time, as described in [Slack's verification guide](https://docs.slack.dev/authentication/verifying-requests-from-slack/).
+
 ## Making schema changes / Using Prisma
 
 If you make changes to the schema, you'll need to run `npx prisma migrate dev` to create and apply a migration to your local DB. You should ensure you commit those migration files so that they can be applied to production as well (this will happen automatically as part of the build).
