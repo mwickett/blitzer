@@ -388,15 +388,14 @@ describe("Queries", () => {
       it("should fetch dashboard stats through the shared helper", async () => {
         (prisma.$queryRaw as jest.Mock)
           .mockResolvedValueOnce([
-            { totalHandsPlayed: 10, totalHandsWon: 4 },
+            { totalRounds: 10, totalBlitzes: 4, cumulativeScore: 60 },
           ])
           .mockResolvedValueOnce([
             { score: 30, totalCardsPlayed: 40, blitzPileRemaining: 5 },
           ])
           .mockResolvedValueOnce([
             { score: 10, totalCardsPlayed: 20, blitzPileRemaining: 5 },
-          ])
-          .mockResolvedValueOnce([{ totalScore: 60 }]);
+          ]);
         (prisma.round.groupBy as jest.Mock)
           .mockResolvedValueOnce([{ gameId: "game-long", _count: { _all: 9 } }])
           .mockResolvedValueOnce([

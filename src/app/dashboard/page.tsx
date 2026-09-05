@@ -38,7 +38,7 @@ export default async function Dashboard() {
       <div className="mb-4">
         <BasicStatBlock
           label="High / Low Single Hand"
-          value={`${highest?.score ?? null} / ${lowest?.score ?? null}`}
+          value={highest ? `${highest.score} / ${lowest?.score ?? "—"}` : "No rounds yet"}
         />
       </div>
       <div className="mb-4">
