@@ -17,7 +17,9 @@ jest.mock("../db/db", () => {
     game: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
     },
+    guestUser: { findMany: jest.fn() },
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -70,6 +72,10 @@ describe("Queries", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (prisma.game.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.game.count as jest.Mock).mockResolvedValue(0);
+    (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.guestUser.findMany as jest.Mock).mockResolvedValue([]);
     (auth as unknown as jest.Mock).mockResolvedValue({
       userId: mockClerkUserId,
       orgId: mockOrgId,
@@ -139,71 +145,78 @@ describe("Queries", () => {
     });
   });
 
-  describe("getGames", () => {
-    it("should return games for the active circle", async () => {
-      const mockGames = [
-        {
-          id: "game-1",
-          createdAt: new Date(),
-          organizationId: mockOrgId,
-          players: [{ user: { clerk_user_id: mockClerkUserId } }],
-          rounds: [],
-        },
-      ];
-
-      (prisma.game.findMany as jest.Mock).mockResolvedValue(mockGames);
-
+  describe("game lists", () => {
+    it("scopes a bounded display query to the active circle and caller pickup games", async () => {
       const result = await getGames();
-
-      expect(prisma.game.findMany).toHaveBeenCalledWith({
-        where: {
-          OR: [
-            { kind: "CIRCLE", organizationId: mockOrgId },
-            {
-              kind: "PICKUP",
-              players: { some: { user: { clerk_user_id: mockClerkUserId } } },
-            },
-          ],
-        },
-        include: {
-          players: {
-            include: {
-              user: true,
-              guestUser: true,
-            },
+      expect(prisma.game.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              {
+                OR: [
+                  { kind: "CIRCLE", organizationId: mockOrgId },
+                  {
+                    kind: "PICKUP",
+                    players: {
+                      some: { user: { clerk_user_id: mockClerkUserId } },
+                    },
+                  },
+                ],
+              },
+              {},
+            ],
           },
-          rounds: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
+          take: 21,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: expect.objectContaining({
+            _count: { select: { rounds: true } },
+          }),
+        }),
+      );
+      const args = (prisma.game.findMany as jest.Mock).mock.calls[0][0];
+      expect(args.include).toBeUndefined();
+      expect(args.select.players.select.user).toEqual({
+        select: { username: true },
       });
-
-      expect(result).toEqual(mockGames);
+      expect(result.games).toEqual([]);
     });
 
-    it("should throw error if user not authenticated", async () => {
+    it("rejects unauthenticated list and legacy requests", async () => {
       (auth as unknown as jest.Mock).mockResolvedValue({
         userId: null,
         orgId: null,
       });
       await expect(getGames()).rejects.toThrow("Unauthorized");
+      await expect(getLegacyGames()).rejects.toThrow("Unauthorized");
+      expect(prisma.game.findMany).not.toHaveBeenCalled();
     });
 
-    it("should still return the user's pickup games without an active circle", async () => {
+    it("still includes participant pickup games without an active circle", async () => {
       (auth as unknown as jest.Mock).mockResolvedValue({
         userId: mockClerkUserId,
         orgId: null,
       });
       await getGames();
-      expect(prisma.game.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: {
-          OR: [{
+      expect(
+        (prisma.game.findMany as jest.Mock).mock.calls[0][0].where.AND[0],
+      ).toEqual({
+        OR: [
+          {
             kind: "PICKUP",
             players: { some: { user: { clerk_user_id: mockClerkUserId } } },
-          }],
-        },
-      }));
+          },
+        ],
+      });
+    });
+
+    it("keeps legacy games restricted to the authenticated participant", async () => {
+      await getLegacyGames();
+      expect(
+        (prisma.game.findMany as jest.Mock).mock.calls[0][0].where.AND[0],
+      ).toEqual({
+        kind: "LEGACY",
+        players: { some: { user: { clerk_user_id: mockClerkUserId } } },
+      });
     });
   });
 
@@ -335,7 +348,7 @@ describe("Queries", () => {
                 players: { some: { userId: mockUserId } },
               },
             },
-          })
+          }),
         );
       });
 
