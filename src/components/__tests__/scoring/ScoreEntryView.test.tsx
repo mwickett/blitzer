@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { createRoundForGame } from "@/server/mutations";
 import { ScoreEntryView } from "../../scoring/ScoreEntryView";
 
 // Mock crypto.randomUUID for jsdom
@@ -129,5 +130,15 @@ describe("ScoreEntryView", () => {
     await waitFor(() =>
       expect(mockReplace).toHaveBeenCalledWith("/games/game-1"),
     );
+  });
+  it("passes the persisted round ID and revision into the scoring shell", async () => {
+    const round = { id: "saved-round", revision: 3, scores: [] };
+    (createRoundForGame as jest.Mock).mockResolvedValueOnce({ ok: true, round });
+    const onRoundSubmitted = jest.fn();
+    render(<ScoreEntryView gameId="game-1" currentRoundNumber={1} players={mockPlayers} winThreshold={75} onRoundSubmitted={onRoundSubmitted} />);
+    const inputs = screen.getAllByPlaceholderText("—");
+    [0, 18, 5, 14].forEach((value, index) => fireEvent.change(inputs[index], { target: { value: String(value) } }));
+    fireEvent.click(screen.getByText("Submit Round"));
+    await waitFor(() => expect(onRoundSubmitted).toHaveBeenCalledWith(round));
   });
 });

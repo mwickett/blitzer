@@ -10,7 +10,6 @@ jest.mock("resend", () => ({
 import {
   createGame,
   createRoundForGame,
-  updateGameAsFinished,
   updateRoundScores,
   cloneGame,
 } from "../mutations";
@@ -18,7 +17,7 @@ import { requireAuthContext, requireGameInCircle } from "../mutations/common";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
 import posthogClient from "@/app/posthog";
-import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { GAME_RULES } from "@/lib/validation/gameRules";
 
 // Mock dependencies
@@ -52,6 +51,7 @@ jest.mock("../db/db", () => {
       createMany: jest.fn(),
     },
     $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
   };
   // Set after the literal so `client` is not referenced inside its own
   // initializer. Supports both Prisma forms: an array of operations, and the
@@ -96,13 +96,12 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("next/server", () => ({
-  after: jest.fn((cb: () => Promise<void>) => void cb()),
+  after: jest.fn(),
 }));
 
 describe("Game Mutations", () => {
   const mockUserId = "test-user-id";
   const mockGameId = "test-game-id";
-  const mockTargetUserId = "target-user-id";
   const mockOrgId = "org_test123";
   const validRoster = [
     { userId: "player1", guestId: null },
@@ -120,183 +119,102 @@ describe("Game Mutations", () => {
     });
   });
 
-  describe("createRoundForGame", () => {
-    const validScores = [
-      {
-        userId: "player1",
-        blitzPileRemaining: 0, // Blitzed
-        totalCardsPlayed: 10, // More than minimum required
-      },
-      {
-        userId: "player2",
-        blitzPileRemaining: 5,
-        totalCardsPlayed: 20,
-      },
+  describe("score actions", () => {
+    const scores = [
+      { userId: "player1", totalCardsPlayed: 30, blitzPileRemaining: 0 },
+      { userId: "player2", totalCardsPlayed: 20, blitzPileRemaining: 5 },
     ];
-    it("should create a new round with scores", async () => {
-      const mockGame = {
-        id: mockGameId,
-        kind: "CIRCLE",
-        organizationId: mockOrgId,
-        isFinished: false,
-        winnerId: null,
-        winThreshold: 75,
-        players: validRoster,
-      };
-      const mockRound = { id: "round-1", scores: validScores };
-
-      (prisma.game.findUnique as jest.Mock)
-        .mockResolvedValueOnce(mockGame)
-        .mockResolvedValueOnce({ ...mockGame, players: [], rounds: [] });
-      (prisma.round.create as jest.Mock).mockResolvedValue(mockRound);
-
-      const result = await createRoundForGame(mockGameId, 1, validScores);
-
-      expect(prisma.round.create).toHaveBeenCalledWith({
-        data: {
-          gameId: mockGameId,
-          round: 1,
+    const stored = (revision = 0) => ({
+      id: "round-1",
+      gameId: mockGameId,
+      round: 1,
+      revision,
+      scores: scores.map((score) => ({ ...score, guestId: null })),
+    });
+    const game = () => ({
+      id: mockGameId,
+      kind: "CIRCLE",
+      organizationId: mockOrgId,
+      startedAt: new Date(),
+      isFinished: false,
+      winnerId: null,
+      endedAt: null,
+      winThreshold: 25,
+      players: validRoster.map((player) => ({
+        ...player,
+        user: {
+          id: player.userId,
+          username: player.userId,
+          clerk_user_id: player.userId,
         },
-      });
-
-      expect(result).toEqual({ ok: true, round: mockRound });
+      })),
+      rounds: [],
+    });
+    beforeEach(() => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(game());
+      (prisma.round.create as jest.Mock).mockResolvedValue(stored());
+      (prisma.game.update as jest.Mock).mockResolvedValue({});
     });
 
-    it("should finalize an unfinished game when the new score crosses the threshold", async () => {
-      const mockGame = {
-        id: mockGameId,
-        kind: "CIRCLE",
-        organizationId: mockOrgId,
-        isFinished: false,
-        winnerId: null,
-        winThreshold: 50,
-        createdAt: new Date(),
-        endedAt: null,
-        players: validRoster,
-      };
-      const mockRound = { id: "round-2", scores: validScores };
-      const completionGame = {
-        ...mockGame,
-        players: [
-          {
-            id: "game-player-1",
-            gameId: mockGameId,
-            userId: "player1",
-            guestId: null,
-            accentColor: null,
-            user: {
-              id: "player1",
-              clerk_user_id: "clerk-player1",
-              email: "player1@example.com",
-              username: "Player 1",
-              avatarUrl: null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-            guestUser: null,
-          },
-          {
-            id: "game-player-2",
-            gameId: mockGameId,
-            userId: "player2",
-            guestId: null,
-            accentColor: null,
-            user: {
-              id: "player2",
-              clerk_user_id: "clerk-player2",
-              email: "player2@example.com",
-              username: "Player 2",
-              avatarUrl: null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-            guestUser: null,
-          },
-        ],
-        rounds: [
-          {
-            id: "round-1",
-            gameId: mockGameId,
-            round: 1,
-            createdAt: new Date(),
-            scores: [
-              {
-                id: "score-1-player1",
-                userId: "player1",
-                guestId: null,
-                roundId: "round-1",
-                blitzPileRemaining: 0,
-                totalCardsPlayed: 25,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-              {
-                id: "score-1-player2",
-                userId: "player2",
-                guestId: null,
-                roundId: "round-1",
-                blitzPileRemaining: 5,
-                totalCardsPlayed: 20,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-            ],
-          },
-          {
-            id: "round-2",
-            gameId: mockGameId,
-            round: 2,
-            createdAt: new Date(),
-            scores: [
-              {
-                id: "score-2-player1",
-                userId: "player1",
-                guestId: null,
-                roundId: "round-2",
-                blitzPileRemaining: 0,
-                totalCardsPlayed: 27,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-              {
-                id: "score-2-player2",
-                userId: "player2",
-                guestId: null,
-                roundId: "round-2",
-                blitzPileRemaining: 5,
-                totalCardsPlayed: 20,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-            ],
-          },
-        ],
-      };
+    it.each([-1, 41, 0.5, NaN, Infinity, "10", null])(
+      "rejects cards %p before a write",
+      async (cards) => {
+        const invalid = [{ ...scores[0], totalCardsPlayed: cards }, scores[1]];
+        const result = await createRoundForGame(
+          mockGameId,
+          1,
+          invalid as typeof scores,
+        );
+        expect(result).toMatchObject({ ok: false, reason: "invalid_input" });
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+        expect(prisma.round.create).not.toHaveBeenCalled();
+      },
+    );
 
-      (prisma.game.findUnique as jest.Mock)
-        // 1: the scoring-access check, 2: the completion re-read,
-        // 3: updateGameAsFinished loading the roster for the winner + emails.
-        .mockResolvedValueOnce(mockGame)
-        .mockResolvedValueOnce(completionGame)
-        .mockResolvedValueOnce(completionGame);
-      (prisma.round.create as jest.Mock).mockResolvedValue(mockRound);
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
-        username: "Player 1",
+    it.each([0, -1, 0.5])("rejects round number %p", async (number) => {
+      expect(
+        await createRoundForGame(mockGameId, number, scores),
+      ).toMatchObject({ ok: false, reason: "invalid_input" });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("rejects missing blitz, duplicate, ambiguous, and foreign participants", async () => {
+      for (const invalid of [
+        scores.map((score) => ({ ...score, blitzPileRemaining: 1 })),
+        [scores[0], scores[0]],
+        [{ ...scores[0], guestId: "guest" }, scores[1]],
+        [{ ...scores[0], userId: "outsider" }, scores[1]],
+      ]) {
+        expect(await createRoundForGame(mockGameId, 1, invalid)).toMatchObject({
+          ok: false,
+          reason: "invalid_input",
+        });
+      }
+      expect(prisma.round.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects skipped and genuinely new finished-game rounds", async () => {
+      expect(await createRoundForGame(mockGameId, 2, scores)).toMatchObject({
+        ok: false,
+        reason: "stale_round",
       });
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        isFinished: true,
+      });
+      expect(await createRoundForGame(mockGameId, 1, scores)).toMatchObject({
+        ok: false,
+        reason: "game_finished",
+      });
+      expect(prisma.round.create).not.toHaveBeenCalled();
+    });
 
-      await createRoundForGame(mockGameId, 2, [
-        {
-          userId: "player1",
-          blitzPileRemaining: 0,
-          totalCardsPlayed: 27,
-        },
-        {
-          userId: "player2",
-          blitzPileRemaining: 5,
-          totalCardsPlayed: 20,
-        },
-      ]);
-
+    it("derives and commits completion before scheduling its email callback", async () => {
+      const result = await createRoundForGame(mockGameId, 1, scores);
+      expect(result).toMatchObject({
+        ok: true,
+        round: { id: "round-1", revision: 0 },
+      });
       expect(prisma.game.update).toHaveBeenCalledWith({
         where: { id: mockGameId },
         data: {
@@ -305,339 +223,81 @@ describe("Game Mutations", () => {
           endedAt: expect.any(Date),
         },
       });
-      expect(mockCapture).toHaveBeenCalledWith({
-        distinctId: mockUserId,
-        event: "update_game_as_finished",
-        properties: {
-          gameId: mockGameId,
-          winnerId: "player1",
-          isGuestWinner: false,
-        },
-      });
+      expect(after).toHaveBeenCalledTimes(1);
+      expect(
+        (prisma.game.update as jest.Mock).mock.invocationCallOrder[0],
+      ).toBeLessThan((after as jest.Mock).mock.invocationCallOrder[0]);
     });
 
-    it("should throw error if validation fails", async () => {
-      const mockGame = {
-        id: mockGameId,
-        kind: "CIRCLE",
-        organizationId: mockOrgId,
-        players: validRoster,
-      };
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
-
-      const invalidScores = [
-        {
-          userId: "player1",
-          blitzPileRemaining: 5, // No blitz
-          totalCardsPlayed: 20,
-        },
-      ];
-
-      await expect(
-        createRoundForGame(mockGameId, 1, invalidScores),
-      ).rejects.toThrow("At least one player must blitz");
-
-      // Verify PostHog capture was called with validation error
-      expect(mockCapture).toHaveBeenCalledWith({
-        distinctId: mockUserId,
-        event: "validation_error",
-        properties: {
-          error: "At least one player must blitz (have 0 cards remaining)",
-          scores: invalidScores,
-          gameId: mockGameId,
-          roundNumber: 1,
-          type: "game_rules",
-        },
-      });
-    });
-
-    describe("when the round already exists", () => {
-      const mockGame = {
-        id: mockGameId,
-        kind: "CIRCLE",
-        organizationId: mockOrgId,
-        isFinished: false,
-        winnerId: null,
-        winThreshold: 75,
-        players: validRoster,
-      };
-      const stored = validScores.map((s) => ({ ...s, guestId: null }));
-
-      beforeEach(() => {
-        (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
-        (prisma.round.create as jest.Mock).mockRejectedValue({ code: "P2002" });
-      });
-
-      it("stays idempotent when the same device submits twice", async () => {
-        const existing = { id: "round-1", round: 1, scores: stored };
-        (prisma.round.findFirst as jest.Mock).mockResolvedValue(existing);
-        // 1: the scoring-access check, 2: the completion re-read that follows
-        // the early return.
-        (prisma.game.findUnique as jest.Mock)
-          .mockResolvedValueOnce(mockGame)
-          .mockResolvedValueOnce({ ...mockGame, players: [], rounds: [] });
-
-        await expect(
-          createRoundForGame(mockGameId, 1, validScores),
-        ).resolves.toEqual({ ok: true, round: existing });
-        expect(prisma.score.createMany).not.toHaveBeenCalled();
-      });
-
-      it("refuses to discard scores another player already recorded", async () => {
-        (prisma.round.findFirst as jest.Mock).mockResolvedValue({
-          id: "round-1",
-          round: 1,
-          // Same players, different numbers — a competing submission, not a
-          // re-send of the same tap.
-          scores: stored.map((s) => ({ ...s, totalCardsPlayed: 39 })),
-        });
-
-        await expect(
-          createRoundForGame(mockGameId, 1, validScores),
-        ).resolves.toMatchObject({ ok: false, reason: "round_conflict" });
-        expect(prisma.score.createMany).not.toHaveBeenCalled();
-      });
-
-      it("treats a different roster size as a competing submission", async () => {
-        (prisma.round.findFirst as jest.Mock).mockResolvedValue({
-          id: "round-1",
-          round: 1,
-          scores: [stored[0]],
-        });
-
-        await expect(
-          createRoundForGame(mockGameId, 1, validScores),
-        ).resolves.toMatchObject({ ok: false, reason: "round_conflict" });
-      });
-    });
-
-    it("rejects score submissions for players outside the game roster", async () => {
-      const mockGame = {
-        id: mockGameId,
-        kind: "CIRCLE",
-        organizationId: mockOrgId,
-        players: validRoster,
-      };
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
-
-      await expect(
-        createRoundForGame(mockGameId, 1, [
-          { userId: "player1", blitzPileRemaining: 0, totalCardsPlayed: 10 },
-          {
-            userId: "not-in-game",
-            blitzPileRemaining: 5,
-            totalCardsPlayed: 20,
-          },
-        ]),
-      ).rejects.toThrow("Scores must match the players in this game");
-      expect(prisma.round.create).not.toHaveBeenCalled();
-    });
-
-    it("should throw error if database operation fails", async () => {
-      const mockGame = {
-        id: mockGameId,
-        kind: "CIRCLE",
-        organizationId: mockOrgId,
-        players: validRoster,
-      };
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
-      (prisma.round.create as jest.Mock).mockRejectedValue(
-        new Error("Database error"),
+    it("does not notify after a failed completion transaction", async () => {
+      (prisma.game.update as jest.Mock).mockRejectedValueOnce(
+        new Error("write failed"),
       );
-
-      await expect(
-        createRoundForGame(mockGameId, 1, validScores),
-      ).rejects.toThrow("Database error");
-    });
-
-    it("should throw error if user is not authenticated", async () => {
-      (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
-
-      await expect(
-        createRoundForGame(mockGameId, 1, validScores),
-      ).rejects.toThrow("Unauthorized");
-    });
-
-    it("should throw error if game is not found", async () => {
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(
-        createRoundForGame(mockGameId, 1, validScores),
-      ).rejects.toThrow("Game not found");
-    });
-  });
-
-  describe("updateRoundScores", () => {
-    const mockRoundId = "round-1";
-    const validScores = [
-      {
-        userId: "player1",
-        blitzPileRemaining: 0, // Blitzed
-        totalCardsPlayed: 10, // More than minimum required
-      },
-      {
-        userId: "player2",
-        blitzPileRemaining: 5,
-        totalCardsPlayed: 20,
-      },
-    ];
-
-    it("should update scores for a round", async () => {
-      const mockGame = {
-        id: mockGameId,
-        kind: "CIRCLE",
-        isFinished: false,
-        organizationId: mockOrgId,
-        players: validRoster,
-      };
-      (prisma.game.findUnique as jest.Mock)
-        .mockResolvedValueOnce(mockGame)
-        .mockResolvedValueOnce({
-          ...mockGame,
-          winnerId: null,
-          winThreshold: 75,
-          players: [],
-          rounds: [],
-        });
-      (prisma.$transaction as jest.Mock).mockResolvedValue([{ count: 1 }]);
-
-      const result = await updateRoundScores(
-        mockGameId,
-        mockRoundId,
-        validScores,
+      await expect(createRoundForGame(mockGameId, 1, scores)).rejects.toThrow(
+        "write failed",
       );
-
-      expect(prisma.$transaction).toHaveBeenCalled();
-      expect(result).toEqual([{ count: 1 }]);
+      expect(after).not.toHaveBeenCalled();
     });
 
-    it("should throw error if validation fails", async () => {
-      const mockGame = {
-        id: mockGameId,
-        kind: "CIRCLE",
-        isFinished: false,
-        organizationId: mockOrgId,
-        players: validRoster,
-      };
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
-
-      const invalidScores = [
-        {
-          userId: "player1",
-          blitzPileRemaining: 5, // No blitz
-          totalCardsPlayed: 20,
-        },
-      ];
-
-      await expect(
-        updateRoundScores(mockGameId, mockRoundId, invalidScores),
-      ).rejects.toThrow("At least one player must blitz");
-
-      // Verify PostHog capture was called with validation error
-      expect(mockCapture).toHaveBeenCalledWith({
-        distinctId: mockUserId,
-        event: "validation_error",
-        properties: {
-          error: "At least one player must blitz (have 0 cards remaining)",
-          scores: invalidScores,
-          gameId: mockGameId,
-          roundId: mockRoundId,
-          type: "game_rules",
-        },
-      });
-    });
-
-    it("rejects round edits for players outside the game roster", async () => {
-      const mockGame = {
-        id: mockGameId,
-        kind: "CIRCLE",
-        isFinished: false,
-        organizationId: mockOrgId,
-        players: validRoster,
-      };
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(mockGame);
-
-      await expect(
-        updateRoundScores(mockGameId, mockRoundId, [
-          {
-            userId: "player1",
-            blitzPileRemaining: 0,
-            totalCardsPlayed: 10,
-          },
-          {
-            userId: "not-in-game",
-            blitzPileRemaining: 5,
-            totalCardsPlayed: 20,
-          },
-        ]),
-      ).rejects.toThrow("Scores must match the players in this game");
-      expect(prisma.$transaction).not.toHaveBeenCalled();
-    });
-
-    it("should allow editing finished games", async () => {
-      const mockGame = {
-        id: mockGameId,
-        kind: "CIRCLE",
+    it("returns the persisted final round on identical retries without notification", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
         isFinished: true,
-        organizationId: mockOrgId,
-        players: validRoster,
-      };
-      (prisma.game.findUnique as jest.Mock)
-        .mockResolvedValueOnce(mockGame)
-        .mockResolvedValueOnce({
-          ...mockGame,
-          winnerId: "player1",
-          winThreshold: 75,
-          players: [],
-          rounds: [],
-        });
-      (prisma.$transaction as jest.Mock).mockResolvedValue([{ count: 1 }]);
-
-      const result = await updateRoundScores(
-        mockGameId,
-        mockRoundId,
-        validScores,
-      );
-
-      expect(prisma.$transaction).toHaveBeenCalled();
-      expect(result).toEqual([{ count: 1 }]);
-    });
-
-    it("should throw error if game is not found", async () => {
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(
-        updateRoundScores(mockGameId, mockRoundId, validScores),
-      ).rejects.toThrow("Game not found");
-    });
-  });
-
-  describe("updateGameAsFinished", () => {
-    it("rejects a winner who is not on the game roster", async () => {
-      const game = {
-        id: mockGameId,
-        kind: "CIRCLE",
-        organizationId: mockOrgId,
-        players: [
-          {
-            userId: "player1",
-            guestId: null,
-            user: {
-              id: "player1",
-              username: "Player 1",
-              email: "player1@example.com",
-              clerk_user_id: "clerk-player1",
-            },
-            guestUser: null,
-          },
-        ],
-      };
-      (prisma.game.findUnique as jest.Mock).mockResolvedValue(game);
-
-      await expect(
-        updateGameAsFinished(mockGameId, "not-in-game"),
-      ).rejects.toThrow("Winner must be a player in this game");
+        winnerId: "player1",
+        rounds: [stored()],
+      });
+      expect(await createRoundForGame(mockGameId, 1, scores)).toEqual({
+        ok: true,
+        round: stored(),
+      });
+      expect(prisma.round.create).not.toHaveBeenCalled();
       expect(prisma.game.update).not.toHaveBeenCalled();
+      expect(after).not.toHaveBeenCalled();
+      expect(
+        await createRoundForGame(mockGameId, 1, [
+          { ...scores[0], totalCardsPlayed: 31 },
+          scores[1],
+        ]),
+      ).toMatchObject({ ok: false, reason: "round_conflict" });
+    });
+
+    it("requires the captured revision for a changed edit", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        rounds: [stored(1)],
+      });
+      expect(
+        await updateRoundScores(
+          mockGameId,
+          "round-1",
+          [{ ...scores[0], totalCardsPlayed: 31 }, scores[1]],
+          0,
+        ),
+      ).toMatchObject({ ok: false, reason: "round_conflict" });
+      expect(
+        await updateRoundScores(
+          mockGameId,
+          "round-1",
+          scores,
+          undefined as unknown as number,
+        ),
+      ).toMatchObject({ ok: false, reason: "invalid_input" });
+      expect(after).not.toHaveBeenCalled();
+    });
+
+    it("rejects unauthenticated and wrong-circle callers", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
+      await expect(createRoundForGame(mockGameId, 1, scores)).rejects.toThrow(
+        "Unauthorized",
+      );
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockUserId,
+        orgId: "other",
+      });
+      await expect(createRoundForGame(mockGameId, 1, scores)).rejects.toThrow(
+        "active circle",
+      );
+      expect(prisma.round.create).not.toHaveBeenCalled();
     });
   });
 
@@ -667,10 +327,42 @@ describe("Game Mutations", () => {
         (_, i) => ({ id: `player-${i}`, username: `Player${i}` }),
       );
 
-      await expect(createGame(players)).rejects.toThrow(
-        `A game seats up to ${GAME_RULES.MAX_PLAYERS} players.`,
-      );
+      expect(await createGame(players)).toMatchObject({
+        ok: false,
+        reason: "invalid_input",
+      });
       expect(prisma.game.create).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { users: [], threshold: 75 },
+      { users: [{ id: "one" }], threshold: 75 },
+      { users: [{ id: "one" }, { id: "one" }], threshold: 75 },
+      {
+        users: [{ id: "one" }, { id: "guest", isGuest: true, username: " " }],
+        threshold: 75,
+      },
+      { users: [{ id: "one" }, { id: "two" }], threshold: -1 },
+      { users: [{ id: "one" }, { id: "two" }], threshold: 25.5 },
+      { users: [{ id: "one" }, { id: "two" }], threshold: 201 },
+    ])(
+      "validates Circle configuration before any write: %p",
+      async ({ users, threshold }) => {
+        expect(await createGame(users, threshold)).toMatchObject({
+          ok: false,
+          reason: "invalid_input",
+        });
+        expect(prisma.game.create).not.toHaveBeenCalled();
+        expect(prisma.guestUser.create).not.toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      },
+    );
+
+    it("rejects nonexistent registered players before creating a game", async () => {
+      expect(
+        await createGame([{ id: "missing-one" }, { id: "missing-two" }]),
+      ).toMatchObject({ ok: false, reason: "invalid_input" });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it("seats a full table of the maximum number of players", async () => {
@@ -714,9 +406,10 @@ describe("Game Mutations", () => {
       expect(prisma.game.create).toHaveBeenCalledWith({
         data: {
           organizationId: mockOrgId,
+          winThreshold: 75,
         },
       });
-      expect(result).toEqual({ gameId: "new-game-id" });
+      expect(result).toEqual({ ok: true, gameId: "new-game-id" });
     });
 
     it("should add all players in a single batched write", async () => {
@@ -750,12 +443,16 @@ describe("Game Mutations", () => {
     });
 
     it("should create guest players and map them into the batched write", async () => {
-      (prisma.guestUser.create as jest.Mock).mockResolvedValue({
-        id: "guest-db-1",
-      });
+      (prisma.guestUser.create as jest.Mock)
+        .mockResolvedValue({
+          id: "guest-db-1",
+        })
+        .mockResolvedValueOnce({ id: "guest-db-1" })
+        .mockResolvedValueOnce({ id: "guest-db-2" });
 
       await createGame([
         { id: "temp-guest-1", username: "Guest Bob", isGuest: true },
+        { id: "temp-guest-2", username: "Guest Sue", isGuest: true },
       ]);
 
       expect(prisma.guestUser.create).toHaveBeenCalledWith({
@@ -772,6 +469,10 @@ describe("Game Mutations", () => {
         expect.objectContaining({
           gameId: "new-game-id",
           guestId: "guest-db-1",
+        }),
+        expect.objectContaining({
+          gameId: "new-game-id",
+          guestId: "guest-db-2",
         }),
       ]);
     });
@@ -801,9 +502,10 @@ describe("Game Mutations", () => {
 
       const result = await createGame([
         { id: "player-12", username: "TwelfthMember" },
+        { id: "guest-2", username: "Guest", isGuest: true },
       ]);
 
-      expect(result).toEqual({ gameId: "new-game-id" });
+      expect(result).toEqual({ ok: true, gameId: "new-game-id" });
     });
 
     it("should throw if no active circle", async () => {

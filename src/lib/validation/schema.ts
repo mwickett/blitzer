@@ -4,9 +4,9 @@ import { z } from "zod";
 export const scoreSchema = z.object({
   userId: z.string(),
   username: z.string(),
-  roundNumber: z.number().min(1),
-  blitzPileRemaining: z.number().min(0).max(10),
-  totalCardsPlayed: z.number().min(0).max(40),
+  roundNumber: z.number().int().min(1),
+  blitzPileRemaining: z.number().int().min(0).max(10),
+  totalCardsPlayed: z.number().int().min(0).max(40),
   touched: z.object({
     totalCardsPlayed: z.boolean(),
   }),
@@ -24,8 +24,8 @@ export type Scores = z.infer<typeof scoresSchema>;
 // Schema for the minimal score data needed for validation
 // This is useful for server-side validation where we don't need all fields
 export const scoreValidationSchema = z.object({
-  blitzPileRemaining: z.number().min(0).max(10),
-  totalCardsPlayed: z.number().min(0).max(40),
+  blitzPileRemaining: z.number().int().min(0).max(10),
+  totalCardsPlayed: z.number().int().min(0).max(40),
 });
 
 export type ScoreValidation = z.infer<typeof scoreValidationSchema>;

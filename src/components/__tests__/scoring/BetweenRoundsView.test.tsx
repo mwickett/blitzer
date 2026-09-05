@@ -40,6 +40,7 @@ const players: PlayerWithScore[] = [
 const rounds = [
   {
     id: "r1",
+    revision: 0,
     scores: [
       { userId: "p1", blitzPileRemaining: 0, totalCardsPlayed: 30 },
       { userId: "p2", blitzPileRemaining: 5, totalCardsPlayed: 20 },

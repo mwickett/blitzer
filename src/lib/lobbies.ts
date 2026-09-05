@@ -29,6 +29,7 @@ export const LOBBY_MAX_AGE_MS = 12 * 60 * 60 * 1000;
  * throw, because those *are* worth an alert.
  */
 export type LobbyRejectionReason =
+  | "invalid_input"
   | "invalid_link"
   | "not_open"
   | "expired"

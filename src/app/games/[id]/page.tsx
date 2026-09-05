@@ -101,6 +101,7 @@ export default async function GameView(props: {
         predictionProfiles={predictionProfiles}
         rounds={game.rounds.map((r) => ({
           id: r.id,
+          revision: r.revision,
           scores: r.scores.map((s) => ({
             userId: s.userId,
             guestId: s.guestId,

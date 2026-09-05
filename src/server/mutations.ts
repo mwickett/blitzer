@@ -13,8 +13,8 @@
  */
 
 // Re-export game-related mutations
-import { createGame, updateGameAsFinished, cloneGame } from "./mutations/games";
-export { createGame, updateGameAsFinished, cloneGame };
+import { createGame, cloneGame } from "./mutations/games";
+export { createGame, cloneGame };
 
 // Re-export round-related mutations
 import { createRoundForGame, updateRoundScores } from "./mutations/rounds";

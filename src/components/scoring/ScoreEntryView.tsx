@@ -17,7 +17,7 @@ import { RaceTrack } from "./RaceTrack";
 import {
   type PlayerEntry,
   type PlayerWithScore,
-  type RoundScoreData,
+  type RoundData,
   getEntryStatus,
 } from "./types";
 import { usePostHog } from "posthog-js/react";
@@ -32,7 +32,7 @@ interface ScoreEntryViewProps {
   currentRoundNumber: number;
   players: PlayerWithScore[];
   winThreshold: number;
-  onRoundSubmitted?: (scores: RoundScoreData[]) => void;
+  onRoundSubmitted?: (scores: RoundData) => void;
 }
 
 export function ScoreEntryView({
@@ -153,13 +153,7 @@ export function ScoreEntryView({
 
       if (onRoundSubmitted) {
         // Let ScoringShell handle the optimistic transition + navigation
-        const roundScoreData: RoundScoreData[] = scores.map((s) => ({
-          userId: "userId" in s ? s.userId : undefined,
-          guestId: "guestId" in s ? s.guestId : undefined,
-          blitzPileRemaining: s.blitzPileRemaining,
-          totalCardsPlayed: s.totalCardsPlayed,
-        }));
-        onRoundSubmitted(roundScoreData);
+        onRoundSubmitted(result.round);
       } else {
         // Fallback: navigate directly
         // router.replace to the current URL (not router.refresh) — forces

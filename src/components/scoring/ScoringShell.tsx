@@ -19,7 +19,6 @@ import { useRoundEditing } from "./useRoundEditing";
 import {
   type PlayerWithScore,
   type RoundData,
-  type RoundScoreData,
 } from "./types";
 import { calcGameStats, type RoundResult } from "@/lib/scoring/gameStats";
 import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
@@ -154,8 +153,8 @@ export function ScoringShell({
   }, [players, optimisticRound]);
 
   const handleRoundSubmitted = useCallback(
-    (scoreData: RoundScoreData[]) => {
-      setOptimisticRound({ id: `optimistic-${Date.now()}`, scores: scoreData });
+    (round: RoundData) => {
+      setOptimisticRound(round);
       setShowEntry(false);
       startTransition(() => {
         router.replace(`/games/${gameId}`);

@@ -208,6 +208,11 @@ describe("pickup lobby mutations", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it.each([null, "invalid", { guestNames: [1] }, { guestNames: [" "] }, { winThreshold: 25.5 }])("rejects malformed pickup configuration before writes: %p", async (input) => {
+    expect(await createPickupGame(input as Parameters<typeof createPickupGame>[0])).toMatchObject({ ok: false });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("rejects a win threshold outside the supported range", async () => {
     await expect(createPickupGame({ winThreshold: 5 })).resolves.toMatchObject({
       ok: false,
