@@ -27,6 +27,8 @@ export function RoundEditor({
   onSave,
   onCancel,
 }: RoundEditorProps) {
+  // Callers key this editor by persisted round ID. Refreshing the same round
+  // preserves its open draft; selecting another round starts a fresh draft.
   const [editData, setEditData] = useState<
     Record<string, { blitz: string; cards: string }>
   >(() =>

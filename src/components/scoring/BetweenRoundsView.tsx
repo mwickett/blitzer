@@ -125,6 +125,7 @@ export function BetweenRoundsView({
       {/* Round editor (inline) — members only */}
       {canEdit && editingRoundIndex !== null && editingRoundIndex < rounds.length && (
         <RoundEditor
+          key={rounds[editingRoundIndex].id}
           roundIndex={editingRoundIndex}
           players={players}
           roundData={Object.fromEntries(

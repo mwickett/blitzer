@@ -240,6 +240,7 @@ export function ScoringShell({
           editingRoundIndex !== null &&
           editingRoundIndex < effectiveRounds.length && (
             <RoundEditor
+              key={effectiveRounds[editingRoundIndex].id}
               roundIndex={editingRoundIndex}
               players={players}
               roundData={Object.fromEntries(
