@@ -1,3 +1,4 @@
+import { captureServerEvent } from "@/server/telemetry";
 import crypto from "crypto";
 import React from "react";
 import { Resend } from "resend";
@@ -44,15 +45,13 @@ async function sendEmail(options: {
   const emailProperties = {
     emailType,
     recipientCount: options.to.length,
-    subject: options.subject,
-    recipients: options.to,
   };
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       // Track attempt if it's a retry
       if (attempt > 1) {
-        posthog.capture({
+        captureServerEvent(posthog, {
           distinctId,
           event: "email_retry_attempt",
           properties: {
@@ -81,13 +80,12 @@ async function sendEmail(options: {
         // Check if it's a rate limit error
         if (error.name === "rate_limit_exceeded") {
           // Track rate limit hit
-          posthog.capture({
+          captureServerEvent(posthog, {
             distinctId,
             event: "email_rate_limit_hit",
             properties: {
               ...emailProperties,
               errorName: error.name,
-              errorMessage: error.message,
               attemptNumber: attempt,
               maxAttempts,
             },
@@ -101,13 +99,12 @@ async function sendEmail(options: {
             );
 
             // Track final failure
-            posthog.capture({
+            captureServerEvent(posthog, {
               distinctId,
               event: "email_send_failed",
               properties: {
                 ...emailProperties,
                 errorName: error.name,
-                errorMessage: error.message,
                 attemptNumber: attempt,
                 maxAttempts,
                 reason: "rate_limit_exceeded_max_retries",
@@ -127,13 +124,12 @@ async function sendEmail(options: {
         console.error("Failed to send email:", error);
 
         // Track other API errors
-        posthog.capture({
+        captureServerEvent(posthog, {
           distinctId,
           event: "email_send_failed",
           properties: {
             ...emailProperties,
             errorName: error.name,
-            errorMessage: error.message,
             attemptNumber: attempt,
             reason: "resend_api_error",
           },
@@ -143,7 +139,7 @@ async function sendEmail(options: {
       }
 
       // Success! Track and return early
-      posthog.capture({
+      captureServerEvent(posthog, {
         distinctId,
         event: "email_send_success",
         properties: {
@@ -164,12 +160,11 @@ async function sendEmail(options: {
 
       if (isRateLimit) {
         // Track rate limit error
-        posthog.capture({
+        captureServerEvent(posthog, {
           distinctId,
           event: "email_rate_limit_hit",
           properties: {
             ...emailProperties,
-            errorMessage: errorMessage,
             attemptNumber: attempt,
             maxAttempts,
             errorType: "exception",
@@ -184,13 +179,12 @@ async function sendEmail(options: {
           );
 
           // Track final failure
-          posthog.capture({
+          captureServerEvent(posthog, {
             distinctId,
             event: "email_send_failed",
             properties: {
               ...emailProperties,
-              errorMessage: errorMessage,
-              attemptNumber: attempt,
+                attemptNumber: attempt,
               maxAttempts,
               reason: "rate_limit_exception_max_retries",
               errorType: "exception",
@@ -213,12 +207,11 @@ async function sendEmail(options: {
       console.error("Error sending email:", error);
 
       // Track unexpected errors
-      posthog.capture({
+      captureServerEvent(posthog, {
         distinctId,
         event: "email_send_failed",
         properties: {
           ...emailProperties,
-          errorMessage: errorMessage,
           attemptNumber: attempt,
           reason: "unexpected_exception",
           errorType: "exception",
@@ -233,7 +226,7 @@ async function sendEmail(options: {
   }
 
   // This should never be reached due to the returns above
-  posthog.capture({
+  captureServerEvent(posthog, {
     distinctId,
     event: "email_send_failed",
     properties: {

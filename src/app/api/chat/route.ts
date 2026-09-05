@@ -1,3 +1,4 @@
+import { captureServerEvent } from "@/server/telemetry";
 import { currentUser } from "@clerk/nextjs/server";
 import { openai } from "@ai-sdk/openai";
 import { convertToModelMessages, streamText } from "ai";
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
 
   const posthog = PostHogClient();
   const recordError = (error: unknown) => {
-    posthog.capture({
+    captureServerEvent(posthog, {
       distinctId: user.id,
       event: "llm_error",
       properties: { error_type: error instanceof Error ? error.name : "UnknownError" },

@@ -1,5 +1,7 @@
 "use server";
 
+import { captureServerEvent } from "@/server/telemetry";
+
 import prisma from "@/server/db/db";
 import { Prisma } from "@/generated/prisma/client";
 import { requireAuthContext, assertGameInCircle } from "./common";
@@ -127,7 +129,7 @@ export async function createGame(
     });
 
     // Track event in PostHog
-    posthog.capture({
+    captureServerEvent(posthog, {
       distinctId: user.userId,
       event: "create_game",
       properties: {
@@ -157,7 +159,7 @@ export async function saveUserAccentColor(color: string) {
     data: { accentColor: color },
   });
 
-  posthog.capture({
+  captureServerEvent(posthog, {
     distinctId: user.userId,
     event: "set_accent_color",
     properties: { color },
@@ -217,7 +219,7 @@ export async function cloneGame(originalGameId: string) {
     return newGame.id;
   });
 
-  posthog.capture({
+  captureServerEvent(posthog, {
     distinctId: user.userId,
     event: "clone_game",
     properties: { originalGameId, newGameId },

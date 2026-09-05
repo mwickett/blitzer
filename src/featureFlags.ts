@@ -5,6 +5,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 // PostHog getAllFlags) and runs on hot paths like the game page, so flag
 // sets are cached per user for a short TTL within each server instance.
 const FLAG_CACHE_TTL_MS = 60_000;
+const FLAG_CACHE_MAX_USERS = 1000;
 
 type FlagSet = Record<string, string | boolean>;
 
@@ -29,6 +30,9 @@ async function fetchAllFlags(userId: string): Promise<FlagSet> {
 
 function getCachedFlags(userId: string): Promise<FlagSet> {
   const now = Date.now();
+  for (const [key, value] of flagCache) {
+    if (value.expiresAt <= now) flagCache.delete(key);
+  }
   const cached = flagCache.get(userId);
   if (cached && cached.expiresAt > now) {
     return cached.flags;
@@ -37,9 +41,12 @@ function getCachedFlags(userId: string): Promise<FlagSet> {
   // Cache the promise immediately so concurrent checks share one fetch;
   // evict on failure so an outage isn't cached for the full TTL.
   const flags = fetchAllFlags(userId).catch((error) => {
-    flagCache.delete(userId);
+    if (flagCache.get(userId)?.flags === flags) flagCache.delete(userId);
     throw error;
   });
+  if (flagCache.size >= FLAG_CACHE_MAX_USERS) {
+    flagCache.delete(flagCache.keys().next().value!);
+  }
   flagCache.set(userId, { flags, expiresAt: now + FLAG_CACHE_TTL_MS });
   return flags;
 }
@@ -51,8 +58,12 @@ export async function isFeatureEnabled(flagKey: string): Promise<boolean> {
   // Only check flags for authenticated users
   if (!userId) return false;
 
-  const flags = await getCachedFlags(userId);
-  return !!flags[flagKey];
+  try {
+    const flags = await getCachedFlags(userId);
+    return flags[flagKey] === true;
+  } catch {
+    return false;
+  }
 }
 
 // Check if LLM features are enabled

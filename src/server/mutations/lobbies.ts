@@ -1,5 +1,7 @@
 "use server";
 
+import { captureServerEvent } from "@/server/telemetry";
+
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
@@ -44,7 +46,7 @@ function reject(
   reason: LobbyRejectionReason,
   message: string,
 ): Rejected {
-  tracking.posthog.capture({
+  captureServerEvent(tracking.posthog, {
     distinctId: tracking.distinctId,
     event: tracking.event,
     properties: {
@@ -153,7 +155,7 @@ export async function createPickupGame(input: {
   }
   if (!game) throw new Error("Unable to create a unique lobby code");
 
-  posthog.capture({
+  captureServerEvent(posthog, {
     distinctId: user.userId,
     event: "create_pickup_game",
     properties: {
@@ -254,7 +256,7 @@ export async function joinPickupGame(
   // ordinary thing to do in a lobby, and counting those would inflate the
   // funnel with events that represent nobody new sitting down.
   if (outcome.didJoin) {
-    posthog.capture({
+    captureServerEvent(posthog, {
       distinctId: user.userId,
       event: "join_pickup_game",
       properties: { game_id: outcome.gameId },
@@ -343,7 +345,7 @@ export async function startPickupGame(
 
   if (!outcome.ok) return outcome;
   if (outcome.started) {
-    posthog.capture({
+    captureServerEvent(posthog, {
       distinctId: user.userId,
       event: "start_pickup_game",
       properties: { game_id: gameId },

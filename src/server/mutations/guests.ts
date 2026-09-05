@@ -1,5 +1,7 @@
 "use server";
 
+import { captureServerEvent } from "@/server/telemetry";
+
 import prisma from "@/server/db/db";
 import { requireAuthContext } from "./common";
 import { sendGuestInvitationEmail } from "@/server/email";
@@ -18,10 +20,10 @@ export async function createGuestUser(name: string) {
     },
   });
 
-  posthog.capture({
+  captureServerEvent(posthog, {
     distinctId: user.userId,
     event: "create_guest_user",
-    properties: { guestId: guestUser.id, guestName: name, organizationId: orgId },
+    properties: { guestId: guestUser.id, organizationId: orgId },
   });
 
   return guestUser;
@@ -89,13 +91,11 @@ export async function inviteGuestUser(guestId: string, email: string) {
     },
   });
 
-  posthog.capture({
+  captureServerEvent(posthog, {
     distinctId: clerkUserId,
     event: "invite_guest_user",
     properties: {
       guestId,
-      email,
-      guestName: guestUser.name,
     },
   });
 
