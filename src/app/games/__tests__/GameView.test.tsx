@@ -24,6 +24,8 @@ jest.mock("@/components/scoring/ScoringShell", () => ({
   ),
 }));
 
+beforeEach(() => jest.clearAllMocks());
+
 it("keeps historical rounds editable when a legacy finalization flag disagrees with final totals", async () => {
   (getGameById as jest.Mock).mockResolvedValue({
     id: "game",
@@ -64,3 +66,42 @@ it("keeps historical rounds editable when a legacy finalization flag disagrees w
   expect(screen.getByTestId("scoring")).toHaveAttribute("data-rounds", "3");
   expect(getPredictionProfilesForGame).toHaveBeenCalled();
 });
+
+it.each([false, true])(
+  "skips optional prediction history for %s completed/initial-entry views",
+  async (finished) => {
+    (getGameById as jest.Mock).mockResolvedValue({
+      id: "game",
+      kind: "CIRCLE",
+      organizationId: "circle",
+      isFinished: finished,
+      winnerId: finished ? "a" : null,
+      endedAt: finished ? new Date() : null,
+      winThreshold: 25,
+      players: ["a", "b"].map((id) => ({
+        id,
+        userId: id,
+        user: { username: id, clerk_user_id: `clerk-${id}` },
+      })),
+      rounds: finished
+        ? [
+            {
+              id: "r1",
+              revision: 0,
+              round: 1,
+              scores: [
+                { userId: "a", totalCardsPlayed: 30, blitzPileRemaining: 0 },
+                { userId: "b", totalCardsPlayed: 4, blitzPileRemaining: 0 },
+              ],
+            },
+          ]
+        : [],
+    });
+    render(await GameView({ params: Promise.resolve({ id: "game" }) }));
+    expect(getPredictionProfilesForGame).not.toHaveBeenCalled();
+    expect(screen.getByTestId("scoring")).toHaveAttribute(
+      "data-finished",
+      String(finished),
+    );
+  },
+);

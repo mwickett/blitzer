@@ -1,6 +1,5 @@
 import "server-only";
 
-import { auth } from "@clerk/nextjs/server";
 import { type Prisma } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
@@ -40,7 +39,7 @@ function getSamplePlayerId(sample: PredictionScoreSample): string | null {
 
 export function buildPredictionProfiles(
   playerIds: string[],
-  samples: PredictionScoreSample[]
+  samples: PredictionScoreSample[],
 ): PredictionProfilesByPlayer {
   const samplesByPlayer = new Map<string, PredictionScoreSample[]>();
 
@@ -72,38 +71,30 @@ export function buildPredictionProfiles(
               playerSamples.filter((sample) => sample.blitzPileRemaining === 0)
                 .length / playerSamples.length,
             meanCardsPlayed: mean(
-              playerSamples.map((sample) => sample.totalCardsPlayed)
+              playerSamples.map((sample) => sample.totalCardsPlayed),
             ),
             meanBlitzPileRemaining: mean(
-              playerSamples.map((sample) => sample.blitzPileRemaining)
+              playerSamples.map((sample) => sample.blitzPileRemaining),
             ),
             recentDeltas: deltas.slice(0, RECENT_DELTA_LIMIT),
           },
         ];
-      })
+      }),
   );
 }
 
-export async function getPredictionProfilesForGame(
-  gameId: string
-): Promise<PredictionProfilesByPlayer> {
-  const [session, game] = await Promise.all([
-    auth(),
-    prisma.game.findUnique({
-      where: { id: gameId },
-      select: {
-        id: true,
-        organizationId: true,
-        players: {
-          select: {
-            userId: true,
-            guestId: true,
-          },
-        },
-      },
-    }),
-  ]);
+interface PredictionGame {
+  id: string;
+  organizationId: string | null;
+  players: { userId?: string | null; guestId?: string | null }[];
+}
 
+// This is server-only query code; the page supplies its already authenticated
+// viewer and loaded game, avoiding a second auth call and game query.
+export async function getPredictionProfilesForGame(
+  game: PredictionGame | null,
+  session: { userId: string | null; orgId?: string | null },
+): Promise<PredictionProfilesByPlayer> {
   // Forecast history is optional enrichment: return no profiles instead of
   // throwing so public/spectator game pages can keep rendering safely.
   if (!session.userId || !session.orgId || !game?.organizationId) {
@@ -130,7 +121,7 @@ export async function getPredictionProfilesForGame(
     round: {
       // Deliberately exclude this game; live in-game rounds are supplied by
       // the scoring UI and will be blended separately by the forecast model.
-      gameId: { not: gameId },
+      gameId: { not: game.id },
       game: {
         organizationId: game.organizationId,
         isFinished: true,
@@ -149,32 +140,37 @@ export async function getPredictionProfilesForGame(
     { id: "desc" },
   ];
 
-  const samplesByPlayer = await Promise.all([
-    ...userIds.map((userId) =>
-      prisma.score.findMany({
-        where: {
-          userId,
-          ...historyScope,
-        },
-        select: scoreSelect,
-        orderBy: scoreOrder,
-        take: HISTORY_SAMPLE_LIMIT_PER_PLAYER,
-      })
-    ),
-    ...guestIds.map((guestId) =>
-      prisma.score.findMany({
-        where: {
-          guestId,
-          ...historyScope,
-        },
-        select: scoreSelect,
-        orderBy: scoreOrder,
-        take: HISTORY_SAMPLE_LIMIT_PER_PLAYER,
-      })
-    ),
-  ]);
+  try {
+    const samplesByPlayer = await Promise.all([
+      ...userIds.map((userId) =>
+        prisma.score.findMany({
+          where: {
+            userId,
+            ...historyScope,
+          },
+          select: scoreSelect,
+          orderBy: scoreOrder,
+          take: HISTORY_SAMPLE_LIMIT_PER_PLAYER,
+        }),
+      ),
+      ...guestIds.map((guestId) =>
+        prisma.score.findMany({
+          where: {
+            guestId,
+            ...historyScope,
+          },
+          select: scoreSelect,
+          orderBy: scoreOrder,
+          take: HISTORY_SAMPLE_LIMIT_PER_PLAYER,
+        }),
+      ),
+    ]);
 
-  const samples = samplesByPlayer.flat();
+    const samples = samplesByPlayer.flat();
 
-  return buildPredictionProfiles(playerIds, samples);
+    return buildPredictionProfiles(playerIds, samples);
+  } catch {
+    // Optional enrichment must never turn a score page into an error page.
+    return {};
+  }
 }

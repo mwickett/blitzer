@@ -1,6 +1,25 @@
 import { render, screen } from "@testing-library/react";
 import { WinProbabilityCard } from "../../scoring/graphs/WinProbabilityCard";
+import { useRaceForecast } from "../../scoring/graphs/useRaceForecast";
+import { calcRaceForecast } from "@/lib/scoring/probability";
 import { type PlayerWithScore } from "../../scoring/types";
+
+jest.mock("../../scoring/graphs/useRaceForecast", () => ({
+  useRaceForecast: jest.fn(),
+}));
+
+beforeEach(() => {
+  (useRaceForecast as jest.Mock).mockImplementation((input) => ({
+    containerRef: { current: null },
+    forecast: calcRaceForecast(
+      input.players,
+      input.winThreshold,
+      input.deltasByPlayer,
+      input.options,
+    ),
+    status: input.players[0].roundsPlayed < 3 ? "insufficient" : "ready",
+  }));
+});
 
 const players: PlayerWithScore[] = [
   {
@@ -28,10 +47,29 @@ describe("WinProbabilityCard", () => {
         players={players}
         roundsPlayed={2}
         winThreshold={75}
-      />
+      />,
     );
 
     expect(screen.getByText("Available after 3 rounds")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["loading", "Calculating forecast…"],
+    ["unavailable", "Forecast unavailable. You can keep scoring."],
+  ])("renders a helpful %s state", (status, message) => {
+    (useRaceForecast as jest.Mock).mockReturnValue({
+      containerRef: { current: null },
+      forecast: null,
+      status,
+    });
+    render(
+      <WinProbabilityCard
+        players={players}
+        roundsPlayed={5}
+        winThreshold={75}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(message);
   });
 
   it("renders the race outlook instead of the old projected finish section", () => {
@@ -40,50 +78,50 @@ describe("WinProbabilityCard", () => {
         players={players}
         roundsPlayed={5}
         winThreshold={75}
-          deltasByPlayer={{
-            close: [12, 14, 16, 14, 14],
-            far: [4, 8, 6, 6, 6],
-          }}
-          roundSamplesByPlayer={{
-            close: [
-              { totalCardsPlayed: 22, blitzPileRemaining: 5 },
-              { totalCardsPlayed: 24, blitzPileRemaining: 5 },
-              { totalCardsPlayed: 26, blitzPileRemaining: 5 },
-              { totalCardsPlayed: 24, blitzPileRemaining: 5 },
-              { totalCardsPlayed: 24, blitzPileRemaining: 5 },
-            ],
-            far: [
-              { totalCardsPlayed: 14, blitzPileRemaining: 5 },
-              { totalCardsPlayed: 18, blitzPileRemaining: 5 },
-              { totalCardsPlayed: 16, blitzPileRemaining: 5 },
-              { totalCardsPlayed: 16, blitzPileRemaining: 5 },
-              { totalCardsPlayed: 16, blitzPileRemaining: 5 },
-            ],
-          }}
-          predictionProfiles={{
-            close: {
-              playerId: "close",
-              roundsPlayed: 12,
-              meanDelta: 14,
-              stdDelta: 2,
-              blitzRate: 0.5,
-              meanCardsPlayed: 24,
-              meanBlitzPileRemaining: 5,
-              recentDeltas: [12, 14, 16],
-            },
-            far: {
-              playerId: "far",
-              roundsPlayed: 12,
-              meanDelta: 6,
-              stdDelta: 2,
-              blitzRate: 0.2,
-              meanCardsPlayed: 18,
-              meanBlitzPileRemaining: 6,
-              recentDeltas: [4, 8, 6],
-            },
-          }}
-        />
-      );
+        deltasByPlayer={{
+          close: [12, 14, 16, 14, 14],
+          far: [4, 8, 6, 6, 6],
+        }}
+        roundSamplesByPlayer={{
+          close: [
+            { totalCardsPlayed: 22, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 24, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 26, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 24, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 24, blitzPileRemaining: 5 },
+          ],
+          far: [
+            { totalCardsPlayed: 14, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 18, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 16, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 16, blitzPileRemaining: 5 },
+            { totalCardsPlayed: 16, blitzPileRemaining: 5 },
+          ],
+        }}
+        predictionProfiles={{
+          close: {
+            playerId: "close",
+            roundsPlayed: 12,
+            meanDelta: 14,
+            stdDelta: 2,
+            blitzRate: 0.5,
+            meanCardsPlayed: 24,
+            meanBlitzPileRemaining: 5,
+            recentDeltas: [12, 14, 16],
+          },
+          far: {
+            playerId: "far",
+            roundsPlayed: 12,
+            meanDelta: 6,
+            stdDelta: 2,
+            blitzRate: 0.2,
+            meanCardsPlayed: 18,
+            meanBlitzPileRemaining: 6,
+            recentDeltas: [4, 8, 6],
+          },
+        }}
+      />,
+    );
 
     expect(screen.getByText("Race Outlook")).toBeInTheDocument();
     expect(screen.getByText("Likely ending")).toBeInTheDocument();
@@ -92,7 +130,7 @@ describe("WinProbabilityCard", () => {
     expect(screen.getByText("20+ pt swing")).toBeInTheDocument();
     expect(screen.getByText(/Blitz-out threat/)).toBeInTheDocument();
     expect(
-      screen.getByText("History-backed from 24 prior player scores")
+      screen.getByText("History-backed from 24 prior player scores"),
     ).toBeInTheDocument();
     expect(screen.queryByText("Projected finish")).not.toBeInTheDocument();
   });
