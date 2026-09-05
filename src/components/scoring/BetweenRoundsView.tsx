@@ -5,14 +5,12 @@ import { usePostHog } from "posthog-js/react";
 import { RaceTrack } from "./RaceTrack";
 import { Standings } from "./Standings";
 import { RoundHistoryTable } from "./RoundHistoryTable";
-import { RoundEditor } from "./RoundEditor";
 import { FloatingCTA } from "./FloatingCTA";
 import { GraphCarousel } from "./GraphCarousel";
 import { ScoreProgressionCard } from "./graphs/ScoreProgressionCard";
 import { HotColdCard } from "./graphs/HotColdCard";
 import { WinProbabilityCard } from "./graphs/WinProbabilityCard";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
-import { useRoundEditing } from "./useRoundEditing";
 import { findPlayerScore } from "./utils";
 import { type PlayerWithScore, type RoundData } from "./types";
 import {
@@ -21,33 +19,37 @@ import {
 } from "@/lib/scoring/probability";
 
 interface BetweenRoundsViewProps {
-  gameId: string;
   players: PlayerWithScore[];
   rounds: RoundData[];
   winThreshold: number;
   nextRoundNumber: number;
   onEnterScores: () => void;
+  onEditRound?: (roundIndex: number) => void;
+  disabled?: boolean;
+  showNextRound?: boolean;
   /** When false, render as a read-only spectator view (no entry/edit actions) */
   canEdit?: boolean;
   predictionProfiles?: PredictionProfilesByPlayer;
 }
 
 export function BetweenRoundsView({
-  gameId,
   players,
   rounds,
   winThreshold,
   nextRoundNumber,
   onEnterScores,
+  onEditRound,
+  disabled = false,
+  showNextRound = true,
   canEdit = true,
   predictionProfiles,
 }: BetweenRoundsViewProps) {
   const posthog = usePostHog();
-  const { editingRoundIndex, editError, handleEditRound, handleSaveEdit, cancelEdit } =
-    useRoundEditing({ gameId, rounds, players });
 
   const handleEnterScores = () => {
-    posthog.capture("scoring_enter_next_round", { round_number: nextRoundNumber });
+    posthog.capture("scoring_enter_next_round", {
+      round_number: nextRoundNumber,
+    });
     onEnterScores();
   };
 
@@ -115,52 +117,24 @@ export function BetweenRoundsView({
         <Standings players={players} winThreshold={winThreshold} />
       </div>
 
-      {/* Edit error banner */}
-      {editError && (
-        <div className="mx-4 mb-2 p-3 bg-[#fef2f2] border border-[#fecaca] rounded-lg text-sm text-[#b91c1c]">
-          {editError}
-        </div>
-      )}
-
-      {/* Round editor (inline) — members only */}
-      {canEdit && editingRoundIndex !== null && editingRoundIndex < rounds.length && (
-        <RoundEditor
-          key={rounds[editingRoundIndex].id}
-          roundIndex={editingRoundIndex}
-          players={players}
-          roundData={Object.fromEntries(
-            players.map((p) => {
-              const s = findPlayerScore(p, rounds[editingRoundIndex].scores);
-              return [
-                p.id,
-                {
-                  blitzPileRemaining: s?.blitzPileRemaining ?? 0,
-                  totalCardsPlayed: s?.totalCardsPlayed ?? 0,
-                },
-              ];
-            })
-          )}
-          onSave={handleSaveEdit}
-          onCancel={cancelEdit}
-        />
-      )}
-
       {/* Round history table — edit affordance is members only */}
       <div className="pt-2 pb-2">
         <RoundHistoryTable
           players={players}
           rounds={rounds}
-          onEditRound={canEdit ? handleEditRound : undefined}
+          onEditRound={canEdit ? onEditRound : undefined}
+          disabled={disabled}
         />
       </div>
 
       {/* Floating CTA + its spacer — members only */}
-      {canEdit && (
+      {canEdit && showNextRound && (
         <>
           <div className="h-28" />
           <FloatingCTA
             state={{ mode: "nextRound", roundNumber: nextRoundNumber }}
             onAction={handleEnterScores}
+            disabled={disabled}
           />
         </>
       )}

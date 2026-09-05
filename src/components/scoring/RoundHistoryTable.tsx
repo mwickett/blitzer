@@ -1,112 +1,106 @@
 import { Pencil } from "lucide-react";
-import { type PlayerWithScore } from "./types";
+import { type PlayerWithScore, type RoundData } from "./types";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
+import { findPlayerScore } from "./utils";
 
 interface RoundHistoryTableProps {
   players: PlayerWithScore[];
-  rounds: {
-    scores: {
-      userId?: string | null;
-      guestId?: string | null;
-      blitzPileRemaining: number;
-      totalCardsPlayed: number;
-    }[];
-  }[];
+  rounds: RoundData[];
   onEditRound?: (roundIndex: number) => void;
+  disabled?: boolean;
 }
+
+export const roundEditButtonId = (roundId: string) => `edit-round-${roundId}`;
 
 export function RoundHistoryTable({
   players,
   rounds,
   onEditRound,
+  disabled = false,
 }: RoundHistoryTableProps) {
   if (rounds.length === 0) return null;
-
-  const getPlayerDelta = (
-    player: PlayerWithScore,
-    roundScores: RoundHistoryTableProps["rounds"][0]["scores"]
-  ) => {
-    const score = roundScores.find(
-      (s) =>
-        (player.userId && s.userId === player.userId) ||
-        (player.guestId && s.guestId === player.guestId)
-    );
-    if (!score) return 0;
-    return calculateRoundScore(score);
-  };
-
   return (
-    <div className="mx-4 bg-white border-[1.5px] border-[#e6d7c3] rounded-xl overflow-hidden">
-      <div className="px-3 py-2 bg-[#faf5ed] border-b border-[#e6d7c3] flex items-baseline justify-between gap-2">
-        <div className="text-[10px] font-semibold text-[#8b5e3c] uppercase tracking-wider">
-          Round Scores
-        </div>
-        {onEditRound && (
-          <div className="text-[10px] text-[#8b5e3c] italic">
-            tap a round to edit
-          </div>
-        )}
-      </div>
-
-      {/* Header */}
-      <div className="flex px-3 py-1.5 border-b border-[#f0e6d2] bg-[#faf5ed]">
-        <div className="w-10 text-[10px] font-semibold text-[#8b5e3c]">
-          Rnd
-        </div>
-        {players.map((p) => (
-          <div
-            key={p.id}
-            className="flex-1 text-[10px] font-semibold text-center"
-            style={{ color: p.color }}
-          >
-            {p.name}
-          </div>
-        ))}
-        {onEditRound && <div className="w-6" aria-hidden />}
-      </div>
-
-      {/* Rows */}
-      {rounds.map((round, ri) => (
-        <div
-          key={ri}
-          className={`flex px-3 py-1.5 border-b border-[#f0e6d2] last:border-b-0 items-center${onEditRound ? " cursor-pointer hover:bg-[#faf5ed] active:bg-[#f0e6d2] transition-colors" : ""}`}
-          onClick={onEditRound ? () => onEditRound(ri) : undefined}
-        >
-          <div className="w-10 text-[11px] text-[#8b5e3c]">
-            {ri + 1}
-          </div>
-          {players.map((p) => {
-            const d = getPlayerDelta(p, round.scores);
-            return (
-              <div
-                key={p.id}
-                className={`flex-1 text-xs font-medium text-center ${d < 0 ? "text-[#b91c1c]" : "text-[#290806]"}`}
-              >
-                {d > 0 ? `+${d}` : d}
-              </div>
-            );
-          })}
+    <div
+      role="region"
+      aria-label="Round scores"
+      tabIndex={0}
+      className="mx-4 overflow-x-auto rounded-xl border border-[#e6d7c3] bg-white focus-visible:outline-2 focus-visible:outline-[#8b5e3c]"
+    >
+      <table
+        className="w-full border-collapse text-sm"
+        style={{ minWidth: Math.max(320, (players.length + 1) * 96) }}
+      >
+        <caption className="p-3 text-left font-semibold text-[#8b5e3c]">
+          Round Scores{" "}
           {onEditRound && (
-            <div className="w-6 flex justify-end text-[#8b5e3c]/60">
-              <Pencil className="w-3 h-3" aria-label="Edit round" />
-            </div>
+            <span className="font-normal">— choose a round to edit</span>
           )}
-        </div>
-      ))}
-
-      {/* Totals */}
-      <div className="flex px-3 py-1.5 bg-[#faf5ed] border-t-2 border-[#e6d7c3]">
-        <div className="w-10 text-[11px] font-bold text-[#290806]">Total</div>
-        {players.map((p) => (
-          <div
-            key={p.id}
-            className={`flex-1 text-[13px] font-bold text-center ${p.score < 0 ? "text-[#b91c1c]" : "text-[#290806]"}`}
-          >
-            {p.score}
-          </div>
-        ))}
-        {onEditRound && <div className="w-6" aria-hidden />}
-      </div>
+        </caption>
+        <thead className="bg-[#faf5ed]">
+          <tr>
+            <th scope="col" className="p-2 text-left">
+              Round
+            </th>
+            {players.map((player) => (
+              <th
+                key={player.id}
+                scope="col"
+                className="min-w-24 max-w-40 break-words p-2 text-center"
+                style={{ color: player.color }}
+              >
+                {player.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rounds.map((round, index) => (
+            <tr key={round.id} className="border-t border-[#f0e6d2]">
+              <th scope="row" className="sticky left-0 bg-white p-1 text-left">
+                {onEditRound ? (
+                  <button
+                    type="button"
+                    id={roundEditButtonId(round.id)}
+                    aria-label={`Edit round ${index + 1}`}
+                    disabled={disabled}
+                    onClick={() => onEditRound(index)}
+                    className="flex min-h-11 min-w-16 items-center justify-center gap-2 rounded-md p-2 hover:bg-[#faf5ed] focus-visible:outline-2 focus-visible:outline-[#8b5e3c] disabled:opacity-50"
+                  >
+                    {index + 1}
+                    <Pencil aria-hidden className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <span className="block p-3">{index + 1}</span>
+                )}
+              </th>
+              {players.map((player) => {
+                const score = findPlayerScore(player, round.scores);
+                const delta = score ? calculateRoundScore(score) : 0;
+                return (
+                  <td
+                    key={player.id}
+                    className={`p-2 text-center ${delta < 0 ? "text-[#b91c1c]" : "text-[#290806]"}`}
+                  >
+                    {delta > 0 ? `+${delta}` : delta}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot className="border-t-2 border-[#e6d7c3] bg-[#faf5ed] font-bold">
+          <tr>
+            <th scope="row" className="p-3 text-left">
+              Total
+            </th>
+            {players.map((player) => (
+              <td key={player.id} className="p-2 text-center">
+                {player.score}
+              </td>
+            ))}
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }
