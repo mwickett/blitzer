@@ -27,11 +27,23 @@ export function isUniqueConstraintError(error: unknown) {
 }
 
 function isUsernameConflict(error: unknown) {
-  const target =
+  const meta =
     error && typeof error === "object" && "meta" in error
-      ? (error.meta as { target?: unknown } | undefined)?.target
+      ? (error.meta as {
+          target?: unknown;
+          driverAdapterError?: {
+            cause?: { constraint?: { index?: unknown; fields?: unknown } };
+          };
+        } | undefined)
       : undefined;
-  const targets = Array.isArray(target) ? target : [target];
+  // Prisma's PostgreSQL adapter preserves the database constraint name in
+  // driverAdapterError from 7.10; older clients supplied meta.target fields.
+  const constraint = meta?.driverAdapterError?.cause?.constraint;
+  const targets = [
+    ...(Array.isArray(meta?.target) ? meta.target : [meta?.target]),
+    constraint?.index,
+    ...(Array.isArray(constraint?.fields) ? constraint.fields : []),
+  ];
   return targets.some(
     (field) => field === "username" || field === "User_username_key",
   );
