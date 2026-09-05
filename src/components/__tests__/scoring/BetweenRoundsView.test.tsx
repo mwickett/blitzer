@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { BetweenRoundsView } from "../../scoring/BetweenRoundsView";
 import { type PlayerWithScore } from "../../scoring/types";
 
@@ -19,8 +19,9 @@ jest.mock("../../scoring/graphs/HotColdCard", () => ({
 jest.mock("../../scoring/graphs/WinProbabilityCard", () => ({
   WinProbabilityCard: () => <div />,
 }));
+const mockCapture = jest.fn();
 jest.mock("posthog-js/react", () => ({
-  usePostHog: () => ({ capture: jest.fn() }),
+  usePostHog: () => ({ capture: mockCapture }),
 }));
 
 const players: PlayerWithScore[] = [
@@ -63,6 +64,16 @@ const baseProps = {
 };
 
 describe("BetweenRoundsView spectator mode", () => {
+  beforeEach(() => mockCapture.mockReset());
+
+  it("opens score entry even when optional analytics throws", () => {
+    mockCapture.mockImplementation(() => { throw new Error("Analytics unavailable"); });
+    const onEnterScores = jest.fn();
+    render(<BetweenRoundsView {...baseProps} onEnterScores={onEnterScores} />);
+    fireEvent.click(screen.getByRole("button", { name: "Enter Round 2 Scores" }));
+    expect(onEnterScores).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the enter-scores CTA and edit affordance by default", () => {
     render(<BetweenRoundsView {...baseProps} />);
     expect(screen.getByText(/Enter Round 2 Scores/)).toBeInTheDocument();

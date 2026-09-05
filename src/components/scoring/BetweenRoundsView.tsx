@@ -47,9 +47,13 @@ export function BetweenRoundsView({
   const posthog = usePostHog();
 
   const handleEnterScores = () => {
-    posthog.capture("scoring_enter_next_round", {
-      round_number: nextRoundNumber,
-    });
+    try {
+      posthog.capture("scoring_enter_next_round", {
+        round_number: nextRoundNumber,
+      });
+    } catch {
+      // Optional analytics must not prevent score entry.
+    }
     onEnterScores();
   };
 

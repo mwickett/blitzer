@@ -166,9 +166,13 @@ export function GameOverView({
           {canRematch && (
             <button
               onClick={() => {
-                posthog.capture("game_over_rematch", {
-                  player_count: players.length,
-                });
+                try {
+                  posthog.capture("game_over_rematch", {
+                    player_count: players.length,
+                  });
+                } catch {
+                  // Optional analytics must not prevent creating the next game.
+                }
                 onRematch();
               }}
               className="w-full py-3.5 rounded-xl text-[15px] font-bold bg-[#290806] text-white hover:bg-[#3d1a0a] transition-colors cursor-pointer"
@@ -178,7 +182,11 @@ export function GameOverView({
           )}
           <button
             onClick={() => {
-              posthog.capture("game_over_back_to_games");
+              try {
+                posthog.capture("game_over_back_to_games");
+              } catch {
+                // Navigation stays available if analytics is unavailable.
+              }
               onBackToGames();
             }}
             className="w-full py-3 rounded-xl text-[13px] font-semibold border-[1.5px] border-[#e6d7c3] bg-white text-[#8b5e3c] hover:bg-[#faf5ed] transition-colors cursor-pointer"
