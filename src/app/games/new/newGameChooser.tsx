@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { User } from "@/generated/prisma/client";
+import { useEffect, useState } from "react";
+import { type User } from "@/generated/prisma/client";
 import { useUser } from "@clerk/nextjs";
-import { createGame } from "@/server/mutations";
+import { createGame, saveUserAccentColor } from "@/server/mutations/games";
 import { GameColorStep } from "@/components/scoring/GameColorStep";
 import { type ColorStepPlayer } from "@/components/scoring/useGameColors";
-import { saveUserAccentColor } from "@/server/mutations/games";
 import { GAME_RULES } from "@/lib/validation/gameRules";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -65,7 +64,7 @@ interface NewGameChooserProps {
 export default function NewGameChooser({
   users,
 }: NewGameChooserProps) {
-  const { user: clerkUser } = useUser();
+  const { user: clerkUser, isLoaded } = useUser();
   const currentUser = clerkUser
     ? users.find((user) => user.clerk_user_id === clerkUser.id)
     : undefined;
@@ -89,6 +88,17 @@ export default function NewGameChooser({
   const MAX_THRESHOLD = 200;
 
   const router = useRouter();
+  const validDraft = inGamePlayers.length >= 2 &&
+    inGamePlayers.length <= GAME_RULES.MAX_PLAYERS &&
+    Number.isInteger(winThreshold) && winThreshold >= MIN_THRESHOLD && winThreshold <= MAX_THRESHOLD;
+
+  // The roster is an in-memory draft. A direct visit or reload of the colors
+  // URL must return to player selection, after Clerk has loaded the creator.
+  useEffect(() => {
+    if (isLoaded && step === "colors" && !validDraft) {
+      router.replace("/games/new?type=circle");
+    }
+  }, [isLoaded, step, validDraft, router]);
 
   const updateInGamePlayers = (
     nextPlayers: GamePlayer[] | ((players: GamePlayer[]) => GamePlayer[])
@@ -118,8 +128,8 @@ export default function NewGameChooser({
       setGuestError(`A game seats up to ${GAME_RULES.MAX_PLAYERS} players.`);
       return;
     }
-    if (!guestName.trim()) {
-      setGuestError("Please enter a name");
+    if (!guestName.trim() || guestName.trim().length > 50) {
+      setGuestError("Please enter a name between 1 and 50 characters");
       return;
     }
 
@@ -193,38 +203,36 @@ export default function NewGameChooser({
     playerColors: Record<string, string>,
     saveCreatorDefault: boolean
   ) => {
-    try {
-      const playersWithColors = inGamePlayers.map((p) => ({
-        ...p,
-        accentColor: playerColors[p.id],
-      }));
-      const result = await createGame(playersWithColors, winThreshold);
-      if (!result.ok) throw new Error(result.message);
-
-      // Fire-and-forget: saving the creator's default must not block
-      // navigation or cause a retry that duplicates the game.
-      if (saveCreatorDefault) {
-        const currentPlayer = inGamePlayers.find((p) => isCurrentUser(p));
-        if (currentPlayer && playerColors[currentPlayer.id]) {
-          saveUserAccentColor(playerColors[currentPlayer.id]).catch((e) =>
-            console.error("Failed to save default color:", e)
-          );
-        }
-      }
-
-      if (result && result.gameId) {
-        // Use replaceState to remove ?step=colors from history, then
-        // push the game URL. Next.js router.replace() doesn't reliably
-        // replace the history entry when crossing route boundaries.
-        window.history.replaceState(null, "", `/games/${result.gameId}`);
-        router.push(`/games/${result.gameId}`);
-      }
-    } catch (error) {
-      console.error("Error creating game:", error);
+    if (!validDraft) throw new Error("Select at least two players before starting a game.");
+    const playersWithColors = inGamePlayers.map((p) => ({
+      ...p,
+      accentColor: playerColors[p.id],
+    }));
+    const result = await createGame(playersWithColors, winThreshold);
+    if (!result.ok) {
+      throw new Error(result.message);
     }
+    if (!("gameId" in result) || !result.gameId) {
+      throw new Error("Unable to create the game. Please try again.");
+    }
+
+    // Fire-and-forget: saving the creator's default must not block
+    // navigation or cause a retry that duplicates the game.
+    if (saveCreatorDefault) {
+      const currentPlayer = inGamePlayers.find((p) => isCurrentUser(p));
+      if (currentPlayer && playerColors[currentPlayer.id]) {
+        saveUserAccentColor(playerColors[currentPlayer.id]).catch((e) =>
+          console.error("Failed to save default color:", e)
+        );
+      }
+    }
+
+    router.replace(`/games/${result.gameId}`);
   };
 
-  if (step === "colors") {
+  if (!isLoaded) return <p role="status">Loading players…</p>;
+
+  if (step === "colors" && validDraft) {
     return (
       <Card className="mx-auto shadow-md border-[#e6d7c3] max-w-md my-6">
         <CardHeader className="bg-gradient-to-r from-[#5a341f] to-[#8b5e3c] text-white rounded-t-lg">
@@ -419,6 +427,7 @@ export default function NewGameChooser({
                             if (e.target.value.trim()) setGuestError("");
                           }}
                           placeholder="Enter guest name"
+                          maxLength={50}
                           className="border-[#e6d7c3] h-8 text-xs pr-16"
                         />
                         <Button
@@ -516,7 +525,7 @@ export default function NewGameChooser({
           // `type` has to stay on the URL: the page routes on it, and without
           // it the step lands back on the game-type chooser instead of colors.
           onClick={() => router.push("/games/new?type=circle&step=colors")}
-          disabled={inGamePlayers.length < 2}
+          disabled={!validDraft}
         >
           <PlayCircle className="mr-2 h-4 w-4" />
           Next

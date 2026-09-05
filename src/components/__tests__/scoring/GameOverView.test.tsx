@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { GameOverView } from "../../scoring/GameOverView";
 import { type PlayerWithScore } from "../../scoring/types";
 import { type GameStats } from "@/lib/scoring/gameStats";
@@ -102,5 +102,29 @@ describe("GameOverView spectator mode", () => {
       screen.queryByText("New Game with Same Players"),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Back to Games")).toBeInTheDocument();
+  });
+
+  it("creates one rematch and stays disabled while the new game opens", async () => {
+    let finish!: () => void;
+    const onRematch = jest.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+    render(<GameOverView {...baseProps} onRematch={onRematch} />);
+    const button = screen.getByRole("button", { name: "New Game with Same Players" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(onRematch).toHaveBeenCalledTimes(1);
+    expect(button).toBeDisabled();
+    await act(async () => { finish(); });
+    expect(button).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to Games" })).toBeDisabled();
+  });
+
+  it("surfaces a failed rematch and allows retry", async () => {
+    const onRematch = jest.fn().mockRejectedValueOnce(new Error("Network failure")).mockResolvedValue(undefined);
+    render(<GameOverView {...baseProps} onRematch={onRematch} />);
+    fireEvent.click(screen.getByRole("button", { name: "New Game with Same Players" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Please try again");
+    fireEvent.click(screen.getByRole("button", { name: "New Game with Same Players" }));
+    await waitFor(() => expect(onRematch).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
