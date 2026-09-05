@@ -15,15 +15,6 @@ const scoreExpr = Prisma.raw(ROUND_SCORE_SQL);
 
 type Db = PrismaClient | typeof prisma;
 
-type CountRow = {
-  totalHandsPlayed: number | bigint;
-  totalHandsWon: number | bigint;
-};
-
-type TotalScoreRow = {
-  totalScore: number | bigint | null;
-};
-
 export type BattingAverageStats = {
   totalHandsPlayed: number;
   totalHandsWon: number;
@@ -57,39 +48,6 @@ export type DashboardStats = {
   cumulativeScore: number;
   gameRoundExtremes: GameRoundExtremes;
 };
-
-// Batting average
-// Fetch player's total rounds and rounds won in one aggregate query.
-// This assumes that only one player blitzed per round (edge case)
-export async function getPlayerBattingAverageForUser(
-  userId: string,
-  db: Db = prisma
-): Promise<BattingAverageStats> {
-  const rows = await db.$queryRaw<CountRow[]>(
-    Prisma.sql`
-      SELECT
-        COUNT(*) AS "totalHandsPlayed",
-        COUNT(*) FILTER (WHERE "blitzPileRemaining" = 0) AS "totalHandsWon"
-      FROM "Score"
-      WHERE "userId" = ${userId}
-    `
-  );
-
-  const row = rows[0] ?? { totalHandsPlayed: 0, totalHandsWon: 0 };
-  const totalHandsPlayed = Number(row.totalHandsPlayed);
-  const totalHandsWon = Number(row.totalHandsWon);
-
-  const rawBattingAverage =
-    totalHandsPlayed === 0 ? 0 : totalHandsWon / totalHandsPlayed;
-
-  const battingAverage = rawBattingAverage.toFixed(3);
-
-  return {
-    totalHandsPlayed,
-    totalHandsWon,
-    battingAverage,
-  };
-}
 
 // Highest / lowest single-round score, each fetched with ORDER BY + LIMIT 1
 // so the database does the aggregation instead of JS reducing every row
@@ -137,22 +95,6 @@ export async function getHighestAndLowestScoreForUser(
   }
 
   return { highest, lowest };
-}
-
-// Cumulative score
-export async function getCumulativeScoreForUser(
-  userId: string,
-  db: Db = prisma
-): Promise<number> {
-  const rows = await db.$queryRaw<TotalScoreRow[]>(
-    Prisma.sql`
-      SELECT COALESCE(SUM(${scoreExpr}), 0) AS "totalScore"
-      FROM "Score"
-      WHERE "userId" = ${userId}
-    `
-  );
-
-  return Number(rows[0]?.totalScore ?? 0);
 }
 
 // Longest / shortest finished game by round count, aggregated with GROUP BY

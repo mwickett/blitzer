@@ -5,9 +5,7 @@ import {
 } from "../queries/games";
 import {
   getDashboardStats,
-  getPlayerBattingAverageForUser,
   getHighestAndLowestScoreForUser,
-  getCumulativeScoreForUser,
   getLongestAndShortestGamesByRoundsForUser,
 } from "../queries/stats";
 import prisma from "../db/db";
@@ -234,36 +232,6 @@ describe("Queries", () => {
       await expect(getDashboardStats()).rejects.toThrow("User not found");
     });
 
-    describe("getPlayerBattingAverageForUser", () => {
-      it("should calculate batting average correctly", async () => {
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([
-          { totalHandsPlayed: 10, totalHandsWon: 4 },
-        ]);
-
-        const result = await getPlayerBattingAverageForUser(mockUserId);
-
-        expect(result).toEqual({
-          totalHandsPlayed: 10,
-          totalHandsWon: 4,
-          battingAverage: "0.400",
-        });
-      });
-
-      it("should handle zero hands played", async () => {
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([
-          { totalHandsPlayed: 0, totalHandsWon: 0 },
-        ]);
-
-        const result = await getPlayerBattingAverageForUser(mockUserId);
-
-        expect(result).toEqual({
-          totalHandsPlayed: 0,
-          totalHandsWon: 0,
-          battingAverage: "0.000",
-        });
-      });
-    });
-
     describe("getHighestAndLowestScoreForUser", () => {
       it("should fetch highest and lowest with one LIMIT 1 query each", async () => {
         (prisma.$queryRaw as jest.Mock)
@@ -362,40 +330,6 @@ describe("Queries", () => {
         const result = await getLongestAndShortestGamesByRoundsForUser(mockUserId);
 
         expect(result).toEqual({ longest: null, shortest: null });
-      });
-    });
-
-    describe("getCumulativeScoreForUser", () => {
-      it("should calculate cumulative score correctly", async () => {
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ totalScore: 60 }]);
-
-        const result = await getCumulativeScoreForUser(mockUserId);
-
-        expect(result).toBe(60);
-      });
-
-      it("should handle zero values correctly", async () => {
-        (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([
-          { totalScore: -40 },
-        ]);
-
-        let result = await getCumulativeScoreForUser(mockUserId);
-        expect(result).toBe(-40);
-
-        (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([
-          { totalScore: 100 },
-        ]);
-
-        result = await getCumulativeScoreForUser(mockUserId);
-        expect(result).toBe(100);
-      });
-
-      it("should return 0 for no scores", async () => {
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ totalScore: 0 }]);
-
-        const result = await getCumulativeScoreForUser(mockUserId);
-
-        expect(result).toBe(0);
       });
     });
 

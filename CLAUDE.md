@@ -62,7 +62,7 @@ Client pageviews must wait for loaded Clerk identity/profile state and synchroni
 
 Chat uses AI SDK UI messages, server-side input limits/system prompt, and `gpt-3.5-turbo` through `@ai-sdk/openai`. Its context is the caller's aggregate statistics; no runtime SQL/analytics tools exist. `@posthog/ai` tracing uses privacy mode and immediate capture. Future tool-based plans must adapt to the current aggregate/query boundaries rather than restore the retired read-only client.
 
-Sentry instrumentation receives Next's real request-error context. Preserve route-pattern attribution. Slack reports require a valid fresh signature plus the configured workspace and named operators, and return ephemeral responses without email addresses.
+Sentry instrumentation receives Next's real request-error context. Preserve route-pattern attribution.
 
 ## Working style
 
