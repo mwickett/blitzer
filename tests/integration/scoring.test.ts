@@ -324,6 +324,41 @@ test("a failed completion update rolls back its round and scores", async () => {
   }
 });
 
+test("an unchanged corrective edit repairs stale completion from older versions", async () => {
+  const f = await fixture();
+  const first = await writeRound(db, f.caller, {
+    kind: "create",
+    gameId: f.game.id,
+    roundNumber: 1,
+    scores: f.scores(),
+  });
+  assert.ok(first.ok);
+  await db.game.update({
+    where: { id: f.game.id },
+    data: { isFinished: true, winnerId: f.user.id, endedAt: new Date() },
+  });
+  const corrected = await writeRound(db, f.caller, {
+    kind: "edit",
+    gameId: f.game.id,
+    roundId: first.round.id,
+    expectedRevision: 0,
+    scores: f.scores(),
+  });
+  assert.ok(corrected.ok && corrected.transition?.kind === "reopened");
+  assert.equal(corrected.round.revision, 0);
+  assert.equal((await snapshot(f.game.id)).isFinished, false);
+  assert.ok(
+    (
+      await writeRound(db, f.caller, {
+        kind: "create",
+        gameId: f.game.id,
+        roundNumber: 2,
+        scores: f.scores(4),
+      })
+    ).ok,
+  );
+});
+
 test("rechecks circle and pickup authorization inside the locked transaction", async () => {
   const f = await fixture();
   const command = {

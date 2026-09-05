@@ -243,6 +243,7 @@ describe("Game Mutations", () => {
       (prisma.game.findUnique as jest.Mock).mockResolvedValue({
         ...game(),
         isFinished: true,
+        endedAt: new Date(),
         winnerId: "player1",
         rounds: [stored()],
       });

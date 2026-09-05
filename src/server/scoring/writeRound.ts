@@ -84,8 +84,13 @@ export async function writeRound(
 
     if (existing && scoresMatch(existing.scores, command.scores)) {
       // Includes retries of the final round and a successful edit whose
-      // response was lost. No writes, timestamps, or notifications repeat.
-      return { ok: true as const, round: existing, transition: null };
+      // response was lost. Scores and revisions stay unchanged; also repair
+      // completion metadata left inconsistent by older application versions.
+      return {
+        ok: true as const,
+        round: existing,
+        transition: await reconcileCompletion(tx, game),
+      };
     }
     if (command.kind === "create") {
       if (existing)
@@ -158,30 +163,38 @@ export async function writeRound(
     const rounds = existing
       ? game.rounds.map((saved) => (saved.id === round.id ? round : saved))
       : [...game.rounds, round];
-    const completion = getGameCompletion({ ...game, rounds });
-    const isFinished = completion.winnerId !== null;
-    const transitioned = isFinished !== game.isFinished;
-    const endedAt = isFinished ? (game.endedAt ?? new Date()) : null;
-    if (
-      transitioned ||
-      completion.winnerId !== game.winnerId ||
-      endedAt?.getTime() !== game.endedAt?.getTime()
-    ) {
-      await tx.game.update({
-        where: { id: game.id },
-        data: { isFinished, winnerId: completion.winnerId, endedAt },
-      });
-    }
-
-    // Snapshot after commit is consumed only by the action's side-effect layer.
-    const transition = transitioned
-      ? {
-          kind: isFinished ? ("finished" as const) : ("reopened" as const),
-          gameId: game.id,
-          winnerId: completion.winnerId,
-          players: game.players,
-        }
-      : null;
+    const transition = await reconcileCompletion(tx, { ...game, rounds });
     return { ok: true as const, round, transition };
   });
+}
+
+async function reconcileCompletion(
+  tx: Prisma.TransactionClient,
+  game: Prisma.GameGetPayload<{ include: typeof gameInclude }>,
+) {
+  const completion = getGameCompletion(game);
+  const isFinished = completion.winnerId !== null;
+  const transitioned = isFinished !== game.isFinished;
+  const endedAt = isFinished ? (game.endedAt ?? new Date()) : null;
+  if (
+    transitioned ||
+    completion.winnerId !== game.winnerId ||
+    endedAt?.getTime() !== game.endedAt?.getTime()
+  ) {
+    await tx.game.update({
+      where: { id: game.id },
+      data: { isFinished, winnerId: completion.winnerId, endedAt },
+    });
+  }
+
+  // Snapshot after commit is consumed only by the action's side-effect layer.
+  const transition = transitioned
+    ? {
+        kind: isFinished ? ("finished" as const) : ("reopened" as const),
+        gameId: game.id,
+        winnerId: completion.winnerId,
+        players: game.players,
+      }
+    : null;
+  return transition;
 }
