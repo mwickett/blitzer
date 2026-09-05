@@ -20,7 +20,7 @@ Open [localhost:3000](http://localhost:3000). `npm ci` generates the Prisma clie
 
 Configure Clerk's webhook endpoint at `/api/webhooks` for `user.created` and `user.updated`, with `CLERK_WEBHOOK_SIGNING_SECRET` from the endpoint settings. Provisioning uses the immutable Clerk user ID. Email collisions are rejected rather than transferring another account's history. Pickup signup also provisions locally so players can join before the webhook arrives. Deleted users remain stored for game history; recreating an account does not automatically recover that identity.
 
-The email module requires `RESEND_API_KEY` at initialization; configure a development key for welcome and game-completion email. Insights additionally requires `OPENAI_API_KEY` and an enabled PostHog `llm-features` flag. Configure `NEXT_PUBLIC_APP_URL` to the correct origin for pickup invitation links. See [.env.example](.env.example) for optional PostHog, Slack, and seeding settings.
+The email module requires `RESEND_API_KEY` at initialization; configure a development key for welcome and game-completion email. Insights additionally requires `OPENAI_API_KEY` and an enabled PostHog `llm-features` flag. Configure `NEXT_PUBLIC_APP_URL` to the correct origin for pickup invitation links. See [.env.example](.env.example) for optional PostHog and seeding settings.
 
 ## Scoring and access
 
@@ -51,15 +51,13 @@ Run `npm run db:seed` explicitly to initialize a development or preview database
 
 Existing fixture games, edited scores, added rounds, guest names, and rematches are preserved. Use a fresh isolated database for a clean scenario. Production exits before reading fixture configuration; failures exit nonzero. Historical delete-and-recreate seeding plans are superseded by this workflow.
 
-## Analytics and Slack
+## Analytics
 
 Server events use a shared PostHog client and `captureServerEvent`, which awaits immediate delivery inside Next's `after` lifetime. Analytics failure cannot turn a committed score into a failed action. Email delivery reports success/failure separately and uses provider idempotency keys; it is not a durable outbox.
 
 Client pageviews wait for Clerk identity hydration and are deduplicated. Invitation tokens and query/hash values are stripped from analytics URL properties and replay URLs. Automatic initial referrer/campaign attribution is deliberately disabled, and older initial-origin values are cleared before flag requests. Email/username targeting traits are sent only as feature-flag evaluation overrides, not identify-event properties. LLM tracing uses privacy mode. Do not add names, emails, IP addresses, invitation tokens, or message contents to event properties.
 
 `llm-features` requires literal boolean `true`; missing flags, variants, and failures deny access. Server flag results use a 60-second cache capped at 1,000 users. See [feature flag usage](src/FEATURE_FLAGS.md).
-
-The Slack `/whois` endpoint requires `SLACK_SIGNING_SECRET`, one `SLACK_WHOIS_TEAM_ID`, and a comma-separated `SLACK_WHOIS_USER_IDS` operator list. Missing configuration denies access. Requests must have a valid signature and timestamp within five minutes. Reports are ephemeral and omit email addresses.
 
 ## Schema and deployment
 
