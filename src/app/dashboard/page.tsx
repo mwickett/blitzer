@@ -1,8 +1,6 @@
-import { Suspense } from "react";
 import { getDashboardStats } from "@/server/queries";
 import BasicStatBlock from "@/components/BasicStatBlock";
 import CircleCtaSection from "./_components/CircleCtaSection";
-import InviteBannerSection from "./_components/InviteBannerSection";
 
 export default async function Dashboard() {
   const {
@@ -15,9 +13,6 @@ export default async function Dashboard() {
   return (
     <section className="border-zinc-500 p-5">
       <CircleCtaSection />
-      <Suspense fallback={null}>
-        <InviteBannerSection />
-      </Suspense>
       <div className="mb-4">
         <BasicStatBlock
           label="Batting Average"

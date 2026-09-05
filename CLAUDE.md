@@ -45,7 +45,6 @@ npm run lint                # Run ESLint
 
 - `games.ts` - Game creation, updates, completion
 - `rounds.ts` - Score entry and round management
-- `circles.ts` - Circle (Clerk organization) setup and invitations
 - `guests.ts` - Guest user management
 
 **Authentication Flow**: All server actions start with `getAuthenticatedUser()` or `getAuthenticatedUserPrismaId()` from `src/server/mutations/common.ts`
@@ -67,7 +66,7 @@ npm run lint                # Run ESLint
 - Uses `@prisma/adapter-pg` driver adapter for database connections
 - Always run `npx prisma migrate dev` after schema changes
 
-**Authentication**: Clerk handles auth, user data synced via webhooks
+**Authentication**: Clerk handles auth, user data synced via webhooks. Circle setup and invitations use Clerk's organization components; do not commit contact exports or restore the retired legacy-friend invitation flow.
 
 **Feature Flags**: PostHog-based system
 
