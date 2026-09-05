@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/server/db/db";
 import crypto from "crypto";
-import { calculateCumulativeScore } from "@/lib/validation/gameRules";
-
-// Slack slash command payload interface
-interface SlackCommand {
-  token: string;
-  team_id: string;
-  team_domain: string;
-  channel_id: string;
-  channel_name: string;
-  user_id: string;
-  user_name: string;
-  command: string;
-  text: string;
-  response_url: string;
-  trigger_id: string;
-}
+import { getPlayerBattingAverageForUser, getCumulativeScoreForUser } from "@/server/queries/stats";
 
 // Verify Slack request signature
 function verifySlackRequest(body: string, timestamp: string, signature: string): boolean {
@@ -25,6 +10,12 @@ function verifySlackRequest(body: string, timestamp: string, signature: string):
     console.error("SLACK_SIGNING_SECRET not configured");
     return false;
   }
+
+  // Slack's signature covers the timestamp, but authentic old requests can
+  // still be replayed unless freshness is checked independently.
+  if (!/^\d{1,12}$/.test(timestamp) ||
+      Math.abs(Date.now() / 1000 - Number(timestamp)) > 300 ||
+      !/^v0=[a-f0-9]{64}$/.test(signature)) return false;
 
   const baseString = `v0:${timestamp}:${body}`;
   const expectedSignature = `v0=${crypto
@@ -43,101 +34,33 @@ function verifySlackRequest(body: string, timestamp: string, signature: string):
   );
 }
 
-// Get user stats aggregated for Slack display
 async function getUserStats(userId: string) {
-  // Get basic user info
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-
+  const participation = { players: { some: { userId } }, startedAt: { not: null } };
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [user, totalGames, recentGames, batting, cumulativeScore, lastGame] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId }, select: { username: true, createdAt: true },
+    }),
+    prisma.game.count({ where: participation }),
+    prisma.game.count({ where: { ...participation, startedAt: { gte: thirtyDaysAgo } } }),
+    getPlayerBattingAverageForUser(userId),
+    getCumulativeScoreForUser(userId),
+    prisma.game.findFirst({
+      where: participation, orderBy: { startedAt: "desc" }, select: { startedAt: true },
+    }),
+  ]);
   if (!user) return null;
-
-  // Get total games played
-  const totalGames = await prisma.game.count({
-    where: {
-      players: {
-        some: { userId },
-      },
-    },
-  });
-
-  // Get recent games (last 30 days)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
-  const recentGames = await prisma.game.count({
-    where: {
-      players: {
-        some: { userId },
-      },
-      createdAt: {
-        gte: thirtyDaysAgo,
-      },
-    },
-  });
-
-  // Get batting average
-  const totalRounds = await prisma.score.count({
-    where: { userId },
-  });
-
-  const roundsWon = await prisma.score.count({
-    where: {
-      userId,
-      blitzPileRemaining: 0,
-    },
-  });
-
-  const battingAverage = totalRounds > 0 ? (roundsWon / totalRounds).toFixed(3) : "0.000";
-
-  // Get cumulative score
-  const scoreAgg = await prisma.score.aggregate({
-    where: { userId },
-    _sum: {
-      totalCardsPlayed: true,
-      blitzPileRemaining: true,
-    },
-  });
-
-  // ?? instead of && — a user who always blitzed has a legitimate sum of 0
-  // blitz cards remaining, which the old truthiness check scored as 0 total
-  const cumulativeScore = calculateCumulativeScore({
-    totalCardsPlayed: scoreAgg._sum.totalCardsPlayed ?? 0,
-    blitzPileRemaining: scoreAgg._sum.blitzPileRemaining ?? 0,
-  });
-
-  // Get last activity date
-  const lastGame = await prisma.game.findFirst({
-    where: {
-      players: {
-        some: { userId },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    select: { createdAt: true },
-  });
-
   return {
-    user,
-    totalGames,
-    recentGames,
-    totalRounds,
-    roundsWon,
-    battingAverage,
-    cumulativeScore,
-    lastActivity: lastGame?.createdAt,
+    user, totalGames, recentGames, cumulativeScore,
+    totalRounds: batting.totalHandsPlayed,
+    roundsWon: batting.totalHandsWon,
+    battingAverage: batting.battingAverage,
+    lastActivity: lastGame?.startedAt ?? undefined,
   };
 }
 
 interface SlackUserStats {
-  user: { createdAt: Date; username: string; email: string };
+  user: { createdAt: Date; username: string };
   totalGames: number;
   recentGames: number;
   totalRounds: number;
@@ -155,7 +78,7 @@ function formatSlackResponse(stats: SlackUserStats) {
   const lastSeen = lastActivity ? lastActivity.toLocaleDateString() : "Never";
   
   return {
-    response_type: "in_channel",
+    response_type: "ephemeral",
     blocks: [
       {
         type: "header",
@@ -167,10 +90,6 @@ function formatSlackResponse(stats: SlackUserStats) {
       {
         type: "section",
         fields: [
-          {
-            type: "mrkdwn",
-            text: `*Email:*\n${user.email}`,
-          },
           {
             type: "mrkdwn",
             text: `*Member Since:*\n${memberSince}`,
@@ -252,21 +171,17 @@ export async function POST(request: NextRequest) {
 
     // Parse the form data
     const formData = new URLSearchParams(body);
-    const command: SlackCommand = {
-      token: formData.get("token") || "",
-      team_id: formData.get("team_id") || "",
-      team_domain: formData.get("team_domain") || "",
-      channel_id: formData.get("channel_id") || "",
-      channel_name: formData.get("channel_name") || "",
-      user_id: formData.get("user_id") || "",
-      user_name: formData.get("user_name") || "",
-      command: formData.get("command") || "",
-      text: formData.get("text") || "",
-      response_url: formData.get("response_url") || "",
-      trigger_id: formData.get("trigger_id") || "",
-    };
-
-    const userIdentifier = command.text.trim();
+    const allowedTeam = process.env.SLACK_WHOIS_TEAM_ID?.trim();
+    const allowedUsers = new Set((process.env.SLACK_WHOIS_USER_IDS ?? "")
+      .split(",").map((id) => id.trim()).filter(Boolean));
+    if (!allowedTeam || formData.get("team_id") !== allowedTeam ||
+        !allowedUsers.has(formData.get("user_id") ?? "")) {
+      return NextResponse.json(errorResponse("You are not authorized to use this command"), { status: 403 });
+    }
+    const userIdentifier = (formData.get("text") ?? "").trim();
+    if (userIdentifier.length > 254) {
+      return NextResponse.json(errorResponse("Username or email is too long"), { status: 400 });
+    }
 
     if (!userIdentifier) {
       return NextResponse.json(
@@ -288,7 +203,7 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        errorResponse(`User not found: ${userIdentifier}`),
+        errorResponse("User not found"),
         { status: 200 }
       );
     }

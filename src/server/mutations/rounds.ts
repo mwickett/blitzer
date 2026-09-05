@@ -1,5 +1,7 @@
 "use server";
 
+import { captureServerEvent } from "@/server/telemetry";
+
 import { after } from "next/server";
 import prisma from "@/server/db/db";
 import { requireAuthContext } from "./common";
@@ -18,7 +20,7 @@ async function submit(input: unknown) {
 
   const { transition, round } = result;
   if (transition) {
-    posthog.capture({
+    captureServerEvent(posthog, {
       distinctId: userId,
       event:
         transition.kind === "finished"
@@ -60,7 +62,7 @@ async function submit(input: unknown) {
             setTimeout(resolve, EMAIL_INTER_SEND_DELAY_MS),
           );
       }
-      posthog.capture({
+      captureServerEvent(posthog, {
         distinctId: userId,
         event: "email_batch_completed",
         properties: {

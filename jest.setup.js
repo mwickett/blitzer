@@ -4,6 +4,12 @@ import { TextDecoder, TextEncoder } from 'util'
 global.TextDecoder = TextDecoder
 global.TextEncoder = TextEncoder
 
+// Domain/component tests assert events without running Next background tasks.
+// telemetry.test.ts unmocks this boundary to verify actual deferred delivery.
+jest.mock('@/server/telemetry', () => ({
+  captureServerEvent: (client, event) => client.capture(event),
+}))
+
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: () => ({

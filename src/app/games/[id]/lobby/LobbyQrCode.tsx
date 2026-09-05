@@ -38,7 +38,7 @@ export function LobbyQrCode({ joinUrl }: { joinUrl: string }) {
   }, [joinUrl]);
 
   return (
-    <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-xl border bg-white p-3">
+    <div className="ph-no-capture mx-auto w-full max-w-[280px] overflow-hidden rounded-xl border bg-white p-3">
       <div className="relative aspect-square w-full">
         {dataUrl ? (
           <Image

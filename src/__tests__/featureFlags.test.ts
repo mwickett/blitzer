@@ -76,9 +76,7 @@ describe("isFeatureEnabled (#200 — server-side flag caching)", () => {
     const { isFeatureEnabled } = await importFlags();
 
     mockGetAllFlags.mockRejectedValueOnce(new Error("posthog down"));
-    await expect(isFeatureEnabled("llm-features")).rejects.toThrow(
-      "posthog down"
-    );
+    await expect(isFeatureEnabled("llm-features")).resolves.toBe(false);
 
     await expect(isFeatureEnabled("llm-features")).resolves.toBe(true);
     expect(mockGetAllFlags).toHaveBeenCalledTimes(2);

@@ -1,80 +1,38 @@
+import type { Instrumentation } from "next";
+import { sanitizeAnalyticsUrl } from "@/lib/analytics";
+
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("../sentry.server.config");
   }
-
   if (process.env.NEXT_RUNTIME === "edge") {
     await import("../sentry.edge.config");
   }
 }
 
-// Type definitions for the onRequestError handler
-type RequestError = Error;
-type NextRequest = {
-  headers: {
-    cookie?: string;
-  };
-  url: string;
-  method: string;
-};
-type RequestContext = Record<string, unknown>;
+export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
+  const Sentry = await import("@sentry/nextjs");
+  Sentry.captureRequestError(error, {
+    path: sanitizeAnalyticsUrl(request.path),
+    method: request.method,
+    // Referer and Next's routing headers can contain invitation tokens even
+    // when the visible request path is sanitized. Route context is sufficient.
+    headers: {},
+  }, context);
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-export const onRequestError = async (
-  err: RequestError,
-  request: NextRequest,
-  context: RequestContext
-) => {
-  if (process.env.NEXT_RUNTIME === "nodejs") {
-    // Sentry reporting (keep both for now)
-    const Sentry = await import("@sentry/nextjs");
-    Sentry.captureException(err);
-
-    // PostHog reporting
-    const { default: PostHogClient } = await import("./app/posthog");
-    const posthog = PostHogClient();
-
-    let distinctId = null;
-    if (request.headers.cookie) {
-      const cookieString = request.headers.cookie;
-      const postHogCookieMatch = cookieString.match(
-        /ph_phc_.*?_posthog=([^;]+)/
-      );
-
-      if (postHogCookieMatch && postHogCookieMatch[1]) {
-        try {
-          const decodedCookie = decodeURIComponent(postHogCookieMatch[1]);
-          const postHogData = JSON.parse(decodedCookie);
-          distinctId = postHogData.distinct_id;
-        } catch (e) {
-          console.error("Error parsing PostHog cookie:", e);
-        }
-      }
-    }
-
-    // Add additional context to the error
-    const properties = {
+  const { default: PostHogClient } = await import("./app/posthog");
+  try {
+    await PostHogClient().captureExceptionImmediate(error, undefined, {
       errorSource: "server",
-      path: request.url,
+      // Next's route pattern preserves error context without join tokens or
+      // query-string values from the request URL.
+      path: context.routePath,
       method: request.method,
-    };
-
-    // Send to PostHog with user ID if available
-    if (distinctId) {
-      await posthog.capture({
-        distinctId,
-        event: "$exception",
-        properties: {
-          ...properties,
-          exception: {
-            name: err.name,
-            message: err.message,
-            stack: err.stack,
-          },
-        },
-      });
-    } else {
-      // Pass error as first parameter and properties as second parameter
-      await posthog.captureException(err);
-    }
+      routeType: context.routeType,
+      routerKind: context.routerKind,
+    });
+  } catch {
+    console.warn("Exception analytics delivery failed");
   }
 };
