@@ -2,6 +2,8 @@
 
 Blitzer uses PostHog's `llm-features` flag for the Insights navigation link, page UI, and `/api/chat` authorization. A flag must resolve to boolean `true`. Missing values, string variants, and evaluation failures leave the feature disabled.
 
+**Shipping Insights path:** when enabled, Insights is the OpenAI chat already on `main` (`gpt-3.5-turbo` via `@ai-sdk/openai`, caller aggregate stats only — no SQL tools). June Anthropic post-game-summary PRs (#262 / #263) were closed as superseded; do not treat those branches or `docs/superpowers` Anthropic plans as the live contract.
+
 Configure flags in the PostHog project used by `NEXT_PUBLIC_POSTHOG_KEY`. Server evaluation uses `NEXT_PUBLIC_POSTHOG_HOST` (default US ingest); browser requests use the `/ingest` proxy configured in `next.config.mjs`.
 
 ## Server
