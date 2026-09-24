@@ -1,5 +1,3 @@
-import "server-only";
-
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { ROUND_SCORE_SQL } from "@/lib/validation/gameRules";
