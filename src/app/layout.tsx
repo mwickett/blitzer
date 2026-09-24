@@ -4,13 +4,19 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { circleLocalization } from "@/lib/clerk-localization";
 import { Analytics } from "@vercel/analytics/react";
 import { CSPostHogProvider } from "./PostHogProvider";
-import { Inter } from "next/font/google";
+import { Inter, Fraunces } from "next/font/google";
 import NavBar from "./NavBar";
 import "./globals.css";
 import PostHogPageView from "./PostHogPageView";
 import Footer from "@/components/Footer";
 
 const inter = Inter({ subsets: ["latin"] });
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  axes: ["SOFT", "WONK", "opsz"],
+  display: "swap",
+  variable: "--font-display",
+});
 
 export const metadata: Metadata = {
   metadataBase: process.env.VERCEL_URL
@@ -56,7 +62,7 @@ export default async function RootLayout({
     <ClerkProvider localization={circleLocalization}>
       <html lang="en">
         <CSPostHogProvider>
-          <body className={`${inter.className} bg-brand`}>
+          <body className={`${inter.className} ${fraunces.variable} bg-brand`}>
             <Suspense fallback={null}>
               <ClerkProvider dynamic>
                 <PostHogPageView />

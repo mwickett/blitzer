@@ -4,7 +4,7 @@
 
 **Goal:** Rebuild the unauthenticated marketing site — a chronological landing page that shows the real product via live components, plus a six-page `/guide` section — on a tightened version of the existing cream-and-espresso brand.
 
-**Architecture:** The landing page is composed of small server components in `src/components/marketing/`, each rendering one section. They embed the *actual* scoring components (`RaceTrack`, `Standings`, `WinProbabilityCard`, `ScoreProgressionCard`, `BasicStatBlock`) fed by a single shared fixture module, so the marketing page can never drift from the product's real UI. Guide pages are TSX (not MDX) so they can embed those same live components. Client boundaries are introduced only where a component needs hooks or callbacks.
+**Architecture:** The landing page is composed of small server components in `src/components/marketing/`, each rendering one section. They embed the *actual* scoring components (`RaceTrack`, `Standings`, `WinProbabilityCard`, `ScoreProgressionCard`, `ScoreEntryCard`) fed by a single shared fixture module, so the marketing page can never drift from the product's real UI. Guide pages are TSX (not MDX) so they can embed those same live components. Client boundaries are introduced only where a component needs hooks or callbacks.
 
 **Tech Stack:** Next.js App Router, React server components, Tailwind, Clerk (`Show`, `SignUpButton`), PostHog (`posthog-js/react`), Jest + Testing Library.
 
@@ -38,7 +38,8 @@ Every task's requirements implicitly include this section.
 | `src/components/marketing/MarketingCta.tsx` | `"use client"` — tracked, styled CTA link + auth-aware start-game CTA. |
 | `src/components/marketing/WinProbabilityDemo.tsx` | `"use client"` wrapper so `WinProbabilityCard` (which calls `useMemo` with no directive) can render on a server page. |
 | `src/components/marketing/ScoreEntryPreview.tsx` | `"use client"` wrapper supplying the no-op `onUpdate` that `ScoreEntryCard` requires. |
-| `src/components/marketing/Section.tsx` | Shared section shell — ground colour, padding, eyebrow rule. |
+| `src/components/marketing/Section.tsx` | Shared section shell — ground colour, padding, eyebrow rule (light/dark tone). |
+| `src/components/marketing/StatTile.tsx` | Flat espresso stat tile with a Fraunces numeral. Replaces `BasicStatBlock`, which carries a banned `shadow-sm`. |
 | `src/components/marketing/Hero.tsx` | Hero + live `RaceTrack`. |
 | `src/components/marketing/GatherSection.tsx` | Section 1 — lobby panel, static QR, guest players. |
 | `src/components/marketing/PlaySection.tsx` | Section 2 — score entry + live `Standings`. |
@@ -70,7 +71,7 @@ Every task's requirements implicitly include this section.
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: Tailwind classes `bg-surfaceRaised`, `bg-surfaceSubtle`, `border-borderWarm`, `text-textMuted`, `font-display`. Jest mocks for `@clerk/nextjs` (`Show`, `SignUpButton`, `SignInButton`, `UserButton`, `OrganizationSwitcher`) and `posthog-js/react` (`usePostHog`, `PostHogProvider`).
+- Produces: Tailwind classes `bg-surfaceRaised`, `bg-surfaceSubtle`, `border-borderWarm`, `text-textMuted`, `text-textBody`, `font-display`. Jest mocks for `@clerk/nextjs` (`Show`, `SignUpButton`, `SignInButton`, `UserButton`, `OrganizationSwitcher`) and `posthog-js/react` (`usePostHog`, `PostHogProvider`).
 
 - [ ] **Step 1: Add CSS variables**
 
@@ -82,6 +83,7 @@ In `src/app/globals.css`, inside the `:root` block immediately after `--brand-ac
     --surface-subtle: #faf5ed;
     --border-warm: #e6d7c3;
     --text-muted: #8b5e3c;
+    --text-body: #5b4038;
 ```
 
 - [ ] **Step 2: Add the display-font variation settings**
@@ -112,6 +114,7 @@ In `tailwind.config.ts`, add to `theme.extend.colors` (after the `brandAccent` l
         surfaceSubtle: "var(--surface-subtle)",
         borderWarm: "var(--border-warm)",
         textMuted: "var(--text-muted)",
+        textBody: "var(--text-body)",
 ```
 
 And add a sibling of `colors` inside `theme.extend`:
@@ -215,8 +218,10 @@ import {
   DEMO_ROUNDS_PLAYED,
   DEMO_DELTAS_BY_PLAYER,
   DEMO_SCORES_BY_ROUND,
+  DEMO_LAST_ROUND_ENTRIES,
 } from "@/components/marketing/fixtures";
 import { ACCENT_COLORS } from "@/lib/scoring/colors";
+import { calculateRoundScore } from "@/lib/validation/gameRules";
 
 describe("marketing fixtures", () => {
   it("gives every player a colour from the real accent palette", () => {
@@ -252,6 +257,20 @@ describe("marketing fixtures", () => {
   it("keeps every player short of the win threshold so the game reads as live", () => {
     for (const player of DEMO_PLAYERS) {
       expect(player.score).toBeLessThan(DEMO_WIN_THRESHOLD);
+    }
+  });
+
+  it("has exactly one blitzer in the final round, and entries that reproduce the deltas", () => {
+    const blitzers = Object.values(DEMO_LAST_ROUND_ENTRIES).filter(
+      (entry) => entry.blitzRemaining === 0
+    );
+    // Emptying the Blitz pile ends the round, so only one player can be at 0.
+    expect(blitzers).toHaveLength(1);
+
+    for (const player of DEMO_PLAYERS) {
+      const entry = DEMO_LAST_ROUND_ENTRIES[player.id];
+      const deltas = DEMO_DELTAS_BY_PLAYER[player.id];
+      expect(calculateRoundScore(entry)).toBe(deltas[deltas.length - 1]);
     }
   });
 
@@ -336,6 +355,27 @@ export const DEMO_SCORES_BY_ROUND: Record<string, number[]> = {
   mike: [9, 21, 33, 44],
   priya: [7, 18, 28, 36],
   tom: [4, 11, 16, 21],
+};
+
+/**
+ * The raw entry each player would have keyed in for the final round — what
+ * ScoreEntryPreview shows on its phone screen.
+ *
+ * Exactly one player may have `blitzRemaining: 0`. Emptying the Blitz pile is
+ * what ends the round, so a screen showing three players at zero depicts a
+ * game that cannot happen — and the audience for this page plays the game.
+ *
+ * Each entry must reproduce that player's final delta through the real
+ * scoring formula (cards − 2 × blitz). fixtures.test.ts asserts it.
+ */
+export const DEMO_LAST_ROUND_ENTRIES: Record<
+  string,
+  { blitzRemaining: number; cardsPlayed: number }
+> = {
+  dana: { blitzRemaining: 0, cardsPlayed: 15 }, // 15 − 0  = 15, and Dana blitzed
+  mike: { blitzRemaining: 2, cardsPlayed: 15 }, // 15 − 4  = 11
+  priya: { blitzRemaining: 1, cardsPlayed: 10 }, // 10 − 2 =  8
+  tom: { blitzRemaining: 3, cardsPlayed: 11 }, // 11 − 6   =  5
 };
 ```
 
@@ -568,8 +608,11 @@ describe("WinProbabilityDemo", () => {
   it("shows every demo player", () => {
     render(<WinProbabilityDemo />);
 
+    // getAllByText, not getByText: the card prints each name twice — once on
+    // its probability bar and again as a Race Outlook stat detail
+    // ("Next-round danger: Dana"). getByText throws on multiple matches.
     for (const name of ["Dana", "Mike", "Priya", "Tom"]) {
-      expect(screen.getByText(name)).toBeInTheDocument();
+      expect(screen.getAllByText(name).length).toBeGreaterThan(0);
     }
   });
 });
@@ -622,11 +665,23 @@ Create `src/components/marketing/ScoreEntryPreview.tsx`:
 "use client";
 
 import { ScoreEntryCard } from "@/components/scoring/ScoreEntryCard";
-import { DEMO_PLAYERS, DEMO_DELTAS_BY_PLAYER } from "./fixtures";
+import {
+  DEMO_PLAYERS,
+  DEMO_SCORES_BY_ROUND,
+  DEMO_LAST_ROUND_ENTRIES,
+  DEMO_ROUNDS_PLAYED,
+} from "./fixtures";
 
 /**
  * ScoreEntryCard needs an onUpdate callback, and functions cannot be passed
  * from a server component to a client one. The no-op is created here instead.
+ *
+ * `score` is the total BEFORE the round being keyed in — matching how
+ * ScoreEntryView passes the prop in production, and making the marketing claim
+ * legible: the phone shows Dana on 43 with a 15-point round going in, while
+ * the Standings panel beside it shows the resulting 58. Passing the post-round
+ * total instead would leave both panels showing the same settled number, with
+ * no before-state for the standings to redraw from.
  *
  * This renders a static, non-interactive preview. Wiring it to local state to
  * make it playable is a deliberate follow-up, not an oversight.
@@ -640,15 +695,15 @@ export function ScoreEntryPreview() {
   return (
     <div className="space-y-2">
       {shown.map((player) => {
-        const deltas = DEMO_DELTAS_BY_PLAYER[player.id];
-        const lastDelta = deltas[deltas.length - 1];
+        const cumulative = DEMO_SCORES_BY_ROUND[player.id];
+        const scoreBeforeRound = cumulative[DEMO_ROUNDS_PLAYED - 2];
         return (
           <ScoreEntryCard
             key={player.id}
             name={player.name}
             color={player.color}
-            score={player.score}
-            entry={{ blitzRemaining: 0, cardsPlayed: lastDelta }}
+            score={scoreBeforeRound}
+            entry={DEMO_LAST_ROUND_ENTRIES[player.id]}
             status="complete"
             onUpdate={noop}
           />
@@ -724,9 +779,25 @@ export function Section({
   );
 }
 
-export function SectionEyebrow({ children }: { children: React.ReactNode }) {
+const EYEBROW_TONES = {
+  light: "text-textMuted",
+  dark: "text-[#c4a99f]",
+} as const;
+
+export function SectionEyebrow({
+  tone = "light",
+  children,
+}: {
+  tone?: keyof typeof EYEBROW_TONES;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mb-3 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.13em] text-textMuted">
+    <div
+      className={cn(
+        "mb-3 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.13em]",
+        EYEBROW_TONES[tone]
+      )}
+    >
       {children}
       <span className="h-px flex-1 bg-current opacity-30" aria-hidden="true" />
     </div>
@@ -752,7 +823,7 @@ export function Hero() {
           src="/img/blitzer-logo.png"
           width={300}
           height={300}
-          alt="Blitzer"
+          alt="Blitzer logo — line drawing of a windmill with hearts"
           priority
           className="mx-auto mb-8 h-auto w-[140px] md:w-[170px]"
         />
@@ -763,7 +834,7 @@ export function Hero() {
           Settle scores.
         </h1>
 
-        <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-[#5b4038]">
+        <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-textBody">
           Blitzer runs the scoring for your Dutch Blitz table — live standings,
           real win odds, and a permanent record of who&apos;s actually best.
         </p>
@@ -776,9 +847,13 @@ export function Hero() {
         </div>
 
         <div className="mt-12 rounded-xl border-[1.5px] border-borderWarm bg-surfaceRaised p-4 text-left">
-          <div className="mb-2 flex justify-between text-xs font-medium text-textMuted">
-            <span>Round 4 · Thursday night</span>
-            <span>{DEMO_WIN_THRESHOLD} to win</span>
+          {/*
+            Only the left-hand label. RaceTrack renders its own header row with
+            the floor score and "{winThreshold} to win" (RaceTrack.tsx:37-40),
+            so repeating the threshold here would print it twice in one panel.
+          */}
+          <div className="mb-2 text-xs font-medium text-textMuted">
+            Round 4 · Thursday night
           </div>
           <RaceTrack
             players={DEMO_PLAYERS}
@@ -846,12 +921,12 @@ export function GatherSection() {
           <h2 className="font-display text-4xl font-bold leading-[1.08] text-brandAccent">
             Everyone&apos;s in before the deck is shuffled
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-[#5b4038]">
-            Start a pickup game and show the code. They scan, they&apos;re in —
-            up to {MAX_PICKUP_PLAYERS} players, and nobody needs an account
-            first.
+          <p className="mt-4 text-base leading-relaxed text-textBody">
+            Start a pickup game and show the code. They scan, sign in, and
+            they&apos;re at the table — up to {MAX_PICKUP_PLAYERS} players, with
+            no Circle to set up and no invitations to send.
           </p>
-          <p className="mt-3 text-base leading-relaxed text-[#5b4038]">
+          <p className="mt-3 text-base leading-relaxed text-textBody">
             Playing with someone who&apos;ll never sign up? Add them as a guest
             and they&apos;re scored like anyone else.
           </p>
@@ -872,7 +947,7 @@ export function GatherSection() {
                 or enter code
               </div>
               <div className="font-display text-3xl font-bold tracking-[0.16em] text-brandAccent">
-                4KTQ
+                4KTQR8
               </div>
             </div>
           </div>
@@ -972,7 +1047,7 @@ export function PlaySection() {
             Lower friction than pen and paper. That&apos;s a higher bar than it
             sounds.
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-[#5b4038]">
+          <p className="mt-4 text-base leading-relaxed text-textBody">
             Built thumb-first for a phone propped against the card box. Enter
             the blitz pile and cards played; the standings redraw before the
             next deal.
@@ -1012,7 +1087,7 @@ git commit -m "feat: add play section with live standings"
 Create `src/components/marketing/SettleSection.tsx`:
 
 ```tsx
-import { Section } from "./Section";
+import { Section, SectionEyebrow } from "./Section";
 import { WinProbabilityDemo } from "./WinProbabilityDemo";
 
 export function SettleSection() {
@@ -1020,11 +1095,7 @@ export function SettleSection() {
     <Section ground="espresso">
       <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
         <div>
-          {/* SectionEyebrow's muted colour is tuned for light grounds. */}
-          <div className="mb-3 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.13em] text-[#c4a99f]">
-            3 · Settle it
-            <span className="h-px flex-1 bg-[#5c2a25]" aria-hidden="true" />
-          </div>
+          <SectionEyebrow tone="dark">3 · Settle it</SectionEyebrow>
           <h2 className="font-display text-4xl font-bold leading-[1.08] text-brand">
             Real odds.
             <br />
@@ -1061,12 +1132,15 @@ git commit -m "feat: add settle section with win probability"
 ## Task 9: Remember section
 
 **Files:**
+- Create: `src/components/marketing/StatTile.tsx`
 - Create: `src/components/marketing/RememberSection.tsx`
 - Test: `src/components/__tests__/marketing/RememberSection.test.tsx`
 
 **Interfaces:**
-- Consumes: `Section`, `SectionEyebrow` (Task 5); `DEMO_PLAYERS`, `DEMO_SCORES_BY_ROUND`, `DEMO_WIN_THRESHOLD` (Task 2); `BasicStatBlock` from `@/components/BasicStatBlock`; `ScoreProgressionCard` from `@/components/scoring/graphs/ScoreProgressionCard`
-- Produces: `RememberSection()`
+- Consumes: `Section`, `SectionEyebrow` (Task 5); `DEMO_PLAYERS`, `DEMO_SCORES_BY_ROUND`, `DEMO_WIN_THRESHOLD` (Task 2); `ScoreProgressionCard` from `@/components/scoring/graphs/ScoreProgressionCard`
+- Produces: `StatTile({ label: string, value: string })`, `RememberSection()`
+
+**Why not `BasicStatBlock`:** it wraps `ui/card.tsx`, which hardcodes `shadow-sm` — banned by Global Constraints. It also renders its value in Inter, where the approved design uses Fraunces numerals. A purpose-built tile satisfies both and leaves the dashboard's `BasicStatBlock` untouched.
 
 **Why this one is tested:** this is the only section whose copy is constrained by a product limitation. Circles have no stats surface — `src/server/queries/stats.ts` is entirely `…ForUser` — so any group-stats wording would be a false claim. The test pins that down so a future copy edit cannot quietly reintroduce it.
 
@@ -1092,6 +1166,13 @@ describe("RememberSection", () => {
 
     // stats.ts is entirely `…ForUser` — there is no circle leaderboard,
     // head-to-head record, or group standing anywhere in the product.
+    //
+    // This list is necessarily incomplete: an earlier headline read "Your
+    // average — per round, per game, against one specific person?", which is a
+    // head-to-head claim that matched none of these patterns and shipped past
+    // a green test. Treat a passing run as a floor, not proof — any copy edit
+    // to this section still needs a human to check the claim against
+    // stats.ts.
     for (const forbidden of [
       /leaderboard/i,
       /head.to.head/i,
@@ -1099,6 +1180,12 @@ describe("RememberSection", () => {
       /your group's stats/i,
       /stack up game after game/i,
       /best in your circle/i,
+      /against (one|a) specific/i,
+      /per round, per game/i,
+      /\bopponent\b/i,
+      /\brivalry\b/i,
+      /\bversus\b/i,
+      /games won/i,
     ]) {
       expect(copy).not.toMatch(forbidden);
     }
@@ -1111,13 +1198,35 @@ describe("RememberSection", () => {
 Run: `npx jest src/components/__tests__/marketing/RememberSection.test.tsx`
 Expected: FAIL — `Cannot find module '@/components/marketing/RememberSection'`
 
-- [ ] **Step 3: Write the section**
+- [ ] **Step 3: Write the stat tile**
+
+Create `src/components/marketing/StatTile.tsx`:
+
+```tsx
+/**
+ * The dashboard's BasicStatBlock is not reused here: it wraps ui/card, which
+ * hardcodes shadow-sm, and the marketing page is flat throughout. This also
+ * lets the numeral use the display face.
+ */
+export function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-brandAccent p-4 text-brand">
+      <div className="text-[11px] font-medium opacity-70">{label}</div>
+      <div className="mt-1 font-display text-3xl font-bold leading-tight">
+        {value}
+      </div>
+    </div>
+  );
+}
+```
+
+- [ ] **Step 4: Write the section**
 
 Create `src/components/marketing/RememberSection.tsx`:
 
 ```tsx
 import { Section, SectionEyebrow } from "./Section";
-import BasicStatBlock from "@/components/BasicStatBlock";
+import { StatTile } from "./StatTile";
 import { ScoreProgressionCard } from "@/components/scoring/graphs/ScoreProgressionCard";
 import {
   DEMO_PLAYERS,
@@ -1137,9 +1246,15 @@ export function RememberSection() {
     <Section ground="white">
       <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
         <div>
+          {/*
+            Both tiles must correspond to something DashboardStats actually
+            returns (batting average, score extremes, cumulative score, game
+            round extremes). "Games won" was here once and is not computed
+            anywhere — do not reintroduce a stat the product cannot show.
+          */}
           <div className="mb-3 grid grid-cols-2 gap-3">
-            <BasicStatBlock label="Batting Average" value=".412" />
-            <BasicStatBlock label="Games Won" value="17" />
+            <StatTile label="Batting average" value=".412" />
+            <StatTile label="Rounds played" value="312" />
           </div>
           <ScoreProgressionCard
             players={DEMO_PLAYERS}
@@ -1151,14 +1266,14 @@ export function RememberSection() {
         <div>
           <SectionEyebrow>4 · Remember</SectionEyebrow>
           <h2 className="font-display text-4xl font-bold leading-[1.08] text-brandAccent">
-            Your average — per round, per game, against one specific person?
+            The record keeps itself
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-[#5b4038]">
+          <p className="mt-4 text-base leading-relaxed text-textBody">
             Every game your group plays lands in your Circle, so the record is
             all in one place instead of scattered across whoever remembered to
             write it down.
           </p>
-          <p className="mt-3 text-base leading-relaxed text-[#5b4038]">
+          <p className="mt-3 text-base leading-relaxed text-textBody">
             And every finished game gets a link anyone can open — no account, no
             app, just send it to the group chat.
           </p>
@@ -1169,17 +1284,15 @@ export function RememberSection() {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run test to verify it passes**
 
 Run: `npx jest src/components/__tests__/marketing/RememberSection.test.tsx`
 Expected: PASS — 2 tests
 
-`BasicStatBlock` is `w-full max-w-sm`; if the two blocks look cramped side by side at desktop width, keep the grid and let them size down rather than adding a shadow or a new card style.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/components/marketing/RememberSection.tsx src/components/__tests__/marketing/RememberSection.test.tsx
+git add src/components/marketing/StatTile.tsx src/components/marketing/RememberSection.tsx src/components/__tests__/marketing/RememberSection.test.tsx
 git commit -m "feat: add remember section with constrained Circles claims"
 ```
 
@@ -1276,7 +1389,7 @@ export function GuideTeaser() {
             <h3 className="font-display text-base font-bold text-brandAccent">
               {card.title}
             </h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-[#5b4038]">
+            <p className="mt-1.5 text-sm leading-relaxed text-textBody">
               {card.blurb}
             </p>
             <span className="mt-3 inline-block text-[13px] font-semibold text-brandAccent">
@@ -1373,7 +1486,9 @@ export const metadata: Metadata = {
  */
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col bg-brand">
+    // A <div>, not a <main>: NavBar.tsx:164 already provides the document's
+    // one <main>. The outgoing page nested a second one; this does not.
+    <div className="flex min-h-screen flex-col bg-brand">
       <Hero />
       <GatherSection />
       <PlaySection />
@@ -1587,10 +1702,83 @@ Expected: PASS
 
 Run `npm run dev` and load `/` in a private window. Confirm the header shows Guide, Sign In, Sign Up — and no Dashboard or Games.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Make the Clerk `Show` mock honour `when`, and cover the wiring**
+
+The pure link-set test proves the *sets* are right, but nothing proves `NavBar.tsx` threads the right set into the right `<Show>` branch. Both are `NavLink[]` and both branch labels are valid literals, so swapping them compiles, type-checks, and passes every test. That is the exact bug this task exists to fix, so it deserves a gate.
+
+Only `NavBar` and `MarketingCta` use `<Show>`, and no existing test renders either branch — so teaching the mock about `when` breaks nothing.
+
+In `jest.setup.js`, replace the `Show` entry and add the state above the mock (the variable MUST begin with `mock` — Jest hoists `jest.mock` factories and only permits closing over out-of-scope names with that prefix):
+
+```js
+// Clerk's <Show when="signed-in|signed-out"> renders exactly one branch at
+// runtime. Tests select which via global.__setClerkAuthState. Defaults to
+// signed-out, the state the marketing pages are written for.
+let mockClerkAuthState = 'signed-out'
+global.__setClerkAuthState = (state) => {
+  mockClerkAuthState = state
+}
+```
+
+and inside the `@clerk/nextjs` factory:
+
+```js
+  Show: ({ when, children }) => (when === mockClerkAuthState ? children : null),
+```
+
+Then create `src/app/__tests__/NavBar.test.tsx`:
+
+```tsx
+import { render, screen } from "@testing-library/react";
+import NavBar from "@/app/NavBar";
+
+// NavBar reads the llm-features flag; posthog is not wired up in jsdom.
+jest.mock("@/hooks/useFeatureFlag", () => ({
+  useLlmFeaturesFlag: () => false,
+}));
+
+// NavBar treats children as an array (children[0], children.slice(1)).
+function renderNav() {
+  return render(<NavBar>{[<div key="a" />, <div key="b" />]}</NavBar>);
+}
+
+function renderedHrefs() {
+  return Array.from(document.querySelectorAll("a")).map((a) =>
+    a.getAttribute("href")
+  );
+}
+
+describe("NavBar", () => {
+  // Covers the desktop nav only: the mobile sheet's contents live in a Radix
+  // portal that mounts on open, so they are absent from the DOM here.
+  it("offers signed-out visitors the guide and no route that needs auth", () => {
+    global.__setClerkAuthState("signed-out");
+    renderNav();
+
+    const hrefs = renderedHrefs();
+    expect(hrefs).toContain("/guide");
+    for (const authOnly of ["/dashboard", "/games", "/insights"]) {
+      expect(hrefs).not.toContain(authOnly);
+    }
+  });
+
+  it("offers signed-in users the app routes", () => {
+    global.__setClerkAuthState("signed-in");
+    renderNav();
+
+    const hrefs = renderedHrefs();
+    expect(hrefs).toContain("/dashboard");
+    expect(hrefs).toContain("/games");
+  });
+});
+```
+
+Run: `npx jest src/app/__tests__/NavBar.test.tsx` — expect 2 passing. Then `npm test` — expect 233 / 34.
+
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/components/marketing/navLinks.ts src/components/__tests__/marketing/navLinks.test.ts src/app/NavBar.tsx
+git add src/components/marketing/navLinks.ts src/components/__tests__/marketing/navLinks.test.ts src/app/NavBar.tsx jest.setup.js src/app/__tests__/NavBar.test.tsx
 git commit -m "feat: gate navigation links by auth state"
 ```
 
@@ -1686,7 +1874,7 @@ export default function Footer() {
                 Blitzer
               </span>
             </div>
-            <p className="mt-3 max-w-[34ch] text-sm leading-relaxed text-[#5b4038]">
+            <p className="mt-3 max-w-[34ch] text-sm leading-relaxed text-textBody">
               Scoring and stats for people who take Thursday night far too
               seriously.
             </p>
@@ -1701,7 +1889,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-[#5b4038] transition-colors hover:text-brandAccent"
+                    className="text-sm text-textBody transition-colors hover:text-brandAccent"
                   >
                     {link.label}
                   </Link>
@@ -1719,7 +1907,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-[#5b4038] transition-colors hover:text-brandAccent"
+                    className="text-sm text-textBody transition-colors hover:text-brandAccent"
                   >
                     {link.label}
                   </Link>
@@ -1791,6 +1979,17 @@ import { cn } from "@/lib/utils";
  * Guide pages are TSX rather than MDX so they can embed the live scoring
  * components. That means no markdown pipeline styles them — this carries the
  * typography instead.
+ *
+ * AUTHORING CONSTRAINT: every rule below except the link one uses a
+ * direct-child selector (`[&>p]`, not `[&_p]`). Keep prose elements as direct
+ * children of <Prose>. Wrapping a paragraph or heading in a <div> silently
+ * drops its styling — nothing errors, it just renders unstyled.
+ *
+ * Styled: direct-child p, h2, h3, ul, ol, their immediate li, and any
+ * descendant a. NOT styled: h4-h6, blockquote, table, pre, code, hr, dl,
+ * second-level list items, or anything nested inside a wrapper element. Give
+ * those explicit classes at the call site — the FAQ list in /guide does
+ * exactly that for its <dl>.
  */
 export function Prose({
   className,
@@ -1802,7 +2001,7 @@ export function Prose({
   return (
     <div
       className={cn(
-        "text-base leading-relaxed text-[#5b4038]",
+        "text-base leading-relaxed text-textBody",
         "[&>p]:mb-4",
         "[&>h2]:font-display [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-brandAccent [&>h2]:mt-10 [&>h2]:mb-3",
         "[&>h3]:font-display [&>h3]:text-lg [&>h3]:font-bold [&>h3]:text-brandAccent [&>h3]:mt-6 [&>h3]:mb-2",
@@ -1829,7 +2028,7 @@ export function GuidePageHeader({
       <h1 className="font-display text-4xl font-bold leading-[1.08] text-brandAccent">
         {title}
       </h1>
-      <p className="mt-3 text-lg leading-relaxed text-[#5b4038]">{intro}</p>
+      <p className="mt-3 text-lg leading-relaxed text-textBody">{intro}</p>
     </header>
   );
 }
@@ -1868,7 +2067,7 @@ export default function GuideLayout({
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="block rounded-md px-2 py-1.5 text-sm text-[#5b4038] transition-colors hover:bg-surfaceSubtle hover:text-brandAccent"
+                  className="block rounded-md px-2 py-1.5 text-sm text-textBody transition-colors hover:bg-surfaceSubtle hover:text-brandAccent"
                 >
                   {item.label}
                 </Link>
@@ -1877,7 +2076,12 @@ export default function GuideLayout({
           </ul>
         </nav>
 
-        <main className="min-w-0">{children}</main>
+        {/*
+          A <div>, not a <main>: NavBar.tsx:164 already wraps every page's
+          content in the document's one <main>. Nesting a second would be
+          invalid HTML and give screen readers two competing landmarks.
+        */}
+        <div className="min-w-0">{children}</div>
       </div>
     </div>
   );
@@ -1955,7 +2159,7 @@ const TOPICS = [
 const FAQ = [
   {
     q: "Do all the players need an account?",
-    a: "No. Only the person hosting needs one. Everyone else can join a pickup game with a code, and anyone who does not want an account at all can be added as a guest and still be scored normally.",
+    a: "Anyone joining from their own phone does — they sign in on the way through when they scan the code, and it is free. If someone would rather not make one, the host can add them as a guest instead: guests are scored exactly like everyone else, they just cannot open the game themselves.",
   },
   {
     q: "How many people can play?",
@@ -1997,7 +2201,7 @@ export default function GuideHub() {
             <h2 className="font-display text-base font-bold text-brandAccent">
               {topic.title}
             </h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-[#5b4038]">
+            <p className="mt-1.5 text-sm leading-relaxed text-textBody">
               {topic.blurb}
             </p>
           </Link>
@@ -2083,8 +2287,9 @@ export default function GettingStarted() {
         <h2>2. Get everyone in</h2>
         <p>
           A pickup game opens a lobby with a QR code and a short join code. Show
-          the screen; anyone who scans it or types the code joins the game on
-          their own phone. You can seat up to {MAX_PICKUP_PLAYERS} players.
+          the screen; anyone who scans it or types the code signs in and joins
+          the game on their own phone. Joining does not add them to your Circle.
+          You can seat up to {MAX_PICKUP_PLAYERS} players.
         </p>
         <p>
           Playing with someone who does not want an account? Add them as a guest
@@ -2099,10 +2304,16 @@ export default function GettingStarted() {
         <h2>3. Choose colours</h2>
         <p>
           Each player gets a colour, which is how they are identified in the
-          standings, the race track and every chart. Blitzer assigns colours
-          automatically, and anyone can change theirs before play starts. If two
-          people pick the same colour, the one who had it gets bumped to the
+          standings, the race track and every chart. In a Circle game, whoever
+          sets it up picks colours for everyone on one screen before play
+          starts. In a pickup game, Blitzer assigns them as people join. If two
+          players end up on the same colour, the one who had it moves to the
           next free one.
+        </p>
+        <p>
+          There are six colours, so a seven- or eight-player game runs out and
+          two people end up sharing. Everything still scores correctly; you just
+          have to look at the names rather than the colours.
         </p>
 
         <h2>4. Score each round</h2>
@@ -2318,9 +2529,14 @@ export default function CirclesAndPickupGames() {
         <h2>Pickup games</h2>
         <p>
           A pickup game is for right now. You open a lobby, everyone at the
-          table joins with a code or a QR scan, and you play. Nobody needs an
-          account except you, and you can seat up to {MAX_PICKUP_PLAYERS}{" "}
-          players.
+          table joins with a code or a QR scan, and you play. There is no Circle
+          to create and nobody to invite in advance, and you can seat up to{" "}
+          {MAX_PICKUP_PLAYERS} players.
+        </p>
+        <p>
+          Players joining from their own phone sign in as they come through —
+          it is free, and it does not put them in any of your Circles. Anyone
+          who would rather not make an account can be added as a guest instead.
         </p>
         <p>Use one when:</p>
         <ul>
@@ -2369,10 +2585,10 @@ export default function CirclesAndPickupGames() {
           create a Circle later, once it is clear the group is a regular thing.
         </p>
         <p>
-          One thing to know: your{" "}
-          <Link href="/guide/reading-your-stats">stats dashboard</Link> requires
-          an active Circle, so if you have only ever played pickup games you
-          will be asked to create one before you can see it.
+          Either way your{" "}
+          <Link href="/guide/reading-your-stats">stats</Link> count every round
+          you play — pickup games and Circle games are pooled together, so
+          starting with pickup costs you nothing.
         </p>
       </Prose>
     </>
@@ -2452,8 +2668,9 @@ export default function ReadingYourStats() {
           Mid-game, Blitzer estimates each player&apos;s chance of winning by
           simulating the rest of the game thousands of times, using how this
           table has actually been scoring tonight rather than a generic
-          assumption. It appears once three rounds have been played — before
-          that there is not enough to go on.
+          assumption. It normally needs three rounds before it has enough to go
+          on. If it can lean on how the players have scored in earlier finished
+          games, it can start sooner.
         </p>
       </Prose>
 
@@ -2478,7 +2695,8 @@ export default function ReadingYourStats() {
         <h3>Hot &amp; cold</h3>
         <p>
           Each player&apos;s per-round scores as an intensity grid, so you can
-          see streaks rather than totals. A player&apos;s best round is marked.
+          see streaks rather than totals. Each player&apos;s best round is
+          marked, unless every round they played lost them points.
         </p>
         <h3>Race track</h3>
         <p>
@@ -2541,13 +2759,24 @@ describe("Why Blitzer page", () => {
     // friend approval was replaced by Circles (#205); there are no global
     // leaderboards; outlier showcases were never built; AI chat is Insights,
     // which is flag-gated and excluded from marketing entirely.
+    //
+    // Two earlier patterns here could never fire: /approve friendships/ does
+    // not match "approving friendships", and /ask questions of the data/ was
+    // narrower than any phrasing anyone would write. Both were decorative.
+    // And a per-opponent claim shipped past this list once already, which is
+    // why /against (one|a) specific/ is here. Treat a green run as a floor,
+    // not proof — a copy edit still needs a human to check the claim.
     for (const forbidden of [
-      /friend request/i,
-      /approve friendships/i,
+      /friend requests?/i,
+      /approv\w*\s+(a\s+)?friend/i,
       /best Dutch Blitz players in the world/i,
       /leaderboard/i,
       /AI chat/i,
-      /ask questions of the data/i,
+      /chat (with|to) (your|the) (data|stats)/i,
+      /quer(y|ying) (your|the) (data|stats)/i,
+      /ask (it |them )?(questions?|anything)/i,
+      /against (one|a) specific/i,
+      /these are all answerable/i,
     ]) {
       expect(copy).not.toMatch(forbidden);
     }
@@ -2611,15 +2840,16 @@ export default function WhyBlitzer() {
 
         <h2>The questions</h2>
         <p>
-          So: how did that game actually go? How have you been playing lately?
-          Have you changed as a player? What is your average per round, per
-          game, against one specific person? What is the longest game you have
-          ever been part of?
+          So: how did that game actually go? How have you changed as a player?
+          Who really has the better record against whom? What is the longest
+          game you have ever been part of?
         </p>
         <p>
-          These are all answerable, but only if somebody wrote the rounds down
-          in a form you can still use six months later. That is the job Blitzer
-          took.
+          None of that is answerable unless somebody wrote the rounds down in a
+          form that still means something six months later. Capturing the data
+          is the job Blitzer took first. What it can answer today is a shorter
+          list than the one above, and it is written out in{" "}
+          <Link href="/guide/reading-your-stats">Reading your stats</Link>.
         </p>
 
         <h2>The bar</h2>

@@ -9,7 +9,9 @@ The marketing site is one page (`src/app/page.tsx`) that undersells and partly m
 
 **It is stale.** The copy promises a "friends list" — that system was replaced by Circles in March 2026 (#205). It never mentions anything shipped since: pickup lobbies with join codes and QR, Monte Carlo win probability, the race track, per-player deck colours, shareable public game pages, or guest players.
 
-**It looks like a different product than the app.** The landing page uses drop shadows, `hover:-translate-y-1` floating cards, gradient blur blobs and an `animate-pulse` halo. The scoring UI uses flat panels with a warm `1.5px` border and no shadows. Nothing on the marketing page shows the actual software.
+**It looks like a different product than the app.** The landing page uses drop shadows, `hover:-translate-y-1` floating cards, gradient blur blobs and an `animate-pulse` halo. The scoring UI uses flat panels with a warm `1.5px` border. Nothing on the marketing page shows the actual software.
+
+*(Corrected during implementation: "and no shadows" was wrong. `RaceTrack.tsx:75,93` puts `shadow-sm` on the player pucks, so the hero panel does carry drop shadows. That is accepted — the point is showing the real component, and changing scoring components is out of scope. The no-shadow rule binds marketing-authored code only.)*
 
 **The unauthenticated IA is thin.** Only `/`, `/privacy`, `/terms` and `/sign-in`. There is no how-to content anywhere. `NavBar.tsx:51` builds `navData` unconditionally, so signed-out visitors see Dashboard and Games links that bounce them into sign-in. Both the landing CTA and the footer link out to a Notion vision doc from June 2024 that promises features which do not exist.
 
@@ -97,7 +99,9 @@ One fixture module (`src/components/marketing/fixtures.ts`) supplies the same fo
 ### 1 · Gather — lobby panel
 
 > ## Everyone's in before the deck is shuffled
-> Start a pickup game and show the code. They scan, they're in — up to eight players, and nobody needs an account first.
+> Start a pickup game and show the code. They scan, sign in, and they're at the table — up to eight players, with no Circle to set up and no invitations to send.
+
+*(Corrected during implementation: the original wording claimed "nobody needs an account first", which is false. `joinPickupGame` and `joinPickupGameByCode` both call `requireAuthContext("user")`, and `/join/[token]` gates signed-out visitors behind sign-in. The only account-free path is a host-added guest, which the next paragraph already covers.)*
 >
 > Playing with someone who'll never sign up? Add them as a guest and they're scored like anyone else.
 
@@ -113,9 +117,11 @@ Uses a **pre-generated QR image committed to `public/img/`**, not `LobbyQrCode`.
 > ## Real odds. Not vibes.
 > Blitzer simulates thousands of finishes from how your table has actually been scoring tonight. So "she's got this" stops being an opinion and becomes a number everyone can see.
 
-### 4 · Remember — live `<BasicStatBlock>` + `<ScoreProgressionCard>`
+### 4 · Remember — `<StatTile>` + live `<ScoreProgressionCard>`
 
-> ## Your average — per round, per game, against one specific person?
+> ## The record keeps itself
+
+*(Corrected during implementation. The original headline — "Your average — per round, per game, against one specific person?" — was lifted from the vision doc's list of questions the author hoped to answer, and read as a description of shipped features. It promises three slicing dimensions the product delivers none of: `getPlayerBattingAverageForUser` computes one all-time figure with no grouping by round or game and no opponent filter. "Against one specific person" is a head-to-head claim, the exact category this section is barred from making. The stat tile labelled "Games won" was fabricated the same way — `DashboardStats` returns only batting average, score extremes, cumulative score, and game round extremes — and is now "Rounds played".)*
 > Every game your group plays lands in your Circle, so the record is all in one place instead of scattered across whoever remembered to write it down.
 >
 > And every finished game gets a link anyone can open — no account, no app, just send it to the group chat.
@@ -169,6 +175,7 @@ The Notion doc (June 2024) is mined for voice and retired as a link. Three lines
 | `surfaceSubtle` | `#faf5ed` | `--scoring-bg-subtle` |
 | `borderWarm` | `#e6d7c3` | `--scoring-border` |
 | `textMuted` | `#8b5e3c` | `--scoring-text-muted` |
+| `textBody` | `#5b4038` | marketing body copy |
 
 **Flagged, not fixed:** `globals.css:41-50` defines `--scoring-bg`, `--scoring-border`, `--scoring-text-muted` and others, but the scoring components do not use them. `Standings.tsx` and `RaceTrack.tsx` hardcode `#e6d7c3`, `#8b5e3c` and `#f0e6d2` directly. The variables and components have drifted apart. Marketing will use tokens properly; reconciling scoring is separate work and out of scope here.
 
@@ -204,7 +211,7 @@ Verified presentational — plain props, no auth, no data fetching:
 | `ScoreProgressionCard` | `"use client"`, ready |
 | `Standings` | pure, hook-free, ready |
 | `HotColdCard` | pure, hook-free, ready |
-| `BasicStatBlock` | pure, ready |
+| `BasicStatBlock` | pure, but **not used** — wraps `ui/card`'s `shadow-sm`, which the no-shadow rule bans. Marketing uses a purpose-built `StatTile` instead; the dashboard keeps `BasicStatBlock` |
 | `RoundHistoryTable` | pure, optional callback |
 | `ScoreEntryCard` | `"use client"`, requires an `onUpdate` callback |
 | `WinProbabilityCard` | calls `useMemo` with **no** `"use client"` directive — needs a thin client wrapper |
@@ -213,11 +220,15 @@ Verified presentational — plain props, no auth, no data fetching:
 
 ### Guide pages as TSX
 
-Not MDX. No new dependency, and guide pages can embed the live product components — `how-scoring-works` renders an actual worked example with `<ScoreEntryCard>` rather than describing one. A shared `<Prose>` component carries the typography.
+Not MDX. No new dependency, and guide pages can embed the live product components — `reading-your-stats` renders a live `<WinProbabilityDemo>` inside its prose. A shared `<Prose>` component carries the typography.
+
+*(Deviation, deliberate: `how-scoring-works` uses a prose worked example rather than an embedded `<ScoreEntryCard>` as originally planned. Embedding it would have put another set of non-functional inputs in a public page's tab order for no gain.)*
 
 ### Tracking
 
-`marketing_cta_clicked` `{section, destination}` and `guide_page_viewed` `{slug}`. snake_case, no PII, per the repo convention.
+`marketing_cta_clicked` `{section, destination}`. snake_case, no PII, per the repo convention.
+
+*(Deviation, deliberate: `guide_page_viewed` was dropped. `src/app/PostHogPageView.tsx` already captures `$pageview` with the pathname on every route change, so a second event would double-count guide traffic.)*
 
 ### Tests
 
