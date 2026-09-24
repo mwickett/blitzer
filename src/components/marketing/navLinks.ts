@@ -11,6 +11,7 @@ export function signedInLinks(llmEnabled: boolean): NavLink[] {
   return [
     { label: "Dashboard", href: "/dashboard" },
     { label: "Games", href: "/games" },
+    { label: "Standings", href: "/circles" },
     ...(llmEnabled ? [{ label: "Insights", href: "/insights" }] : []),
     { label: "Guide", href: "/guide" },
   ];

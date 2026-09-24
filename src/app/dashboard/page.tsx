@@ -1,18 +1,34 @@
+import { auth } from "@clerk/nextjs/server";
+import Link from "next/link";
 import { getDashboardStats } from "@/server/queries/stats";
 import BasicStatBlock from "@/components/BasicStatBlock";
 import CircleCtaSection from "./_components/CircleCtaSection";
 
 export default async function Dashboard() {
+  const [{ orgId }, stats] = await Promise.all([auth(), getDashboardStats()]);
   const {
     battingAverage,
     scoreExtremes: { highest, lowest },
     cumulativeScore,
     gameRoundExtremes: { longest, shortest },
-  } = await getDashboardStats();
+  } = stats;
 
   return (
     <section className="border-zinc-500 p-5">
       <CircleCtaSection />
+      <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Personal stats across every Circle and pickup game.
+        </p>
+        {orgId ? (
+          <Link
+            href="/circles"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            View Circle standings
+          </Link>
+        ) : null}
+      </div>
       <div className="mb-4">
         <BasicStatBlock
           label="Batting Average"
