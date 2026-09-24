@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ACCENT_COLORS } from "@/lib/scoring/colors";
 
 interface CelebrationOverlayProps {
   winnerName: string;
@@ -23,8 +24,9 @@ function generateConfetti(count: number, colors: string[]) {
 }
 
 const CONFETTI_COLORS = [
-  "#3b82f6", "#ef4444", "#eab308", "#22c55e",
-  "#8b5cf6", "#f97316", "#fff", "#fbbf24",
+  ...ACCENT_COLORS.map((c) => c.value),
+  "#fff",
+  "#fbbf24",
 ];
 
 export function CelebrationOverlay({

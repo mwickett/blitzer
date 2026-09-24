@@ -4,6 +4,7 @@ import { getPredictionProfilesForGame } from "@/server/queries/predictionProfile
 import { notFound, redirect } from "next/navigation";
 import transformGameData from "@/lib/gameLogic";
 import {
+  ACCENT_COLORS,
   resolvePlayerColor,
   assignColorsToPlayers,
 } from "@/lib/scoring/colors";
@@ -63,7 +64,8 @@ export default async function GameView(props: {
     return {
       id: ds.id,
       name: ds.username,
-      color: colorAssignments[gamePlayer?.id ?? ds.id] ?? "#3b82f6",
+      color:
+        colorAssignments[gamePlayer?.id ?? ds.id] ?? ACCENT_COLORS[0].value,
       isGuest: ds.isGuest,
       userId: gamePlayer?.userId ?? undefined,
       guestId: gamePlayer?.guestId ?? undefined,
