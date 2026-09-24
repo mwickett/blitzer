@@ -24,7 +24,7 @@ export function Hero() {
 
         <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-textBody">
           Blitzer runs the scoring for your Dutch Blitz table: live standings,
-          real win odds, and a permanent record of who&apos;s actually best.
+          real win odds, and a permanent record of how you&apos;ve been playing.
         </p>
 
         <div className="mt-7 flex flex-wrap justify-center gap-3">

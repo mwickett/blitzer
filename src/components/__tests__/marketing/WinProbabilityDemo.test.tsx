@@ -1,5 +1,24 @@
 import { render, screen } from "@testing-library/react";
 import { WinProbabilityDemo } from "@/components/marketing/WinProbabilityDemo";
+import { useRaceForecast } from "@/components/scoring/graphs/useRaceForecast";
+import { calcRaceForecast } from "@/lib/scoring/probability";
+
+jest.mock("@/components/scoring/graphs/useRaceForecast", () => ({
+  useRaceForecast: jest.fn(),
+}));
+
+beforeEach(() => {
+  (useRaceForecast as jest.Mock).mockImplementation((input) => ({
+    containerRef: { current: null },
+    forecast: calcRaceForecast(
+      input.players,
+      input.winThreshold,
+      input.deltasByPlayer,
+      input.options,
+    ),
+    status: input.players[0].roundsPlayed < 3 ? "insufficient" : "ready",
+  }));
+});
 
 describe("WinProbabilityDemo", () => {
   it("renders real odds rather than the not-enough-rounds fallback", () => {

@@ -41,8 +41,9 @@ export default function ReadingYourStats() {
           simulating the rest of the game thousands of times. The simulation
           runs on how this table has been scoring tonight, not on a generic
           assumption. It normally needs three rounds before it has enough to go
-          on. If it can lean on how the players have scored in earlier finished
-          games, it can start sooner.
+          on. In a Circle game, when players already have enough prior rounds in
+          that Circle, it can start sooner. Pickup games always wait for three
+          rounds tonight.
         </p>
       </Prose>
 

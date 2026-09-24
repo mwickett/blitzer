@@ -9,13 +9,14 @@ import {
 } from "./fixtures";
 
 /**
- * WinProbabilityCard calls useMemo but carries no "use client" directive — in
- * the app it is only ever mounted inside client parents. The marketing page is
- * a server component, so this wrapper supplies the boundary.
+ * WinProbabilityCard calls client-only hooks (useRaceForecast → worker) and
+ * carries no "use client" directive — in the app it is only ever mounted
+ * inside client parents. The marketing page is a server component, so this
+ * wrapper supplies the boundary.
  *
- * The Monte Carlo is seeded from its inputs (see makeRng in
- * lib/scoring/probability.ts), so fixed props give identical percentages on
- * server and client. No hydration mismatch.
+ * Odds resolve asynchronously via the forecast worker once the card is
+ * eligible (DEMO has 4 rounds). Fixed fixture inputs keep the eventual
+ * percentages stable across loads.
  */
 export function WinProbabilityDemo() {
   return (
