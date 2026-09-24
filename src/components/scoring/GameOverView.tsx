@@ -1,9 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { type PlayerWithScore, type RoundData } from "./types";
 import { type GameStats } from "@/lib/scoring/gameStats";
 import { RoundHistoryTable } from "./RoundHistoryTable";
+import { RaceTrack } from "./RaceTrack";
+import { GraphCarousel } from "./GraphCarousel";
+import { ScoreProgressionCard } from "./graphs/ScoreProgressionCard";
+import { HotColdCard } from "./graphs/HotColdCard";
+import { buildRoundGraphSeries } from "./roundGraphSeries";
 import { usePostHog } from "posthog-js/react";
 
 interface GameOverViewProps {
@@ -11,6 +16,7 @@ interface GameOverViewProps {
   players: PlayerWithScore[];
   stats: GameStats;
   rounds: RoundData[];
+  winThreshold: number;
   onEditRound?: (roundIndex: number) => void;
   onRematch: () => Promise<void> | void;
   onBackToGames: () => void;
@@ -24,6 +30,7 @@ export function GameOverView({
   players,
   stats,
   rounds,
+  winThreshold,
   onEditRound,
   onRematch,
   onBackToGames,
@@ -35,6 +42,10 @@ export function GameOverView({
   const [rematchError, setRematchError] = useState<string | null>(null);
   const rematching = useRef(false);
   const sorted = [...players].sort((a, b) => b.score - a.score);
+  const { scoresByRound, deltasByRound } = useMemo(
+    () => buildRoundGraphSeries(players, rounds),
+    [players, rounds],
+  );
   const handleRematch = async () => {
     if (rematching.current) return;
     rematching.current = true;
@@ -93,6 +104,23 @@ export function GameOverView({
           </div>
         </div>
       </div>
+
+      {/* Final race position + retrospective graphs (kept from between-rounds) */}
+      {rounds.length > 0 && (
+        <>
+          <div className="px-4 pt-1 pb-2">
+            <RaceTrack players={players} winThreshold={winThreshold} />
+          </div>
+          <GraphCarousel>
+            <ScoreProgressionCard
+              players={players}
+              scoresByRound={scoresByRound}
+              winThreshold={winThreshold}
+            />
+            <HotColdCard players={players} deltasByRound={deltasByRound} />
+          </GraphCarousel>
+        </>
+      )}
 
       {/* Final standings */}
       <div className="px-4 space-y-1.5">

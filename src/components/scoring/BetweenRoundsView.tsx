@@ -10,13 +10,9 @@ import { GraphCarousel } from "./GraphCarousel";
 import { ScoreProgressionCard } from "./graphs/ScoreProgressionCard";
 import { HotColdCard } from "./graphs/HotColdCard";
 import { WinProbabilityCard } from "./graphs/WinProbabilityCard";
-import { calculateRoundScore } from "@/lib/validation/gameRules";
-import { findPlayerScore } from "./utils";
+import { buildRoundGraphSeries } from "./roundGraphSeries";
 import { type PlayerWithScore, type RoundData } from "./types";
-import {
-  type ForecastRoundSample,
-  type PredictionProfilesByPlayer,
-} from "@/lib/scoring/probability";
+import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
 
 interface BetweenRoundsViewProps {
   players: PlayerWithScore[];
@@ -57,39 +53,10 @@ export function BetweenRoundsView({
     onEnterScores();
   };
 
-  // Compute derived graph data from rounds
-  const { scoresByRound, deltasByRound, roundSamplesByPlayer } = useMemo(() => {
-    const scores: Record<string, number[]> = {};
-    const deltas: Record<string, number[]> = {};
-    const samples: Record<string, ForecastRoundSample[]> = {};
-
-    for (const player of players) {
-      scores[player.id] = [];
-      deltas[player.id] = [];
-      samples[player.id] = [];
-      let cumulative = 0;
-
-      for (const round of rounds) {
-        const s = findPlayerScore(player, round.scores);
-        const delta = s ? calculateRoundScore(s) : 0;
-        cumulative += delta;
-        scores[player.id].push(cumulative);
-        deltas[player.id].push(delta);
-        if (s) {
-          samples[player.id].push({
-            totalCardsPlayed: s.totalCardsPlayed,
-            blitzPileRemaining: s.blitzPileRemaining,
-          });
-        }
-      }
-    }
-
-    return {
-      scoresByRound: scores,
-      deltasByRound: deltas,
-      roundSamplesByPlayer: samples,
-    };
-  }, [players, rounds]);
+  const { scoresByRound, deltasByRound, roundSamplesByPlayer } = useMemo(
+    () => buildRoundGraphSeries(players, rounds),
+    [players, rounds],
+  );
 
   return (
     <>
