@@ -7,7 +7,7 @@ import { ACCENT_COLORS } from "./colors";
  * When fewer players than palette colors (≤6), duplicates are impossible.
  * When palette is exhausted (7+ players), the displaced player keeps
  * their current color — duplicates are tolerated, matching the base
- * allocator behavior in assignColorsToPlayers (colors.ts:49).
+ * allocator behavior in assignColorsToPlayers.
  */
 export function resolveColorCascade(
   currentColors: Record<string, string>,
