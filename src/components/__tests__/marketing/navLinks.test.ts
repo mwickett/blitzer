@@ -10,14 +10,14 @@ describe("navLinks", () => {
 
   it("never exposes app routes to signed-out visitors", () => {
     const hrefs = SIGNED_OUT_LINKS.map((l) => l.href);
-    for (const authOnly of ["/dashboard", "/games", "/insights"]) {
+    for (const authOnly of ["/dashboard", "/games", "/circles", "/insights"]) {
       expect(hrefs).not.toContain(authOnly);
     }
   });
 
   it("gives signed-in users the app routes", () => {
     const hrefs = signedInLinks(false).map((l) => l.href);
-    expect(hrefs).toEqual(["/dashboard", "/games", "/guide"]);
+    expect(hrefs).toEqual(["/dashboard", "/games", "/circles", "/guide"]);
   });
 
   it("adds Insights only when the llm-features flag is on", () => {

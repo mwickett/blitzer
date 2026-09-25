@@ -20,7 +20,7 @@ export type RouteErrorProps = {
 };
 
 type Props = RouteErrorProps & {
-  section: "dashboard" | "games-list" | "game-detail";
+  section: "dashboard" | "games-list" | "game-detail" | "circle-standings";
   title?: string;
   description: string;
   gameId?: string;

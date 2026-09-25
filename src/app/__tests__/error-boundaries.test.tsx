@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import GamesListError from "../games/error";
 import DashboardError from "../dashboard/error";
 import GameDetailError from "../games/[id]/error";
+import CircleStandingsError from "../circles/error";
 
 jest.mock("@sentry/nextjs", () => ({
   captureException: jest.fn(),
@@ -33,6 +34,7 @@ describe("route error boundaries outside development", () => {
     ["games list", GamesListError],
     ["dashboard", DashboardError],
     ["game detail", GameDetailError],
+    ["circle standings", CircleStandingsError],
   ])("%s boundary shows the error digest", (_name, Boundary) => {
     render(<Boundary error={makeError()} reset={() => {}} />);
     expect(screen.getByText(/digest-abc123/)).toBeInTheDocument();
