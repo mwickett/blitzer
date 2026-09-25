@@ -2,7 +2,7 @@
 
 The September 5, 2026 audit implementation was delivered as a ten-part review stack on top of the audited dependency baseline, `e9035f5` (PR #277). All ten PRs (#298–307) and #277 are merged into `main` at `0ac4a14`. Its tree matches the validated final stack, including the verification guide. [Post-merge CI passed](https://github.com/mwickett/blitzer/actions/runs/33983561377), and [Vercel reported a successful deployment](https://vercel.com/wickett-stuff/blitzer/5m7981dVEqEYgRJDLY1hGWfasB1e).
 
-After the audit, the Slack integration was retired at the owner's request. The `/api/slack/whois` route, its tests, environment examples, and setup guide have been removed. References below to Slack describe the original audit's verification, not a supported feature. See the external cleanup steps under remaining decisions.
+After the audit, the Slack integration was retired at the owner's request. The `/api/slack/whois` route, its tests, environment examples, and setup guide have been removed. References below to Slack describe the original audit's verification, not a supported feature. Owner ops follow-up (Vercel/Slack secrets, contact-export history) is in [external-cleanup.md](./external-cleanup.md).
 
 ## Completed review and merge order
 
@@ -87,8 +87,7 @@ Use the synthetic service configuration in `.github/workflows/test.yml` for the 
 
 ## Remaining decisions and limits
 
-- The deleted contact export remains in older Git history and may remain in forks, caches, or artifacts. Repository-history and artifact remediation require a separate coordinated decision; source deletion is not historical erasure.
-- Slack retirement requires external configuration cleanup: remove the Blitzer app's `/whois` command (or uninstall the app if it serves only Blitzer). Remove `SLACK_SIGNING_SECRET`, `SLACK_WHOIS_TEAM_ID`, and `SLACK_WHOIS_USER_IDS` wherever configured for this project, including Vercel environments and local environment files. Deleting the route does not change Slack installations or existing deployment settings.
+- External Slack/contact cleanup (Vercel `SLACK_*` vars, Slack app `/whois`, contact-export history decision): see [external-cleanup.md](./external-cleanup.md). Do not rewrite git history from that checklist.
 - Dependency audit findings fall from 14 affected entries to 3, all tracing to one Prisma-tooling `deepmerge-ts` advisory. The compatible Prisma line still pins the affected major; the patched major requires an upstream/tooling decision. Production trace inspection did not include that tooling path. See `dependency-remediation.md`.
 - Automatic initial campaign/referrer attribution is disabled to keep invitation context out of telemetry; sanitized pageviews remain. Email and username targeting traits are supplied to feature flags separately from event identity.
 - Welcome-email idempotency uses the provider's retention window; this is not a durable outbox or a general ordering guarantee for distinct webhook updates.
