@@ -8,6 +8,25 @@ jest.mock("posthog-js/react", () => ({
   usePostHog: () => ({ capture: mockCapture }),
 }));
 
+jest.mock("../../scoring/RaceTrack", () => ({
+  RaceTrack: ({ winThreshold }: { winThreshold: number }) => (
+    <div data-testid="race-track">track@{winThreshold}</div>
+  ),
+}));
+jest.mock("../../scoring/GraphCarousel", () => ({
+  GraphCarousel: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="graph-carousel">{children}</div>
+  ),
+}));
+jest.mock("../../scoring/graphs/ScoreProgressionCard", () => ({
+  ScoreProgressionCard: () => (
+    <div data-testid="score-progression">Score Progression</div>
+  ),
+}));
+jest.mock("../../scoring/graphs/HotColdCard", () => ({
+  HotColdCard: () => <div data-testid="hot-cold">Hot & Cold</div>,
+}));
+
 const players: PlayerWithScore[] = [
   {
     id: "p1",
@@ -52,6 +71,7 @@ const baseProps = {
   players,
   stats,
   rounds,
+  winThreshold: 75,
   onRematch: jest.fn(),
   onBackToGames: jest.fn(),
 };
@@ -59,17 +79,37 @@ const baseProps = {
 describe("GameOverView spectator mode", () => {
   beforeEach(() => mockCapture.mockReset());
 
+  it("keeps race track and retrospective graphs on the finished screen", () => {
+    render(<GameOverView {...baseProps} />);
+    expect(screen.getByTestId("race-track")).toHaveTextContent("track@75");
+    expect(screen.getByTestId("graph-carousel")).toBeInTheDocument();
+    expect(screen.getByTestId("score-progression")).toBeInTheDocument();
+    expect(screen.getByTestId("hot-cold")).toBeInTheDocument();
+  });
+
+  it("hides graphs when there are no rounds to plot", () => {
+    render(<GameOverView {...baseProps} rounds={[]} />);
+    expect(screen.queryByTestId("race-track")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-carousel")).not.toBeInTheDocument();
+  });
+
   it("creates a rematch even when optional analytics throws", async () => {
-    mockCapture.mockImplementation(() => { throw new Error("Analytics unavailable"); });
+    mockCapture.mockImplementation(() => {
+      throw new Error("Analytics unavailable");
+    });
     const onRematch = jest.fn().mockResolvedValue(undefined);
     render(<GameOverView {...baseProps} onRematch={onRematch} />);
-    fireEvent.click(screen.getByRole("button", { name: "New Game with Same Players" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "New Game with Same Players" }),
+    );
     await waitFor(() => expect(onRematch).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("returns to games even when optional analytics throws", () => {
-    mockCapture.mockImplementation(() => { throw new Error("Analytics unavailable"); });
+    mockCapture.mockImplementation(() => {
+      throw new Error("Analytics unavailable");
+    });
     const onBackToGames = jest.fn();
     render(<GameOverView {...baseProps} onBackToGames={onBackToGames} />);
     fireEvent.click(screen.getByRole("button", { name: "Back to Games" }));
@@ -106,24 +146,42 @@ describe("GameOverView spectator mode", () => {
 
   it("creates one rematch and stays disabled while the new game opens", async () => {
     let finish!: () => void;
-    const onRematch = jest.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+    const onRematch = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
     render(<GameOverView {...baseProps} onRematch={onRematch} />);
-    const button = screen.getByRole("button", { name: "New Game with Same Players" });
+    const button = screen.getByRole("button", {
+      name: "New Game with Same Players",
+    });
     fireEvent.click(button);
     fireEvent.click(button);
     expect(onRematch).toHaveBeenCalledTimes(1);
     expect(button).toBeDisabled();
-    await act(async () => { finish(); });
+    await act(async () => {
+      finish();
+    });
     expect(button).toBeDisabled();
     expect(screen.getByRole("button", { name: "Back to Games" })).toBeDisabled();
   });
 
   it("surfaces a failed rematch and allows retry", async () => {
-    const onRematch = jest.fn().mockRejectedValueOnce(new Error("Network failure")).mockResolvedValue(undefined);
+    const onRematch = jest
+      .fn()
+      .mockRejectedValueOnce(new Error("Network failure"))
+      .mockResolvedValue(undefined);
     render(<GameOverView {...baseProps} onRematch={onRematch} />);
-    fireEvent.click(screen.getByRole("button", { name: "New Game with Same Players" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Please try again");
-    fireEvent.click(screen.getByRole("button", { name: "New Game with Same Players" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "New Game with Same Players" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Please try again",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "New Game with Same Players" }),
+    );
     await waitFor(() => expect(onRematch).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });

@@ -321,6 +321,7 @@ function ScoringSession({
               players={effectivePlayers}
               stats={gameStats}
               rounds={effectiveRounds}
+              winThreshold={winThreshold}
               onEditRound={editEnabled}
               canEdit={canEdit && !draft}
               canRematch={canRematch}
