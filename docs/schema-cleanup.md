@@ -3,7 +3,7 @@
 **Date:** 2026-09-24  
 **Verdict:** **Do not ship a destructive migration** yet. Keep the unused `OrganizationMembership` table and guest invitation columns until an owner inventories production data and explicitly approves the drop.
 
-Related context: Slack/contact ops cleanup is a separate track (see open checklist PR if present); this doc only covers schema leftovers (pick-up option 8).
+Related context: [external cleanup](./external-cleanup.md) (ops after Slack/contact retirement), pick-up option 8.
 
 ## What was reviewed
 
