@@ -12,6 +12,7 @@ import { RoundMvpsCard } from "./graphs/RoundMvpsCard";
 import { BlitzPileCard } from "./graphs/BlitzPileCard";
 import { buildRoundGraphSeries } from "./roundGraphSeries";
 import { GameHighlights } from "./GameHighlights";
+import { GuestInvites } from "./GuestInvites";
 import { findGameHighlights } from "@/lib/scoring/gameHighlights";
 import { usePostHog } from "posthog-js/react";
 
@@ -241,6 +242,13 @@ export function GameOverView({
           onEditRound={onEditRound}
         />
       </div>
+
+      {canEdit && (
+        <GuestInvites
+          guests={players.filter((player) => player.isGuest)}
+          winnerId={winner.id}
+        />
+      )}
 
       {/* Actions — participating editors only; spectators get a read-only result */}
       {canEdit && (
