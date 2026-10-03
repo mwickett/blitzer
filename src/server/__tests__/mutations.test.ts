@@ -7,12 +7,16 @@ jest.mock("resend", () => ({
   })),
 }));
 
-import { createGame, cloneGame } from "../mutations/games";
+import {
+  createGame,
+  cloneGame,
+  saveUserAccentColor,
+} from "../mutations/games";
 import { createRoundForGame, updateRoundScores } from "../mutations/rounds";
 import { requireAuthContext } from "../mutations/common";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
-import posthogClient from "@/app/posthog";
+import { sendGameCompleteEmail } from "../email";
 import { after } from "next/server";
 import { GAME_RULES } from "@/lib/validation/gameRules";
 
@@ -37,6 +41,7 @@ jest.mock("../db/db", () => {
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      update: jest.fn(),
     },
     guestUser: {
       findUnique: jest.fn(),
@@ -78,7 +83,7 @@ jest.mock("@clerk/nextjs/server", () => ({
   }),
 }));
 
-// Create a mock capture function we can make assertions on
+// jest.setup.js routes captureServerEvent synchronously to client.capture
 const mockCapture = jest.fn();
 jest.mock("@/app/posthog", () => ({
   __esModule: true,
@@ -86,6 +91,18 @@ jest.mock("@/app/posthog", () => ({
     capture: mockCapture,
   }),
 }));
+
+jest.mock("../email", () => ({
+  sendGameCompleteEmail: jest.fn(),
+  EMAIL_INTER_SEND_DELAY_MS: 0,
+}));
+
+/** Run every callback scheduled with `after`, in order, like Next would. */
+async function flushAfter() {
+  for (const [callback] of (after as jest.Mock).mock.calls) {
+    await callback();
+  }
+}
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
@@ -233,6 +250,87 @@ describe("Game Mutations", () => {
         "write failed",
       );
       expect(after).not.toHaveBeenCalled();
+    });
+
+    it("emails every registered player once the scheduled callback runs", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        players: [
+          ...game().players.map((player) => ({
+            ...player,
+            user: { ...player.user, email: `${player.userId}@example.com` },
+          })),
+          { userId: null, guestId: "guest-1", user: null, guestUser: { name: "Gran" } },
+        ],
+      });
+      (sendGameCompleteEmail as jest.Mock)
+        .mockResolvedValueOnce({ success: true })
+        .mockResolvedValueOnce({ success: false });
+      const withGuest = [
+        ...scores,
+        { guestId: "guest-1", totalCardsPlayed: 5, blitzPileRemaining: 8 },
+      ];
+
+      await createRoundForGame(mockGameId, 1, withGuest);
+      expect(sendGameCompleteEmail).not.toHaveBeenCalled();
+      await flushAfter();
+
+      // Guests have no email address, so only the two users are notified
+      expect(sendGameCompleteEmail).toHaveBeenCalledTimes(2);
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith({
+        email: "player1@example.com",
+        username: "player1",
+        winnerUsername: "player1",
+        isWinner: true,
+        gameId: mockGameId,
+        userId: "player1",
+      });
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "player2@example.com",
+          winnerUsername: "player1",
+          isWinner: false,
+        }),
+      );
+      expect(mockCapture).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "update_game_as_finished",
+          properties: { game_id: mockGameId },
+        }),
+      );
+      expect(mockCapture).toHaveBeenCalledWith({
+        distinctId: mockUserId,
+        event: "email_batch_completed",
+        properties: {
+          game_id: mockGameId,
+          recipient_count: 2,
+          failed_count: 1,
+        },
+      });
+    });
+
+    it("keeps sending after one recipient's email throws", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        players: game().players.map((player) => ({
+          ...player,
+          user: { ...player.user, email: `${player.userId}@example.com` },
+        })),
+      });
+      (sendGameCompleteEmail as jest.Mock)
+        .mockRejectedValueOnce(new Error("provider down"))
+        .mockResolvedValueOnce({ success: true });
+
+      await createRoundForGame(mockGameId, 1, scores);
+      await flushAfter();
+
+      expect(sendGameCompleteEmail).toHaveBeenCalledTimes(2);
+      expect(mockCapture).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "email_batch_completed",
+          properties: expect.objectContaining({ failed_count: 1 }),
+        }),
+      );
     });
 
     it("returns the persisted final round on identical retries without notification", async () => {
@@ -514,6 +612,108 @@ describe("Game Mutations", () => {
       await expect(createGame([{ id: "user-1" }])).rejects.toThrow(
         "No active circle",
       );
+    });
+  });
+
+  describe("cloneGame", () => {
+    const original = (overrides: Record<string, unknown> = {}) => ({
+      id: "original-game",
+      organizationId: mockOrgId,
+      winThreshold: 75,
+      players: [
+        { userId: "player1", guestId: null, accentColor: "#356f9f" },
+        { userId: null, guestId: "guest-1", accentColor: null },
+      ],
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      (prisma.game.create as jest.Mock).mockResolvedValue({
+        id: "rematch-id",
+      });
+    });
+
+    it("seats the same players with their game colours in the active circle", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(original());
+
+      expect(await cloneGame("original-game")).toBe("rematch-id");
+      expect(prisma.game.create).toHaveBeenCalledWith({
+        data: {
+          organizationId: mockOrgId,
+          players: {
+            create: [
+              { userId: "player1", accentColor: "#356f9f" },
+              { guestId: "guest-1" },
+            ],
+          },
+        },
+      });
+      expect(mockCapture).toHaveBeenCalledWith({
+        distinctId: mockUserId,
+        event: "clone_game",
+        properties: { originalGameId: "original-game", newGameId: "rematch-id" },
+      });
+    });
+
+    it("carries a custom win threshold into the rematch", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(
+        original({ winThreshold: 100 }),
+      );
+
+      await cloneGame("original-game");
+
+      expect(prisma.game.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ winThreshold: 100 }),
+      });
+    });
+
+    it("refuses missing games and games from another circle", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(null);
+      await expect(cloneGame("missing")).rejects.toThrow(
+        "Original game not found",
+      );
+
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(
+        original({ organizationId: "org_other" }),
+      );
+      await expect(cloneGame("original-game")).rejects.toThrow(
+        "active circle",
+      );
+      expect(prisma.game.create).not.toHaveBeenCalled();
+    });
+
+    it("requires an active circle", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({
+        userId: mockUserId,
+        orgId: null,
+      });
+      await expect(cloneGame("original-game")).rejects.toThrow(
+        "No active circle",
+      );
+      expect(prisma.game.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("saveUserAccentColor", () => {
+    it("stores the colour on the caller's own user row", async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: "prisma-user-id",
+      });
+
+      await saveUserAccentColor("#c44536");
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: "prisma-user-id" },
+        data: { accentColor: "#c44536" },
+      });
+    });
+
+    it("writes nothing for an unauthenticated caller", async () => {
+      (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
+      await expect(saveUserAccentColor("#c44536")).rejects.toThrow(
+        "Unauthorized",
+      );
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });
 
