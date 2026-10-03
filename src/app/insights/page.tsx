@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import ModernChatUI from "./ModernChatUI";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import { Badge } from "@/components/ui/badge";
+import PlayerHighlights from "@/components/insights/PlayerHighlights";
+import { getPlayerHighlightsForClerkUser } from "@/server/queries/playerHighlights";
 
 export default async function InsightsPage() {
   const { userId } = await auth();
@@ -13,6 +15,7 @@ export default async function InsightsPage() {
 
   // Check if LLM features are enabled
   const llmFeaturesEnabled = await isLlmFeaturesEnabled();
+  const highlights = llmFeaturesEnabled ? await getPlayerHighlightsForClerkUser(userId) : null;
 
   return (
     <div className="container mx-auto p-4">
@@ -26,13 +29,17 @@ export default async function InsightsPage() {
         </Badge>
       </div>
 
-      {llmFeaturesEnabled ? (
-        <>
-          <p className="text-muted-foreground mb-6">
-            Chat with your game data to discover insights about your gameplay.
-          </p>
-          <ModernChatUI />
-        </>
+      {highlights ? (
+        <div className="space-y-8">
+          <PlayerHighlights highlights={highlights} />
+          <section aria-labelledby="chat-heading" className="space-y-3">
+            <h2 id="chat-heading" className="text-xl font-semibold">Ask about your games</h2>
+            <p className="text-muted-foreground">
+              Chat about your record, your rivals, and your most memorable games.
+            </p>
+            <ModernChatUI />
+          </section>
+        </div>
       ) : (
         <div className="p-6 border rounded-lg bg-muted/30 text-center">
           <h2 className="text-xl font-medium mb-2">Coming Soon</h2>

@@ -60,7 +60,7 @@ Client pageviews must wait for loaded Clerk identity/profile state and synchroni
 
 `llm-features` gates the nav, Insights UI, and `/api/chat`; only boolean `true` enables it. Server flags use a 60-second, 1,000-user cache with failed-entry eviction. Clerk email/username targeting works on both server and client. See `src/FEATURE_FLAGS.md`.
 
-Chat uses AI SDK UI messages, server-side input limits/system prompt, and `gpt-3.5-turbo` through `@ai-sdk/openai`. Its context is the caller's aggregate statistics; no runtime SQL/analytics tools exist. `@posthog/ai` tracing uses privacy mode and immediate capture. Future tool-based plans must adapt to the current aggregate/query boundaries rather than restore the retired read-only client.
+Chat uses AI SDK UI messages, server-side input limits/system prompt, and `gpt-3.5-turbo` through `@ai-sdk/openai`. Its context is the caller's aggregate statistics plus `getPlayerHighlightsForUser` highlights (bounded to recent completed games, opponent display names quoted as data); no runtime SQL/analytics tools exist. `components/insights/PlayerHighlights.tsx` renders the same highlights without the LLM. `@posthog/ai` tracing uses privacy mode and immediate capture. Future tool-based plans must adapt to the current aggregate/query boundaries rather than restore the retired read-only client.
 
 Sentry instrumentation receives Next's real request-error context. Preserve route-pattern attribution.
 
