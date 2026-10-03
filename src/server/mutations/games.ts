@@ -15,6 +15,7 @@ import {
   circleGameSchema,
   deckSchema,
   gameNoteSchema,
+  gameTagSchema,
 } from "@/lib/validation/submissions";
 import type { DeckId } from "@/lib/scoring/decks";
 
@@ -202,6 +203,23 @@ export async function saveUserPreferredDeck(deck: unknown) {
   });
 }
 
+/** Loads a game and asserts the caller may score it (and so annotate it). */
+async function assertCanAnnotateGame(
+  gameId: string,
+  caller: { userId: string; orgId?: string },
+) {
+  const game = await prisma.game.findUnique({
+    where: { id: gameId },
+    select: {
+      kind: true,
+      organizationId: true,
+      startedAt: true,
+      players: { select: { user: { select: { clerk_user_id: true } } } },
+    },
+  });
+  assertGameScoringAccess(game, caller);
+}
+
 /**
  * Saves the game's note. Anyone who may score the game may write it, during
  * or after play; an empty note clears it.
@@ -213,16 +231,10 @@ export async function saveGameNote(gameId: string, note: unknown) {
     return { ok: false as const, message: parsed.error.issues[0].message };
   }
 
-  const game = await prisma.game.findUnique({
-    where: { id: gameId },
-    select: {
-      kind: true,
-      organizationId: true,
-      startedAt: true,
-      players: { select: { user: { select: { clerk_user_id: true } } } },
-    },
+  await assertCanAnnotateGame(gameId, {
+    userId,
+    orgId: user.orgId ?? undefined,
   });
-  assertGameScoringAccess(game, { userId, orgId: user.orgId ?? undefined });
   await prisma.game.update({
     where: { id: gameId },
     data: { note: parsed.data },
@@ -235,6 +247,32 @@ export async function saveGameNote(gameId: string, note: unknown) {
     properties: { game_id: gameId, has_note: parsed.data !== null },
   });
   return { ok: true as const, note: parsed.data };
+}
+
+/** Saves the game's optional tag, with the same access rule as notes. */
+export async function saveGameTag(gameId: string, tag: unknown) {
+  const { userId, user, posthog } = await requireAuthContext("user");
+  const parsed = gameTagSchema.safeParse(tag);
+  if (!parsed.success) {
+    return { ok: false as const, message: parsed.error.issues[0].message };
+  }
+
+  await assertCanAnnotateGame(gameId, {
+    userId,
+    orgId: user.orgId ?? undefined,
+  });
+  await prisma.game.update({
+    where: { id: gameId },
+    data: { tag: parsed.data },
+  });
+
+  // Tags are user content too; only whether one is set is recorded.
+  captureServerEvent(posthog, {
+    distinctId: userId,
+    event: "game_tag_saved",
+    properties: { game_id: gameId, has_tag: parsed.data !== null },
+  });
+  return { ok: true as const, tag: parsed.data };
 }
 
 // Clone an existing game

@@ -2,6 +2,7 @@ import { ScoringShell } from "@/components/scoring/ScoringShell";
 import { getGameById } from "@/server/queries/games";
 import { getPredictionProfilesForGame } from "@/server/queries/predictionProfiles";
 import { getScoreEntryMode } from "@/server/queries/preferences";
+import { getTagSuggestions } from "@/server/queries/gameTags";
 import { notFound, redirect } from "next/navigation";
 import transformGameData from "@/lib/gameLogic";
 import {
@@ -14,6 +15,7 @@ import { Suspense } from "react";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import GameStory, { GameStorySkeleton } from "./GameStory";
 import GameNote from "./GameNote";
+import GameTag from "./GameTag";
 import KeyMoments from "./KeyMoments";
 import { isKeyMomentStorageConfigured } from "@/server/keyMoments";
 
@@ -86,13 +88,15 @@ export default async function GameView(props: {
     !!userId && !!game.organizationId && game.organizationId === orgId;
   const canEdit = isCircleMember || isPickupPlayer;
   // Stories show to any flagged viewer of a finished game; recaps to players.
-  const [predictionProfiles, llmEnabled, entryMode] = await Promise.all([
-    isCircleMember && !isFinished && game.rounds.length > 0
-      ? getPredictionProfilesForGame(game, { userId, orgId })
-      : {},
-    !!userId && (isFinished || canEdit) && isLlmFeaturesEnabled(),
-    userId && canEdit ? getScoreEntryMode(userId) : ("cards" as const),
-  ]);
+  const [predictionProfiles, llmEnabled, entryMode, tagSuggestions] =
+    await Promise.all([
+      isCircleMember && !isFinished && game.rounds.length > 0
+        ? getPredictionProfilesForGame(game, { userId, orgId })
+        : {},
+      !!userId && (isFinished || canEdit) && isLlmFeaturesEnabled(),
+      userId && canEdit ? getScoreEntryMode(userId) : ("cards" as const),
+      userId && canEdit ? getTagSuggestions(userId, game.organizationId) : [],
+    ]);
   const showStory = isFinished && llmEnabled;
 
   return (
@@ -133,6 +137,12 @@ export default async function GameView(props: {
           <GameStory game={game} viewerId={userId} />
         </Suspense>
       ) : null}
+      <GameTag
+        gameId={game.id}
+        tag={game.tag}
+        canEdit={canEdit}
+        suggestions={tagSuggestions}
+      />
       <GameNote gameId={game.id} note={game.note} canEdit={canEdit} />
       {isKeyMomentStorageConfigured() ? (
         <Suspense fallback={null}>

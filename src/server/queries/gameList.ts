@@ -24,6 +24,7 @@ const gameListSelect = {
   endedAt: true,
   winnerId: true,
   note: true,
+  tag: true,
   _count: { select: { rounds: true } },
   players: {
     select: {
@@ -142,6 +143,7 @@ function toListItem(game: Row, now: Date): GameListItem {
       ? (winner?.user?.username ?? winner?.guestUser?.name ?? null)
       : null,
     note: game.note,
+    tag: game.tag,
   };
 }
 
@@ -167,6 +169,9 @@ export async function getGameListPageForViewer(
       access,
       ...(filters.players.length > 8 ? [{ id: { in: [] } }] : []),
       statusWhere(filters.status, now),
+      ...(filters.tag
+        ? [{ tag: { equals: filters.tag, mode: "insensitive" as const } }]
+        : []),
       ...selectedUsers.map((userId) => ({ players: { some: { userId } } })),
       ...selectedGuests.map((guestId) => ({ players: { some: { guestId } } })),
     ],
