@@ -10,6 +10,7 @@ import { GraphCarousel } from "./GraphCarousel";
 import { ScoreProgressionCard } from "./graphs/ScoreProgressionCard";
 import { HotColdCard } from "./graphs/HotColdCard";
 import { WinProbabilityCard } from "./graphs/WinProbabilityCard";
+import { RoundMvpsCard } from "./graphs/RoundMvpsCard";
 import { buildRoundGraphSeries } from "./roundGraphSeries";
 import { type PlayerWithScore, type RoundData } from "./types";
 import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
@@ -73,6 +74,7 @@ export function BetweenRoundsView({
           winThreshold={winThreshold}
         />
         <HotColdCard players={players} deltasByRound={deltasByRound} />
+        <RoundMvpsCard players={players} deltasByRound={deltasByRound} />
         <WinProbabilityCard
           players={players}
           roundsPlayed={rounds.length}

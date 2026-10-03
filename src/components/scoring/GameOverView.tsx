@@ -8,6 +8,7 @@ import { RaceTrack } from "./RaceTrack";
 import { GraphCarousel } from "./GraphCarousel";
 import { ScoreProgressionCard } from "./graphs/ScoreProgressionCard";
 import { HotColdCard } from "./graphs/HotColdCard";
+import { RoundMvpsCard } from "./graphs/RoundMvpsCard";
 import { buildRoundGraphSeries } from "./roundGraphSeries";
 import { usePostHog } from "posthog-js/react";
 
@@ -118,6 +119,7 @@ export function GameOverView({
               winThreshold={winThreshold}
             />
             <HotColdCard players={players} deltasByRound={deltasByRound} />
+            <RoundMvpsCard players={players} deltasByRound={deltasByRound} />
           </GraphCarousel>
         </>
       )}
