@@ -104,7 +104,7 @@ export default function DashboardGrid({
 
       {intro}
       {shown.length ? (
-        <div className="grid grid-flow-row-dense gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((id, index) => {
             const info = CARD_INFO.get(id)!;
             return (

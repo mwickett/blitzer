@@ -64,6 +64,10 @@ describe("DashboardGrid", () => {
     expect(screen.getByText("Dad")).toBeInTheDocument();
     expect(screen.getByText("4 games together · You lead")).toBeInTheDocument();
     expect(screen.getByText("412")).toBeInTheDocument();
+    // Results are not conveyed by bar colour alone.
+    expect(
+      screen.getByRole("img", { name: /^Final scores, oldest to newest: 41 \(loss\), 76 \(win\)/ }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /hide/i })).not.toBeInTheDocument();
   });
 

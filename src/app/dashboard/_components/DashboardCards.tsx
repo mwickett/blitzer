@@ -5,6 +5,7 @@ import {
   Bar,
   BarChart,
   Cell,
+  LabelList,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -129,16 +130,25 @@ function BlitzRateCard({ stats }: { stats: DashboardStats }) {
 
 function RecentScoresCard({ games }: { games: RecentGame[] }) {
   if (!games.length) return <EmptyNote>{NO_GAMES}</EmptyNote>;
-  const data = [...games].reverse().map((game, index) => ({
-    label: `${index + 1}`,
-    score: game.score,
-    won: game.won,
-    detail: `${ordinal(game.place)} of ${game.playerCount}, ${plural(game.roundCount, "round")}`,
-  }));
+  const data = [...games].reverse().map((game, index) => {
+    const result = game.won === true ? "Win" : game.won === false ? "Loss" : "No winner";
+    return {
+      label: `${index + 1}`,
+      score: game.score,
+      won: game.won,
+      mark: game.won === true ? "W" : game.won === false ? "L" : "–",
+      result,
+      detail: `${result}, ${ordinal(game.place)} of ${game.playerCount}, ${plural(game.roundCount, "round")}`,
+    };
+  });
   return (
-    <div className="h-[160px]" role="img" aria-label={`Final scores: ${data.map((d) => d.score).join(", ")}`}>
+    <div
+      className="h-[160px]"
+      role="img"
+      aria-label={`Final scores, oldest to newest: ${data.map((d) => `${d.score} (${d.result.toLowerCase()})`).join(", ")}`}
+    >
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+        <BarChart data={data} margin={{ top: 16, right: 4, bottom: 0, left: -24 }}>
           <XAxis dataKey="label" hide />
           <YAxis
             tick={{ fontSize: 12, fill: "#8b5e3c" }}
@@ -158,6 +168,7 @@ function RecentScoresCard({ games }: { games: RecentGame[] }) {
             separator=""
           />
           <Bar dataKey="score" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+            <LabelList dataKey="mark" position="top" fontSize={11} fontWeight={700} fill="#5b4038" />
             {data.map((entry, index) => (
               <Cell
                 key={index}
