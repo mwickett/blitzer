@@ -8,9 +8,10 @@ export const DASHBOARD_CARDS = [
   { id: "form", title: "Recent form", description: "Your last ten results and streaks", defaultVisible: true },
   { id: "blitzRate", title: "Batting average", description: "How often you empty your Blitz pile", defaultVisible: true },
   { id: "recentScores", title: "Recent scores", description: "Final scores from your latest games", defaultVisible: true },
-  { id: "rivals", title: "Rivals", description: "Head-to-head with the people you play most", defaultVisible: true },
   { id: "bestHand", title: "Best and worst hand", description: "Your highest and lowest single round", defaultVisible: true },
+  { id: "rivals", title: "Rivals", description: "Head-to-head with the people you play most", defaultVisible: true },
   { id: "career", title: "Career totals", description: "Points, cards, and rounds all time", defaultVisible: true },
+  { id: "moments", title: "Memorable moments", description: "Comebacks, photo finishes, and your nemesis", defaultVisible: true },
   { id: "gameLength", title: "Game length", description: "Your longest and shortest finished games", defaultVisible: true },
   { id: "averages", title: "Per-round averages", description: "Cards played and Blitz cards left per round", defaultVisible: false },
 ] as const;

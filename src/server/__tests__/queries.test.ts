@@ -387,7 +387,14 @@ describe("Queries", () => {
               myWins: BigInt(2),
               theirWins: BigInt(1),
             },
-          ]);
+          ])
+          // Player highlights: results, rivals, margins, blitz streaks.
+          .mockResolvedValueOnce([
+            { id: "game-new", winnerId: mockUserId, finishedAt: new Date("2026-10-02T12:00:00Z") },
+          ])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]);
         (prisma.round.groupBy as jest.Mock)
           .mockResolvedValueOnce([{ gameId: "game-long", _count: { _all: 9 } }])
           .mockResolvedValueOnce([
@@ -437,6 +444,8 @@ describe("Queries", () => {
             },
           ],
         });
+        // One recorded win is not yet a story, so there are no moments.
+        expect(stats.moments).toEqual([]);
         expect(layout.order.slice(0, 2)).toEqual(["rivals", "record"]);
         expect(layout.order).not.toContain("retired-card");
         expect(layout.hidden).toEqual(["record", "averages"]);

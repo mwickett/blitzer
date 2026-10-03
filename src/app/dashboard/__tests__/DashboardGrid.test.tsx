@@ -37,6 +37,10 @@ const stats: DashboardStats = {
   rivals: [
     { playerId: "u2", kind: "user", name: "Dad", avatarUrl: null, gamesTogether: 4, myWins: 3, theirWins: 1 },
   ],
+  moments: [
+    { key: "comeback", emoji: "🎢", title: "Biggest comeback", headline: "Down 31, still won", detail: "Oct 2, 2026", gameId: "g3" },
+    { key: "nemesis", emoji: "😈", title: "Your nemesis", headline: "Grandma", detail: "You 1, Grandma 3 across 4 games" },
+  ],
 };
 
 const cardTitles = () =>
@@ -55,8 +59,8 @@ describe("DashboardGrid", () => {
     render(<DashboardGrid stats={stats} initialLayout={defaultDashboardLayout()} />);
 
     expect(cardTitles()).toEqual([
-      "Win rate", "Recent form", "Batting average", "Recent scores", "Rivals",
-      "Best and worst hand", "Career totals", "Game length",
+      "Win rate", "Recent form", "Batting average", "Recent scores", "Best and worst hand",
+      "Rivals", "Career totals", "Memorable moments", "Game length",
     ]);
     expect(screen.getByText("75%")).toBeInTheDocument();
     expect(screen.getByText("3 wins, 1 loss")).toBeInTheDocument();
@@ -64,6 +68,8 @@ describe("DashboardGrid", () => {
     expect(screen.getByText("Dad")).toBeInTheDocument();
     expect(screen.getByText("4 games together · You lead")).toBeInTheDocument();
     expect(screen.getByText("412")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Biggest comeback.*Down 31, still won/ })).toHaveAttribute("href", "/games/g3");
+    expect(screen.getByText("Grandma")).toBeInTheDocument();
     // Results are not conveyed by bar colour alone.
     expect(
       screen.getByRole("img", { name: /^Final scores, oldest to newest: 41 \(loss\), 76 \(win\)/ }),
@@ -80,7 +86,7 @@ describe("DashboardGrid", () => {
     expect(cardTitles()[0]).toBe("Recent form");
 
     await user.click(screen.getByRole("button", { name: "Move Rivals earlier" }));
-    expect(cardTitles().slice(2, 4)).toEqual(["Rivals", "Recent scores"]);
+    expect(cardTitles().slice(3, 5)).toEqual(["Rivals", "Best and worst hand"]);
 
     await user.click(screen.getByRole("button", { name: "Show Per-round averages" }));
     expect(cardTitles().at(-1)).toBe("Per-round averages");
@@ -125,12 +131,14 @@ describe("DashboardGrid", () => {
       recentGames: [],
       streaks: { current: null, bestWin: 0 },
       rivals: [],
+      moments: [],
     };
     render(<DashboardGrid stats={empty} initialLayout={defaultDashboardLayout()} />);
 
     const winRate = screen.getByRole("region", { name: "Win rate" });
     expect(within(winRate).getByText("Finish a game to see this.")).toBeInTheDocument();
     expect(screen.getByText(/start a rivalry/)).toBeInTheDocument();
+    expect(screen.getByText(/stories will start showing up/)).toBeInTheDocument();
   });
 });
 
