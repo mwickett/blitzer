@@ -7,6 +7,7 @@ import { buildEnhancedSystemPrompt } from "@/server/ai/enhancedSystemPrompt";
 import { ChatInputError, readChatMessages } from "@/server/ai/chatMessages";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import PostHogClient from "@/app/posthog";
+import { INSIGHTS_MODEL } from "@/server/ai/model";
 
 export const maxDuration = 30;
 
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Chat is temporarily unavailable" }, { status: 503 });
     }
     const system = await buildEnhancedSystemPrompt(user.id, user.username || "unknown");
-    const model = withTracing(openai("gpt-3.5-turbo"), posthog, {
+    const model = withTracing(openai(INSIGHTS_MODEL), posthog, {
       posthogDistinctId: user.id,
       posthogPrivacyMode: true,
       posthogCaptureImmediate: true,

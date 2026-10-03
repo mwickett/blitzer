@@ -63,11 +63,23 @@ model Game {
   host           User?         @relation("GameHost", fields: [hostUserId], references: [id])
   players        GamePlayers[]
   rounds         Round[]
+  story          GameStory?
 
   @@index([organizationId])
   @@index([hostUserId])
   @@index([kind, startedAt])
   @@index([createdAt, id])
+}
+
+// AI-written recap of a finished game. sourceKey fingerprints the rounds it
+// was written from, so a corrected game gets a fresh story.
+model GameStory {
+  gameId    String   @id @map("game_id")
+  story     String
+  model     String
+  sourceKey String   @map("source_key")
+  createdAt DateTime @default(now()) @map("created_at")
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
 }
 
 model Round {
