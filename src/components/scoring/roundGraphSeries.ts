@@ -14,15 +14,19 @@ export function buildRoundGraphSeries(
   scoresByRound: Record<string, number[]>;
   deltasByRound: Record<string, number[]>;
   roundSamplesByPlayer: Record<string, ForecastRoundSample[]>;
+  /** Blitz pile left per round; null where the player has no saved score. */
+  blitzByRound: Record<string, (number | null)[]>;
 } {
   const scoresByRound: Record<string, number[]> = {};
   const deltasByRound: Record<string, number[]> = {};
   const roundSamplesByPlayer: Record<string, ForecastRoundSample[]> = {};
+  const blitzByRound: Record<string, (number | null)[]> = {};
 
   for (const player of players) {
     scoresByRound[player.id] = [];
     deltasByRound[player.id] = [];
     roundSamplesByPlayer[player.id] = [];
+    blitzByRound[player.id] = [];
     let cumulative = 0;
 
     for (const round of rounds) {
@@ -31,6 +35,7 @@ export function buildRoundGraphSeries(
       cumulative += delta;
       scoresByRound[player.id].push(cumulative);
       deltasByRound[player.id].push(delta);
+      blitzByRound[player.id].push(s ? s.blitzPileRemaining : null);
       if (s) {
         roundSamplesByPlayer[player.id].push({
           totalCardsPlayed: s.totalCardsPlayed,
@@ -40,5 +45,5 @@ export function buildRoundGraphSeries(
     }
   }
 
-  return { scoresByRound, deltasByRound, roundSamplesByPlayer };
+  return { scoresByRound, deltasByRound, roundSamplesByPlayer, blitzByRound };
 }

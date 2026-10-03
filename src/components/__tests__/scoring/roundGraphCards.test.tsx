@@ -3,6 +3,7 @@ import {
   RoundMvpsCard,
   computeRoundMvps,
 } from "../../scoring/graphs/RoundMvpsCard";
+import { BlitzPileCard } from "../../scoring/graphs/BlitzPileCard";
 import { type PlayerWithScore } from "../../scoring/types";
 
 const player = (id: string, name: string): PlayerWithScore => ({
@@ -57,5 +58,28 @@ describe("RoundMvpsCard", () => {
     expect(screen.getByText("2 rounds")).toBeInTheDocument();
     expect(screen.getByText("1 round")).toBeInTheDocument();
     expect(screen.queryByText("Cara")).not.toBeInTheDocument();
+  });
+});
+
+describe("BlitzPileCard", () => {
+  it("marks blitzes, heavy piles, and missing scores", () => {
+    render(
+      <BlitzPileCard
+        players={players}
+        blitzByRound={{ a: [0, 3], b: [8, 0], c: [2, null] }}
+      />,
+    );
+    expect(screen.getByLabelText("Alice, round 1: blitzed")).toHaveTextContent(
+      "⚡",
+    );
+    expect(screen.getByLabelText("Bob, round 1: 8 left")).toHaveTextContent(
+      "8",
+    );
+    expect(
+      screen.getByLabelText("Cara, round 2: no score"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Blitzes:/)).toHaveTextContent(
+      "Blitzes: Alice 1, Bob 1",
+    );
   });
 });

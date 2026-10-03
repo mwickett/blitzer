@@ -9,6 +9,7 @@ import { GraphCarousel } from "./GraphCarousel";
 import { ScoreProgressionCard } from "./graphs/ScoreProgressionCard";
 import { HotColdCard } from "./graphs/HotColdCard";
 import { RoundMvpsCard } from "./graphs/RoundMvpsCard";
+import { BlitzPileCard } from "./graphs/BlitzPileCard";
 import { buildRoundGraphSeries } from "./roundGraphSeries";
 import { usePostHog } from "posthog-js/react";
 
@@ -43,7 +44,7 @@ export function GameOverView({
   const [rematchError, setRematchError] = useState<string | null>(null);
   const rematching = useRef(false);
   const sorted = [...players].sort((a, b) => b.score - a.score);
-  const { scoresByRound, deltasByRound } = useMemo(
+  const { scoresByRound, deltasByRound, blitzByRound } = useMemo(
     () => buildRoundGraphSeries(players, rounds),
     [players, rounds],
   );
@@ -120,6 +121,7 @@ export function GameOverView({
             />
             <HotColdCard players={players} deltasByRound={deltasByRound} />
             <RoundMvpsCard players={players} deltasByRound={deltasByRound} />
+            <BlitzPileCard players={players} blitzByRound={blitzByRound} />
           </GraphCarousel>
         </>
       )}
