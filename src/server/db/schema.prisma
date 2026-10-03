@@ -17,11 +17,12 @@ model User {
   avatarUrl              String?
   accentColor            String?                  @map("accent_color")
   dashboardLayout        Json?                    @map("dashboard_layout")
+  preferredDeck          String?                  @map("preferred_deck")
   /// Set when the player leaves (Clerk account deleted). Rows stay so other
   /// players' game history is intact; the player can't sign in or be added.
   deactivatedAt          DateTime?                @map("deactivated_at")
-  /// Set when a deactivated player also asked for their name, email and
-  /// avatar to be removed. Their scores remain under a "Former player" name.
+  /// Set when a deactivated player also asked for their name and avatar to
+  /// be removed. Their scores remain under a numbered "Former player" name.
   anonymizedAt           DateTime?                @map("anonymized_at")
   games                  GamePlayers[]
   scores                 Score[]
@@ -125,6 +126,7 @@ model GamePlayers {
   userId      String?
   guestId     String?
   accentColor String?    @map("accent_color")
+  deck        String?
   game        Game       @relation(fields: [gameId], references: [id])
   user        User?      @relation(fields: [userId], references: [id])
   guestUser   GuestUser? @relation(fields: [guestId], references: [id])

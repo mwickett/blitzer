@@ -17,6 +17,8 @@ import type { DashboardStats } from "@/server/queries/stats";
 import type { RecentGame } from "@/server/queries/playerStats";
 import { BigNumber, EmptyNote, StatRow } from "./StatCard";
 import { cn } from "@/lib/utils";
+import { DeckIcon } from "@/components/scoring/DeckIcon";
+import { deckLabel } from "@/lib/scoring/decks";
 
 const WIN = "#2a6517";
 const LOSS = "#b91c1c";
@@ -340,6 +342,58 @@ function MomentsCard({ stats }: { stats: DashboardStats }) {
   );
 }
 
+// A deck needs a few games before it can be called lucky.
+const LUCKY_DECK_MIN_GAMES = 3;
+
+function DecksCard({ stats }: { stats: DashboardStats }) {
+  if (!stats.decks.length) {
+    return (
+      <EmptyNote>
+        Tag your deck when you set up a game to see which one brings you luck.
+      </EmptyNote>
+    );
+  }
+  const lucky = [...stats.decks]
+    .filter((deck) => deck.games >= LUCKY_DECK_MIN_GAMES)
+    .sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0];
+  return (
+    <>
+      {lucky ? (
+        <div className="mb-3 flex items-center gap-3">
+          <DeckIcon deck={lucky.deck} className="h-10 w-10 text-brandAccent" />
+          <div>
+            <div className="font-display text-2xl font-bold leading-tight text-brandAccent">
+              {deckLabel(lucky.deck)}
+            </div>
+            <div className="text-sm text-textBody">
+              {Math.round(lucky.winRate)}% wins with this deck
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="mb-3 text-sm text-textBody">
+          Play {LUCKY_DECK_MIN_GAMES} games with a deck to crown a lucky one.
+        </p>
+      )}
+      <ul className="mt-auto">
+        {stats.decks.map((deck) => (
+          <li key={deck.deck}>
+            <StatRow
+              label={
+                <span className="flex items-center gap-1.5">
+                  <DeckIcon deck={deck.deck} className="h-4 w-4" />
+                  {deckLabel(deck.deck)}
+                </span>
+              }
+              value={`${Math.round(deck.winRate)}% of ${plural(deck.games, "game")}`}
+            />
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 export const WIDE_CARDS = new Set<DashboardCardId>(["recentScores", "rivals", "moments"]);
 
 export function DashboardCardBody({
@@ -368,6 +422,8 @@ export function DashboardCardBody({
       return <GameLengthCard stats={stats} />;
     case "moments":
       return <MomentsCard stats={stats} />;
+    case "decks":
+      return <DecksCard stats={stats} />;
     case "averages":
       return <AveragesCard stats={stats} />;
   }

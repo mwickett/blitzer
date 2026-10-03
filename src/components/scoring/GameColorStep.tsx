@@ -3,6 +3,8 @@
 
 import { useRef, useState } from "react";
 import { ColorPicker } from "./ColorPicker";
+import { DeckPicker } from "./DeckPicker";
+import type { DeckId } from "@/lib/scoring/decks";
 import { useGameColors, type ColorStepPlayer } from "./useGameColors";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,12 +13,19 @@ import { ACCENT_COLORS } from "@/lib/scoring/colors";
 
 interface GameColorStepProps {
   players: ColorStepPlayer[];
-  onConfirm: (colors: Record<string, string>, saveCreatorDefault: boolean) => Promise<void>;
+  onConfirm: (
+    colors: Record<string, string>,
+    decks: Record<string, DeckId | null>,
+    saveCreatorDefault: boolean,
+  ) => Promise<void>;
   onBack: () => void;
 }
 
 export function GameColorStep({ players, onConfirm, onBack }: GameColorStepProps) {
   const { colors, updateColor } = useGameColors(players);
+  const [decks, setDecks] = useState<Record<string, DeckId | null>>(() =>
+    Object.fromEntries(players.map((p) => [p.id, p.defaultDeck ?? null])),
+  );
   const [saveAsDefault, setSaveAsDefault] = useState(true);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +39,7 @@ export function GameColorStep({ players, onConfirm, onBack }: GameColorStepProps
     setIsPending(true);
     setError(null);
     try {
-      await onConfirm(colors, saveAsDefault);
+      await onConfirm(colors, decks, saveAsDefault);
       // Creation succeeded. Stay disabled until navigation replaces this step.
     } catch (cause) {
       submitting.current = false;
@@ -44,6 +53,9 @@ export function GameColorStep({ players, onConfirm, onBack }: GameColorStepProps
       <div className="text-sm font-semibold text-[#5a341f] mb-1">
         Pick a color for each player
       </div>
+      <p className="text-xs text-[#8b5e3c]">
+        Playing with a particular deck? Tag it to see which one brings you luck.
+      </p>
 
       <fieldset disabled={isPending} className="space-y-4">
         {players.map((player) => {
@@ -88,6 +100,14 @@ export function GameColorStep({ players, onConfirm, onBack }: GameColorStepProps
                 allowDuplicateColors={allowDuplicateColors}
               />
 
+              <div className="mt-2">
+                <DeckPicker
+                  playerName={player.name}
+                  value={decks[player.id] ?? null}
+                  onChange={(deck) => setDecks((prev) => ({ ...prev, [player.id]: deck }))}
+                />
+              </div>
+
               {player.isCurrentUser && (
                 <label className="flex items-center gap-2 mt-2 cursor-pointer">
                   <input
@@ -97,14 +117,14 @@ export function GameColorStep({ players, onConfirm, onBack }: GameColorStepProps
                     className="w-4 h-4 rounded border-[#e6d7c3] accent-[#290806]"
                   />
                   <span className="text-xs text-[#8b5e3c]">
-                    Save as my default color
+                    Save as my default color and deck
                   </span>
                 </label>
               )}
 
               {player.isGuest && (
                 <p className="text-xs text-[#b8a08c] italic mt-2">
-                  Color saved to this game only
+                  Color and deck saved to this game only
                 </p>
               )}
             </div>

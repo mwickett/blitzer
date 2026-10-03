@@ -39,7 +39,7 @@ jest.mock("../db/db", () => ({
 
 describe("pickup lobby mutations", () => {
   const capture = jest.fn();
-  const host = { id: "host-id", accentColor: "#3b82f6" };
+  const host = { id: "host-id", accentColor: "#3b82f6", preferredDeck: "pump" };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -137,6 +137,7 @@ describe("pickup lobby mutations", () => {
         gameId: "game-id",
         userId: host.id,
         accentColor: host.accentColor,
+        deck: "pump",
       },
     });
     expect(capture).toHaveBeenCalledWith({

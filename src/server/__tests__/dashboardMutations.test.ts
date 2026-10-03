@@ -44,7 +44,7 @@ describe("saveDashboardLayout", () => {
     expect(captureServerEvent).toHaveBeenCalledWith(posthog, {
       distinctId: "clerk-user",
       event: "dashboard_customized",
-      properties: { visible_cards: 8, hidden_cards: 2 },
+      properties: { visible_cards: 9, hidden_cards: 2 },
     });
   });
 

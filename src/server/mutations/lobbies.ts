@@ -135,6 +135,7 @@ export async function createPickupGame(input: {
               gameId: created.id,
               userId: host.id,
               accentColor: colors[host.id],
+              deck: host.preferredDeck ?? null,
             },
             ...guests.map((guest) => ({
               gameId: created.id,
@@ -244,6 +245,7 @@ export async function joinPickupGame(
           gameId: game.id,
           userId: joiningUser.id,
           accentColor: colors[key],
+          deck: joiningUser.preferredDeck ?? null,
         },
       });
       return { ok: true, gameId: game.id, didJoin: true };

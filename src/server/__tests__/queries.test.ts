@@ -394,7 +394,12 @@ describe("Queries", () => {
           ])
           .mockResolvedValueOnce([])
           .mockResolvedValueOnce([])
-          .mockResolvedValueOnce([]);
+          .mockResolvedValueOnce([])
+          // Win rate by deck; unknown deck values are ignored.
+          .mockResolvedValueOnce([
+            { deck: "pump", games: BigInt(4), wins: BigInt(1) },
+            { deck: "anchor", games: BigInt(2), wins: BigInt(2) },
+          ]);
         (prisma.round.groupBy as jest.Mock)
           .mockResolvedValueOnce([{ gameId: "game-long", _count: { _all: 9 } }])
           .mockResolvedValueOnce([
@@ -446,6 +451,9 @@ describe("Queries", () => {
         });
         // One recorded win is not yet a story, so there are no moments.
         expect(stats.moments).toEqual([]);
+        expect(stats.decks).toEqual([
+          { deck: "pump", games: 4, wins: 1, winRate: 25 },
+        ]);
         expect(layout.order.slice(0, 2)).toEqual(["rivals", "record"]);
         expect(layout.order).not.toContain("retired-card");
         expect(layout.hidden).toEqual(["record", "averages"]);

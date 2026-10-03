@@ -10,6 +10,8 @@ import {
   getRivalsForUser,
   getRoundStatsForUser,
   getWinStreaksForUser,
+  getDeckStatsForUser,
+  type DeckStat,
   type RecentGame,
   type Rival,
   type WinStreaks,
@@ -69,6 +71,7 @@ export type DashboardStats = {
   rivals: Rival[];
   /** Plain-data highlight moments, so they cross to the client unchanged. */
   moments: DashboardMoment[];
+  decks: DeckStat[];
 };
 
 export type DashboardMoment = ReturnType<typeof highlightMoments>[number];
@@ -162,7 +165,7 @@ export async function getDashboardStatsForUser(
   userId: string,
   db: Db = prisma
 ): Promise<DashboardStats> {
-  const [roundStats, scoreExtremes, gameRoundExtremes, games, recentGames, streaks, rivals, highlights] =
+  const [roundStats, scoreExtremes, gameRoundExtremes, games, recentGames, streaks, rivals, highlights, decks] =
     await Promise.all([
       getRoundStatsForUser(userId, db),
       getHighestAndLowestScoreForUser(userId, db),
@@ -172,6 +175,7 @@ export async function getDashboardStatsForUser(
       getWinStreaksForUser(userId, db),
       getRivalsForUser(userId, db),
       getPlayerHighlightsForUser(userId, db),
+      getDeckStatsForUser(userId, db),
     ]);
 
   return {
@@ -191,6 +195,7 @@ export async function getDashboardStatsForUser(
     moments: highlightMoments(highlights).filter(
       (moment) => !MOMENTS_COVERED_ELSEWHERE.has(moment.key),
     ),
+    decks,
   };
 }
 

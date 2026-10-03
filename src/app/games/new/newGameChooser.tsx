@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { type User } from "@/generated/prisma/client";
 import { useUser } from "@clerk/nextjs";
-import { createGame, saveUserAccentColor } from "@/server/mutations/games";
+import { createGame, saveUserAccentColor, saveUserPreferredDeck } from "@/server/mutations/games";
+import { isDeckId, type DeckId } from "@/lib/scoring/decks";
 import { GameColorStep } from "@/components/scoring/GameColorStep";
 import { type ColorStepPlayer } from "@/components/scoring/useGameColors";
 import { GAME_RULES } from "@/lib/validation/gameRules";
@@ -45,7 +46,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 
-type UserSubset = Pick<User, "id" | "username" | "clerk_user_id" | "avatarUrl" | "accentColor">;
+type UserSubset = Pick<User, "id" | "username" | "clerk_user_id" | "avatarUrl" | "accentColor" | "preferredDeck">;
 
 type GamePlayer = UserSubset | { id: string; username: string; isGuest: true };
 
@@ -186,6 +187,7 @@ export default function NewGameChooser({
       const defaultColor = !isGuest && "accentColor" in player
         ? player.accentColor ?? null
         : null;
+      const savedDeck = !isGuest && "preferredDeck" in player ? player.preferredDeck : null;
 
       return {
         id: player.id,
@@ -193,6 +195,7 @@ export default function NewGameChooser({
         isGuest,
         isCurrentUser: isCurrent,
         defaultColor,
+        defaultDeck: isDeckId(savedDeck) ? savedDeck : null,
         avatarUrl: "avatarUrl" in player ? player.avatarUrl : null,
       };
     });
@@ -201,12 +204,14 @@ export default function NewGameChooser({
   // Handle game creation and redirect
   const handleCreateGame = async (
     playerColors: Record<string, string>,
+    playerDecks: Record<string, DeckId | null>,
     saveCreatorDefault: boolean
   ) => {
     if (!validDraft) throw new Error("Select at least two players before starting a game.");
     const playersWithColors = inGamePlayers.map((p) => ({
       ...p,
       accentColor: playerColors[p.id],
+      deck: playerDecks[p.id] ?? null,
     }));
     const result = await createGame(playersWithColors, winThreshold);
     if (!result.ok) {
@@ -223,6 +228,11 @@ export default function NewGameChooser({
       if (currentPlayer && playerColors[currentPlayer.id]) {
         saveUserAccentColor(playerColors[currentPlayer.id]).catch((e) =>
           console.error("Failed to save default color:", e)
+        );
+      }
+      if (currentPlayer) {
+        saveUserPreferredDeck(playerDecks[currentPlayer.id] ?? null).catch((e) =>
+          console.error("Failed to save default deck:", e)
         );
       }
     }

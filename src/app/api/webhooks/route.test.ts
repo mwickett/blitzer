@@ -40,6 +40,7 @@ function user(overrides: Partial<User> = {}): User {
     dashboardLayout: null,
     deactivatedAt: null,
     anonymizedAt: null,
+    preferredDeck: null,
     ...overrides,
   };
 }

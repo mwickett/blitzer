@@ -41,6 +41,11 @@ const stats: DashboardStats = {
     { key: "comeback", emoji: "🎢", title: "Biggest comeback", headline: "Down 31, still won", detail: "Oct 2, 2026", gameId: "g3" },
     { key: "nemesis", emoji: "😈", title: "Your nemesis", headline: "Grandma", detail: "You 1, Grandma 3 across 4 games" },
   ],
+  decks: [
+    { deck: "pump", games: 5, wins: 2, winRate: 40 },
+    { deck: "carriage", games: 3, wins: 3, winRate: 100 },
+    { deck: "bucket", games: 1, wins: 1, winRate: 100 },
+  ],
 };
 
 const cardTitles = () =>
@@ -60,7 +65,7 @@ describe("DashboardGrid", () => {
 
     expect(cardTitles()).toEqual([
       "Win rate", "Recent form", "Batting average", "Recent scores", "Best and worst hand",
-      "Rivals", "Career totals", "Memorable moments", "Game length",
+      "Rivals", "Career totals", "Memorable moments", "Lucky deck", "Game length",
     ]);
     expect(screen.getByText("75%")).toBeInTheDocument();
     expect(screen.getByText("3 wins, 1 loss")).toBeInTheDocument();
@@ -70,6 +75,11 @@ describe("DashboardGrid", () => {
     expect(screen.getByText("412")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Biggest comeback.*Down 31, still won/ })).toHaveAttribute("href", "/games/g3");
     expect(screen.getByText("Grandma")).toBeInTheDocument();
+    // The lucky deck needs enough games: the one-game bucket doesn't qualify.
+    const decks = screen.getByRole("region", { name: "Lucky deck" });
+    expect(within(decks).getByText("100% wins with this deck")).toBeInTheDocument();
+    expect(within(decks).getAllByText("Carriage")).toHaveLength(2);
+    expect(within(decks).getByText("40% of 5 games")).toBeInTheDocument();
     // Results are not conveyed by bar colour alone.
     expect(
       screen.getByRole("img", { name: /^Final scores, oldest to newest: 41 \(loss\), 76 \(win\)/ }),
@@ -132,6 +142,7 @@ describe("DashboardGrid", () => {
       streaks: { current: null, bestWin: 0 },
       rivals: [],
       moments: [],
+      decks: [],
     };
     render(<DashboardGrid stats={empty} initialLayout={defaultDashboardLayout()} />);
 
@@ -139,6 +150,7 @@ describe("DashboardGrid", () => {
     expect(within(winRate).getByText("Finish a game to see this.")).toBeInTheDocument();
     expect(screen.getByText(/start a rivalry/)).toBeInTheDocument();
     expect(screen.getByText(/stories will start showing up/)).toBeInTheDocument();
+    expect(screen.getByText(/Tag your deck when you set up a game/)).toBeInTheDocument();
   });
 });
 
