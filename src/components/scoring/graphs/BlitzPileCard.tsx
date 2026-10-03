@@ -62,6 +62,7 @@ export function BlitzPileCard({ players, blitzByRound }: BlitzPileCardProps) {
                 return (
                   <div
                     key={ri}
+                    role="img"
                     aria-label={
                       left === null
                         ? `${player.name}, round ${ri + 1}: no score`

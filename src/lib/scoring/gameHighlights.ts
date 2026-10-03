@@ -23,6 +23,8 @@ export const COMEBACK_MIN_DEFICIT = 15;
 export const PHOTO_FINISH_MAX_MARGIN = 5;
 export const MIN_LEAD_CHANGES = 2;
 export const MIN_BLITZ_STREAK = 3;
+/** Leading after one or two rounds is routine, so wire-to-wire needs three. */
+export const WIRE_TO_WIRE_MIN_ROUNDS = 3;
 
 /** Sole leader after a round, or null when the lead is shared. */
 function soleLeader(
@@ -73,7 +75,10 @@ export function findGameHighlights({
     previous = leader;
   }
 
-  if (roundCount >= 3 && leaders.every((leader) => leader === winnerId)) {
+  if (
+    roundCount >= WIRE_TO_WIRE_MIN_ROUNDS &&
+    leaders.every((leader) => leader === winnerId)
+  ) {
     highlights.push({ kind: "wire_to_wire", playerId: winnerId });
   }
 
