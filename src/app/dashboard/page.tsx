@@ -1,6 +1,6 @@
-import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { getDashboard } from "@/server/queries/stats";
+import { requireSignedIn } from "@/server/pageAuth";
 import CircleCtaSection from "./_components/CircleCtaSection";
 import DashboardGrid from "./_components/DashboardGrid";
 
@@ -23,7 +23,8 @@ function FirstGamePrompt() {
 }
 
 export default async function Dashboard() {
-  const [{ orgId }, { stats, layout }] = await Promise.all([auth(), getDashboard()]);
+  const { orgId } = await requireSignedIn();
+  const { stats, layout } = await getDashboard();
 
   return (
     <section className="p-5">

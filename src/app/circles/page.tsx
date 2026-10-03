@@ -5,8 +5,10 @@ import {
 } from "@/components/CircleStandings";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { requireCircle } from "@/server/pageAuth";
 
 export default async function CircleStandingsPage() {
+  await requireCircle();
   const { standings, headToHead } = await getCircleStandings();
 
   return (

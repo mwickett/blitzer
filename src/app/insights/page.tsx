@@ -1,17 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import ModernChatUI from "./ModernChatUI";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import { Badge } from "@/components/ui/badge";
 import PlayerHighlights from "@/components/insights/PlayerHighlights";
 import { getPlayerHighlightsForClerkUser } from "@/server/queries/playerHighlights";
+import { requireCircle } from "@/server/pageAuth";
 
 export default async function InsightsPage() {
-  const { userId } = await auth();
-
-  if (!userId) {
-    redirect("/sign-in");
-  }
+  const { userId } = await requireCircle();
 
   // Check if LLM features are enabled
   const llmFeaturesEnabled = await isLlmFeaturesEnabled();

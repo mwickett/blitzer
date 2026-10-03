@@ -1,14 +1,10 @@
-import { auth } from "@clerk/nextjs/server";
+import { requireSignedIn } from "@/server/pageAuth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import CircleSetup from "./CircleSetup";
 
 export default async function CircleSetupPage() {
-  const { userId, orgId } = await auth();
-
-  if (!userId) {
-    redirect("/sign-in");
-  }
+  const { orgId } = await requireSignedIn();
   if (orgId) {
     redirect("/dashboard");
   }

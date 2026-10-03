@@ -20,7 +20,8 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mockReplace, refresh: mockRefresh }),
   redirect: (path: string) => mockRedirect(path),
 }));
-jest.mock("@clerk/nextjs/server", () => ({ auth: () => mockAuth() }));
+jest.mock("server-only", () => ({}));
+jest.mock("@clerk/nextjs/server", () => ({ auth: { protect: () => mockAuth() } }));
 jest.mock("@clerk/nextjs", () => ({
   useOrganization: () => ({ isLoaded: mockState.isLoaded, organization: mockState.organization }),
   useOrganizationList: () => ({

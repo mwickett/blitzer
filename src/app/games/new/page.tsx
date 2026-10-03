@@ -1,7 +1,7 @@
 "use server";
 
 import { Suspense } from "react";
-import { auth } from "@clerk/nextjs/server";
+import { requireSignedIn } from "@/server/pageAuth";
 import prisma from "@/server/db/db";
 import NewGameChooser from "./newGameChooser";
 import { getOrgMemberClerkIds } from "@/server/clerkOrgs";
@@ -13,12 +13,8 @@ export default async function NewGamePage({
 }: {
   searchParams: Promise<{ type?: string }>;
 }) {
-  const { userId, orgId } = await auth();
+  const { orgId } = await requireSignedIn();
   const { type } = await searchParams;
-
-  if (!userId) {
-    return <div>Please sign in</div>;
-  }
 
   if (!type)
     return (

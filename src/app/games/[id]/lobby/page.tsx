@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { requireSignedIn } from "@/server/pageAuth";
 import { getPickupLobbyForParticipant } from "@/server/queries/lobbies";
 import { MAX_PICKUP_PLAYERS, isLobbyExpired } from "@/lib/lobbies";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,10 +46,10 @@ export default async function PickupLobbyPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const session = await requireSignedIn();
   const { id } = await params;
-  const [game, session, baseUrl] = await Promise.all([
+  const [game, baseUrl] = await Promise.all([
     getPickupLobbyForParticipant(id),
-    auth(),
     getTrustedBaseUrl(),
   ]);
 
