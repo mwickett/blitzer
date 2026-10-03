@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { ArrowDown, ArrowUp, EyeOff, Plus, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,21 +37,34 @@ export default function DashboardGrid({
   const [layout, setLayout] = useState(initialLayout);
   const [editing, setEditing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [, startTransition] = useTransition();
-  // Only the latest save may report its outcome.
-  const saveSeq = useRef(0);
+  // One save in flight at a time; changes made meanwhile collapse into the
+  // latest layout, which is sent when the current save settles. Saves can
+  // therefore never land out of order.
+  const saving = useRef(false);
+  const pending = useRef<{ layout: DashboardLayout | null } | null>(null);
 
-  const persist = (next: DashboardLayout | null) => {
-    const seq = ++saveSeq.current;
-    setSaveState("saving");
-    startTransition(async () => {
+  const flush = async () => {
+    if (saving.current) return;
+    saving.current = true;
+    let failed = false;
+    while (pending.current) {
+      const { layout: next } = pending.current;
+      pending.current = null;
       try {
         const result = await saveDashboardLayout(next);
-        if (seq === saveSeq.current) setSaveState(result.ok ? "saved" : "error");
+        failed = !result.ok;
       } catch {
-        if (seq === saveSeq.current) setSaveState("error");
+        failed = true;
       }
-    });
+    }
+    saving.current = false;
+    setSaveState(failed ? "error" : "saved");
+  };
+
+  const persist = (next: DashboardLayout | null) => {
+    pending.current = { layout: next };
+    setSaveState("saving");
+    void flush();
   };
 
   const update = (next: DashboardLayout) => {

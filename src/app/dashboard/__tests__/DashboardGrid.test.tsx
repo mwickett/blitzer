@@ -133,3 +133,33 @@ describe("DashboardGrid", () => {
     expect(screen.getByText(/start a rivalry/)).toBeInTheDocument();
   });
 });
+
+describe("DashboardGrid saving", () => {
+  it("sends one save at a time and only the latest layout after it", async () => {
+    const resolvers: Array<() => void> = [];
+    (saveDashboardLayout as jest.Mock).mockImplementation(
+      (layout) =>
+        new Promise((resolve) => {
+          resolvers.push(() => resolve({ ok: true, layout: layout ?? defaultDashboardLayout() }));
+        }),
+    );
+    const user = userEvent.setup();
+    render(<DashboardGrid stats={stats} initialLayout={defaultDashboardLayout()} />);
+
+    await user.click(screen.getByRole("button", { name: "Customize" }));
+    await user.click(screen.getByRole("button", { name: "Hide Win rate" }));
+    await user.click(screen.getByRole("button", { name: "Hide Rivals" }));
+    await user.click(screen.getByRole("button", { name: "Reset" }));
+
+    // The first save is still in flight, so nothing else has been sent.
+    expect(saveDashboardLayout).toHaveBeenCalledTimes(1);
+    resolvers.shift()!();
+    await waitFor(() => expect(saveDashboardLayout).toHaveBeenCalledTimes(2));
+    // The two queued changes collapse into the final one: the reset.
+    expect(saveDashboardLayout).toHaveBeenLastCalledWith(null);
+    expect(screen.getByRole("status")).toHaveTextContent("Saving");
+    resolvers.shift()!();
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved"));
+    expect(saveDashboardLayout).toHaveBeenCalledTimes(2);
+  });
+});
