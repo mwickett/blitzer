@@ -7,6 +7,7 @@ const mockGame = jest.fn();
 const mockHistory = jest.fn();
 const mockRecap = jest.fn();
 const mockCapture = jest.fn();
+const mockStandings = jest.fn();
 jest.mock("@clerk/nextjs/server", () => ({ auth: () => mockAuth() }));
 jest.mock("@/featureFlags", () => ({ isLlmFeaturesEnabled: () => mockEnabled() }));
 jest.mock("@/server/queries/games", () => ({ getGameById: (id: string) => mockGame(id) }));
@@ -15,6 +16,7 @@ jest.mock("@/server/ai/roundRecap", () => ({ writeRoundRecap: (...args: unknown[
 jest.mock("@/server/telemetry", () => ({ captureServerEvent: (...args: unknown[]) => mockCapture(...args) }));
 jest.mock("@ai-sdk/openai", () => ({ openai: () => ({}) }));
 jest.mock("@posthog/ai", () => ({ withTracing: (model: unknown) => model }));
+jest.mock("@/lib/gameLogic", () => ({ __esModule: true, default: (game: unknown) => mockStandings(game) }));
 jest.mock("@/app/posthog", () => ({ __esModule: true, default: () => ({}) }));
 
 const circleGame = (overrides: Record<string, unknown> = {}) => ({
@@ -35,6 +37,7 @@ beforeEach(() => {
   mockGame.mockResolvedValue(circleGame());
   mockHistory.mockResolvedValue({ gamesTogether: 0, winsByPlayer: {}, lastWinnerId: null });
   mockRecap.mockResolvedValue("Mike leads!");
+  mockStandings.mockReturnValue([{ isWinner: false }, { isWinner: false }]);
 });
 
 it("returns a recap for people at the table, using this group's history", async () => {
@@ -60,9 +63,16 @@ it("hides games the caller cannot score", async () => {
   expect(mockRecap).not.toHaveBeenCalled();
 });
 
-it.each([[{ isFinished: true }], [{ rounds: [] }]])("only recaps between rounds (%p)", async (overrides) => {
-  mockGame.mockResolvedValue(circleGame(overrides));
+it("only recaps between rounds", async () => {
+  mockStandings.mockReturnValueOnce([{ isWinner: true }, { isWinner: false }]);
   expect((await call()).status).toBe(409);
+  mockGame.mockResolvedValue(circleGame({ rounds: [] }));
+  expect((await call()).status).toBe(409);
+});
+
+it("decides completion from the scores, like the game page", async () => {
+  mockGame.mockResolvedValue(circleGame({ isFinished: true }));
+  expect((await call()).status).toBe(200);
 });
 
 it("reports model failures without leaking details", async () => {

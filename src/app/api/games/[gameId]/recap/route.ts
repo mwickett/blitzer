@@ -3,6 +3,7 @@ import { openai } from "@ai-sdk/openai";
 import { withTracing } from "@posthog/ai";
 import PostHogClient from "@/app/posthog";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
+import transformGameData from "@/lib/gameLogic";
 import { writeRoundRecap } from "@/server/ai/roundRecap";
 import { INSIGHTS_MODEL } from "@/server/ai/model";
 import { getGameById } from "@/server/queries/games";
@@ -27,7 +28,9 @@ export async function POST(req: Request, context: { params: Promise<{ gameId: st
   } catch {
     return Response.json({ error: "Game not found" }, { status: 404 });
   }
-  if (game.isFinished || !game.rounds.length) {
+  // Completion comes from the scores, as on the game page; stored flags can lag.
+  const hasWinner = transformGameData(game).some((player) => player.isWinner);
+  if (hasWinner || !game.rounds.length) {
     return Response.json({ error: "Recaps are available between rounds" }, { status: 409 });
   }
   if (!process.env.OPENAI_API_KEY) {

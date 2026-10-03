@@ -59,6 +59,9 @@ export function BetweenRoundsView({
     onEnterScores();
   };
 
+  // Any new or corrected round makes an earlier recap stale.
+  const recapKey = rounds.map((round) => `${round.id}:${round.revision}`).join(",");
+
   const { scoresByRound, deltasByRound, roundSamplesByPlayer, blitzByRound } =
     useMemo(() => buildRoundGraphSeries(players, rounds), [players, rounds]);
 
@@ -103,7 +106,7 @@ export function BetweenRoundsView({
       </GraphCarousel>
 
       {recapGameId && canEdit && (
-        <RoundRecap key={rounds.length} gameId={recapGameId} roundsPlayed={rounds.length} />
+        <RoundRecap key={recapKey} gameId={recapGameId} roundsPlayed={rounds.length} />
       )}
 
       {/* Standings */}

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { BetweenRoundsView } from "../../scoring/BetweenRoundsView";
 import { type PlayerWithScore } from "../../scoring/types";
 
@@ -89,5 +89,22 @@ describe("BetweenRoundsView spectator mode", () => {
     expect(
       screen.queryByRole("button", { name: "Edit round 1" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("BetweenRoundsView recap", () => {
+  it("clears a played recap when a round is corrected", async () => {
+    Object.assign(window, {
+      speechSynthesis: { speak: jest.fn(), cancel: jest.fn() },
+      SpeechSynthesisUtterance: class { constructor(public text: string) {} },
+    });
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ text: "Alice leads!" }) });
+    const { rerender } = render(<BetweenRoundsView {...baseProps} recapGameId="game-1" />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Play recap" })));
+    expect(screen.getByText("Alice leads!")).toBeInTheDocument();
+
+    rerender(<BetweenRoundsView {...baseProps} recapGameId="game-1" rounds={[{ ...rounds[0], revision: 1 }]} />);
+    expect(screen.queryByText("Alice leads!")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play recap" })).toBeInTheDocument();
   });
 });
