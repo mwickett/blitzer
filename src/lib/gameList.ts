@@ -28,6 +28,7 @@ export type GameListItem = {
   roundCount: number;
   players: GamePlayerOption[];
   winnerName: string | null;
+  note: string | null;
 };
 export type GameListPage = {
   games: GameListItem[];

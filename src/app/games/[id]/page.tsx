@@ -13,6 +13,7 @@ import { auth } from "@clerk/nextjs/server";
 import { Suspense } from "react";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import GameStory, { GameStorySkeleton } from "./GameStory";
+import GameNote from "./GameNote";
 import KeyMoments from "./KeyMoments";
 import { isKeyMomentStorageConfigured } from "@/server/keyMoments";
 
@@ -132,6 +133,7 @@ export default async function GameView(props: {
           <GameStory game={game} viewerId={userId} />
         </Suspense>
       ) : null}
+      <GameNote gameId={game.id} note={game.note} canEdit={canEdit} />
       {isKeyMomentStorageConfigured() ? (
         <Suspense fallback={null}>
           <KeyMoments
