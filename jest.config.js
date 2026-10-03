@@ -14,7 +14,6 @@ const customJestConfig = {
     // Handle module aliases (if you're using them in your Next.js project)
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  testPathIgnorePatterns: ['<rootDir>/cypress/'],
   collectCoverage: true,
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',

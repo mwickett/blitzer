@@ -215,3 +215,52 @@ it("does not rerandomize a name when the requested username belongs to another l
   expect(rows[0].username).toBe("generated-1");
   expect(generateRandomUsername).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["no primary email id", { primary_email_address_id: null }],
+  ["no email addresses", { email_addresses: [] }],
+  ["a primary id missing from the list", { primary_email_address_id: "email-other" }],
+])("fails a profile with %s without creating an account", async (_label, overrides) => {
+  (verifyWebhook as jest.Mock).mockResolvedValue(event("user.created", overrides));
+
+  const response = await POST(request);
+
+  expect(response.status).toBe(500);
+  expect(prisma.user.create).not.toHaveBeenCalled();
+  expect(sendWelcomeEmail).not.toHaveBeenCalled();
+});
+
+it("keeps a new account and acknowledges the event when the welcome email fails", async () => {
+  jest.mocked(sendWelcomeEmail).mockResolvedValue({ success: false, error: "provider down" });
+
+  const response = await POST(request);
+
+  expect(response.status).toBe(200);
+  expect(rows).toHaveLength(1);
+  // The failure is logged by local id only, never the address
+  expect(JSON.stringify(jest.mocked(console.error).mock.calls)).not.toContain(
+    "player@example.test",
+  );
+});
+
+it("sends the welcome email only for created accounts", async () => {
+  rows.push(user());
+  (verifyWebhook as jest.Mock).mockResolvedValue(event("user.updated"));
+
+  expect((await POST(request)).status).toBe(200);
+  expect(sendWelcomeEmail).not.toHaveBeenCalled();
+});
+
+it.each(["user.deleted", "session.created", "organization.created"])(
+  "acknowledges %s without touching accounts",
+  async (type) => {
+    rows.push(user());
+    (verifyWebhook as jest.Mock).mockResolvedValue({ type, data: { id: "clerk-current" } });
+
+    expect((await POST(request)).status).toBe(200);
+    expect(prisma.user.create).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(sendWelcomeEmail).not.toHaveBeenCalled();
+    expect(rows).toHaveLength(1);
+  },
+);
