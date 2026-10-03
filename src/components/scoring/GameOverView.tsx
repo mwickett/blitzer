@@ -128,7 +128,10 @@ export function GameOverView({
           <div className="px-4 pt-1 pb-2">
             <RaceTrack players={players} winThreshold={winThreshold} />
           </div>
-          <GraphCarousel>
+          <GraphCarousel
+            context="game_over"
+            graphNames={["score_progression", "hot_cold"]}
+          >
             <ScoreProgressionCard
               players={players}
               scoresByRound={scoresByRound}
