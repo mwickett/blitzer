@@ -44,6 +44,12 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | --- | --- | --- |
 | `dashboard_customized` / `dashboard_reset` | A user saves or resets their dashboard card layout | `visible_cards`, `hidden_cards` |
 
+## Account (server)
+
+| Event | Fires when | Properties |
+| --- | --- | --- |
+| `delete_account` | A player deletes their account from the Delete account page | `anonymized` |
+
 ## Email and LLM (server)
 
 | Event | Fires when | Properties |

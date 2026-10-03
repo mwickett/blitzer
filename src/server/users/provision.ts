@@ -108,7 +108,11 @@ export async function resolveClerkUser(
   const existing = await prisma.user.findUnique({
     where: { clerk_user_id: clerkUserId },
   });
-  if (existing && mode === "provision") return existing;
+  // A deactivated account is frozen: a late user.updated must not restore an
+  // anonymized name or a released email. Callers decide whether to reject it.
+  if (existing && (mode === "provision" || existing.deactivatedAt)) {
+    return existing;
+  }
 
   const profile = await loadProfile();
   if (!profile.email) throw new Error("Your account needs an email address");

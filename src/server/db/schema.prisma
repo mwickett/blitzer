@@ -17,6 +17,12 @@ model User {
   avatarUrl              String?
   accentColor            String?                  @map("accent_color")
   dashboardLayout        Json?                    @map("dashboard_layout")
+  /// Set when the player leaves (Clerk account deleted). Rows stay so other
+  /// players' game history is intact; the player can't sign in or be added.
+  deactivatedAt          DateTime?                @map("deactivated_at")
+  /// Set when a deactivated player also asked for their name, email and
+  /// avatar to be removed. Their scores remain under a "Former player" name.
+  anonymizedAt           DateTime?                @map("anonymized_at")
   games                  GamePlayers[]
   scores                 Score[]
   createdGuests          GuestUser[]              @relation("CreatedGuests")

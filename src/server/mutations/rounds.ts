@@ -42,8 +42,9 @@ async function submit(input: unknown) {
     // delivery; the provider's game+recipient key deduplicates within its
     // retention window. This does not promise permanent once-only delivery.
     after(async () => {
+      // Players who deleted their account no longer get mail.
       const recipients = transition.players.flatMap((player) =>
-        player.user ? [player.user] : [],
+        player.user && !player.user.deactivatedAt ? [player.user] : [],
       );
       // The story is written once here, after the response, and only when a
       // recipient has llm-features; it is also cached for the game page.

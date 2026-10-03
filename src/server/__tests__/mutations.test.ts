@@ -268,6 +268,29 @@ describe("Game Mutations", () => {
       expect(after).not.toHaveBeenCalled();
     });
 
+    it("does not email a player who deleted their account", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        players: game().players.map((player, index) => ({
+          ...player,
+          user: {
+            ...player.user,
+            email: `${player.userId}@example.com`,
+            deactivatedAt: index === 1 ? new Date() : null,
+          },
+        })),
+      });
+      (sendGameCompleteEmail as jest.Mock).mockResolvedValue({ success: true });
+
+      await createRoundForGame(mockGameId, 1, scores);
+      await flushAfter();
+
+      expect(sendGameCompleteEmail).toHaveBeenCalledTimes(1);
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "player1@example.com" }),
+      );
+    });
+
     it("emails every registered player once the scheduled callback runs", async () => {
       (prisma.game.findUnique as jest.Mock).mockResolvedValue({
         ...game(),
@@ -551,6 +574,15 @@ describe("Game Mutations", () => {
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
+    it("only seats registered players who have not deleted their account", async () => {
+      await createGame([{ id: "player1" }, { id: "player2" }]);
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ["player1", "player2"] }, deactivatedAt: null },
+        }),
+      );
+    });
+
     it("seats a full table of the maximum number of players", async () => {
       const players = Array.from(
         { length: GAME_RULES.MAX_PLAYERS },
@@ -744,6 +776,41 @@ describe("Game Mutations", () => {
         event: "clone_game",
         properties: { originalGameId: "original-game", newGameId: "rematch-id" },
       });
+    });
+
+    it("leaves players who deleted their account out of the rematch", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(
+        original({
+          players: [
+            { userId: "player1", guestId: null, accentColor: null, user: { deactivatedAt: null } },
+            { userId: "player2", guestId: null, accentColor: null, user: { deactivatedAt: new Date() } },
+            { userId: null, guestId: "guest-1", accentColor: null, user: null },
+          ],
+        }),
+      );
+
+      await cloneGame("original-game");
+      expect(prisma.game.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          players: { create: [{ userId: "player1" }, { guestId: "guest-1" }] },
+        }),
+      });
+    });
+
+    it("refuses a rematch with fewer than two remaining players", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(
+        original({
+          players: [
+            { userId: "player1", guestId: null, accentColor: null, user: { deactivatedAt: null } },
+            { userId: "player2", guestId: null, accentColor: null, user: { deactivatedAt: new Date() } },
+          ],
+        }),
+      );
+
+      await expect(cloneGame("original-game")).rejects.toThrow(
+        "A rematch needs at least 2 players",
+      );
+      expect(prisma.game.create).not.toHaveBeenCalled();
     });
 
     it("carries a custom win threshold into the rematch", async () => {
