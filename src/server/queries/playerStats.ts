@@ -333,3 +333,115 @@ export async function getDeckStatsForUser(
     })
     .sort((a, b) => b.games - a.games || a.deck.localeCompare(b.deck));
 }
+
+export type SpreadGame = {
+  gameId: string;
+  /** ISO timestamp, so the DTO crosses the client boundary unchanged. */
+  finishedAt: string;
+  /** Top score minus the average of everyone else's, to one decimal. */
+  spread: number;
+  leaderName: string;
+  leaderIsMe: boolean;
+};
+
+export type SpreadRound = SpreadGame & { roundNumber: number };
+
+export type WidestGames = { games: SpreadGame[]; round: SpreadRound | null };
+
+export const WIDEST_GAMES_LIMIT = 3;
+/** Spreads are compared over the user's latest finished games only. */
+export const SPREAD_GAMES_WINDOW = 100;
+
+/**
+ * The finished games and the single round with the widest score spread, using
+ * the same definition as the finished-game tiles (lib/scoring/gameStats.ts
+ * `spread`): the top score minus the average of the rest of the table.
+ */
+export async function getWidestGamesForUser(
+  userId: string,
+  db: Db = prisma,
+  limit = WIDEST_GAMES_LIMIT,
+): Promise<WidestGames> {
+  type Row = {
+    gameId: string;
+    finishedAt: Date;
+    roundNumber: number | null;
+    leaderId: string;
+    leaderName: string | null;
+    spread: number | string;
+  };
+  const recent = Prisma.sql`
+    ${userFinishedGames(userId)}
+    ORDER BY finished_at DESC, g.id DESC
+    LIMIT ${SPREAD_GAMES_WINDOW}
+  `;
+  // Ranks each group's scores once, then keeps the leader's row with the
+  // group's sum and size to derive the spread.
+  const widest = (scores: Prisma.Sql, groupBy: Prisma.Sql, take: number) => db.$queryRaw<Row[]>(Prisma.sql`
+    WITH recent AS (${recent}),
+    scores AS (${scores}),
+    ranked AS (
+      SELECT
+        scores.*,
+        ROW_NUMBER() OVER (PARTITION BY ${groupBy} ORDER BY total DESC, "playerId") AS rank,
+        SUM(total) OVER (PARTITION BY ${groupBy}) AS group_sum,
+        COUNT(*) OVER (PARTITION BY ${groupBy}) AS group_size
+      FROM scores
+    )
+    SELECT
+      ranked."gameId",
+      recent.finished_at AS "finishedAt",
+      ranked."roundNumber",
+      ranked."playerId" AS "leaderId",
+      COALESCE(u.username, gu.name) AS "leaderName",
+      ROUND((ranked.total - (ranked.group_sum - ranked.total)::numeric / (ranked.group_size - 1)), 1) AS spread
+    FROM ranked
+    INNER JOIN recent ON recent.id = ranked."gameId"
+    LEFT JOIN "User" u ON u.id = ranked."playerId"
+    LEFT JOIN "GuestUser" gu ON gu.id = ranked."playerId"
+    WHERE ranked.rank = 1 AND ranked.group_size > 1
+    ORDER BY spread DESC, recent.finished_at DESC, ranked."gameId", ranked."roundNumber"
+    LIMIT ${take}
+  `);
+
+  const [gameRows, roundRows] = await Promise.all([
+    widest(Prisma.sql`
+      SELECT
+        recent.id AS "gameId",
+        NULL::integer AS "roundNumber",
+        COALESCE(p."userId", p."guestId") AS "playerId",
+        COALESCE(SUM(${Prisma.raw(ROUND_SCORE_SQL)}), 0) AS total
+      FROM recent
+      INNER JOIN "GamePlayers" p ON p."gameId" = recent.id
+      LEFT JOIN "Round" r ON r."gameId" = recent.id
+      LEFT JOIN "Score" s ON s."roundId" = r.id
+        AND (s."userId" = p."userId" OR s."guestId" = p."guestId")
+      WHERE COALESCE(p."userId", p."guestId") IS NOT NULL
+      GROUP BY recent.id, COALESCE(p."userId", p."guestId")
+    `, Prisma.sql`"gameId"`, limit),
+    widest(Prisma.sql`
+      SELECT
+        r."gameId",
+        r.round AS "roundNumber",
+        COALESCE(s."userId", s."guestId") AS "playerId",
+        ${Prisma.raw(ROUND_SCORE_SQL)} AS total
+      FROM recent
+      INNER JOIN "Round" r ON r."gameId" = recent.id
+      INNER JOIN "Score" s ON s."roundId" = r.id
+      WHERE COALESCE(s."userId", s."guestId") IS NOT NULL
+    `, Prisma.sql`"gameId", "roundNumber"`, 1),
+  ]);
+
+  const toGame = (row: Row): SpreadGame => ({
+    gameId: row.gameId,
+    finishedAt: new Date(row.finishedAt).toISOString(),
+    spread: Number(row.spread),
+    leaderName: row.leaderName ?? "Unknown player",
+    leaderIsMe: row.leaderId === userId,
+  });
+  const round = roundRows[0];
+  return {
+    games: gameRows.map(toGame),
+    round: round ? { ...toGame(round), roundNumber: Number(round.roundNumber) } : null,
+  };
+}

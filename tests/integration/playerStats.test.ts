@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../src/generated/prisma/client";
-import { EMPTY_GAME_STATS, EMPTY_ROUND_STATS, getDeckStatsForUser, getGameStatsForUser, getRoundStatsForUser } from "../../src/server/queries/playerStats";
+import { spread } from "../../src/lib/scoring/gameStats";
+import { EMPTY_GAME_STATS, EMPTY_ROUND_STATS, getDeckStatsForUser, getGameStatsForUser, getRoundStatsForUser, getWidestGamesForUser } from "../../src/server/queries/playerStats";
 
 assert.equal(process.env.BLITZER_INTEGRATION_TEST, "1", "Use npm run test:integration");
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
@@ -94,4 +95,57 @@ test("deck win rates count only completed games with a winner", async () => {
     { deck: "carriage", games: 1, wins: 1, winRate: 100 },
   ]);
   assert.deepEqual(await getDeckStatsForUser("missing-player", prisma), []);
+});
+
+test("widest games and round compare the leader with the rest of the table", async () => {
+  const player = await prisma.user.create({ data: {
+    clerk_user_id: "stats-spread", email: "stats-spread@example.invalid", username: "stats-spread",
+  } });
+  const other = await prisma.user.create({ data: {
+    clerk_user_id: "stats-spread-other", email: "stats-spread-other@example.invalid", username: "spread-other",
+  } });
+  const guest = await prisma.guestUser.create({ data: { name: "Spread Guest", createdById: player.id } });
+  const startedAt = new Date("2026-09-05T11:00:00Z");
+  const createGame = async (
+    data: Record<string, unknown>,
+    seats: Array<{ userId?: string; guestId?: string }>,
+    rounds: Array<Array<{ userId?: string; guestId?: string; totalCardsPlayed?: number; blitzPileRemaining?: number; typedScore?: number }>>,
+  ) => {
+    const game = await prisma.game.create({ data: {
+      kind: "PICKUP", startedAt, players: { create: seats }, ...data,
+    } });
+    for (const [index, scores] of rounds.entries()) {
+      await prisma.round.create({ data: { gameId: game.id, round: index + 1, scores: { create: scores } } });
+    }
+    return game;
+  };
+  // Totals 30 and -5: a 35 point spread; round 1 alone is 20 against -5.
+  const wide = await createGame(
+    { isFinished: true, winnerId: player.id, endedAt: new Date("2026-09-05T12:00:00Z") },
+    [{ userId: player.id }, { guestId: guest.id }],
+    [
+      [{ userId: player.id, totalCardsPlayed: 20, blitzPileRemaining: 0 }, { guestId: guest.id, totalCardsPlayed: 5, blitzPileRemaining: 5 }],
+      [{ userId: player.id, typedScore: 10 }, { guestId: guest.id, typedScore: 0 }],
+    ],
+  );
+  // The guest's 12 against the average of 10 and 0.
+  const close = await createGame(
+    { isFinished: true, winnerId: guest.id, endedAt: new Date("2026-09-06T12:00:00Z") },
+    [{ userId: player.id }, { guestId: guest.id }, { userId: other.id }],
+    [[{ userId: player.id, typedScore: 10 }, { guestId: guest.id, typedScore: 12 }, { userId: other.id, typedScore: 0 }]],
+  );
+  // Unfinished games and solo games never count.
+  await createGame({}, [{ userId: player.id }, { guestId: guest.id }], [[{ userId: player.id, typedScore: 90 }, { guestId: guest.id, typedScore: -40 }]]);
+  await createGame({ isFinished: true, winnerId: player.id }, [{ userId: player.id }], [[{ userId: player.id, typedScore: 75 }]]);
+
+  assert.equal(spread([30, -5]), 35);
+  assert.equal(spread([10, 12, 0]), 7);
+  assert.deepEqual(await getWidestGamesForUser(player.id, prisma), {
+    games: [
+      { gameId: wide.id, finishedAt: "2026-09-05T12:00:00.000Z", spread: 35, leaderName: "stats-spread", leaderIsMe: true },
+      { gameId: close.id, finishedAt: "2026-09-06T12:00:00.000Z", spread: 7, leaderName: "Spread Guest", leaderIsMe: false },
+    ],
+    round: { gameId: wide.id, finishedAt: "2026-09-05T12:00:00.000Z", spread: 25, leaderName: "stats-spread", leaderIsMe: true, roundNumber: 1 },
+  });
+  assert.deepEqual(await getWidestGamesForUser("missing-player", prisma), { games: [], round: null });
 });
