@@ -2,10 +2,17 @@ import { render, screen } from "@testing-library/react";
 import GameView from "../[id]/page";
 import { getGameById } from "@/server/queries/games";
 import { getPredictionProfilesForGame } from "@/server/queries/predictionProfiles";
+import { isLlmFeaturesEnabled } from "@/featureFlags";
 
 jest.mock("@/server/queries/games", () => ({ getGameById: jest.fn() }));
 jest.mock("@/server/queries/predictionProfiles", () => ({
   getPredictionProfilesForGame: jest.fn().mockResolvedValue({}),
+}));
+jest.mock("@/featureFlags", () => ({ isLlmFeaturesEnabled: jest.fn().mockResolvedValue(false) }));
+jest.mock("../[id]/GameStory", () => ({
+  __esModule: true,
+  default: ({ game }: { game: { id: string } }) => <div data-testid="story" data-game={game.id} />,
+  GameStorySkeleton: () => null,
 }));
 jest.mock("@clerk/nextjs/server", () => ({
   auth: jest.fn().mockResolvedValue({ userId: "clerk-a", orgId: "circle" }),
@@ -106,3 +113,37 @@ it.each([false, true])(
     );
   },
 );
+
+it.each([
+  [true, true, true],
+  [true, false, false],
+  [false, true, false],
+])("finished=%s with llm-features=%s shows the game story: %s", async (finished, enabled, shown) => {
+  (isLlmFeaturesEnabled as jest.Mock).mockResolvedValue(enabled);
+  (getGameById as jest.Mock).mockResolvedValue({
+    id: "game",
+    kind: "CIRCLE",
+    organizationId: "circle",
+    isFinished: finished,
+    winnerId: finished ? "a" : null,
+    endedAt: null,
+    winThreshold: finished ? 25 : 75,
+    players: ["a", "b"].map((id) => ({
+      id,
+      userId: id,
+      user: { username: id, clerk_user_id: `clerk-${id}` },
+    })),
+    rounds: [{
+      id: "r1",
+      revision: 0,
+      round: 1,
+      scores: [
+        { userId: "a", totalCardsPlayed: 30, blitzPileRemaining: 0 },
+        { userId: "b", totalCardsPlayed: 4, blitzPileRemaining: 0 },
+      ],
+    }],
+  });
+  render(await GameView({ params: Promise.resolve({ id: "game" }) }));
+  expect(screen.queryByTestId("story") !== null).toBe(shown);
+  if (!finished) expect(isLlmFeaturesEnabled).not.toHaveBeenCalled();
+});

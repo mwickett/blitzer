@@ -9,6 +9,9 @@ import {
   assignColorsToPlayers,
 } from "@/lib/scoring/colors";
 import { auth } from "@clerk/nextjs/server";
+import { Suspense } from "react";
+import { isLlmFeaturesEnabled } from "@/featureFlags";
+import GameStory, { GameStorySkeleton } from "./GameStory";
 
 export default async function GameView(props: {
   params: Promise<{ id: string }>;
@@ -77,9 +80,12 @@ export default async function GameView(props: {
   // read-only spectator view of the same scoring UI.
   const isCircleMember =
     !!userId && !!game.organizationId && game.organizationId === orgId;
-  const predictionProfiles = isCircleMember && !isFinished && game.rounds.length > 0
-    ? await getPredictionProfilesForGame(game, { userId, orgId })
-    : {};
+  const [predictionProfiles, showStory] = await Promise.all([
+    isCircleMember && !isFinished && game.rounds.length > 0
+      ? getPredictionProfilesForGame(game, { userId, orgId })
+      : {},
+    isFinished && !!userId && isLlmFeaturesEnabled(),
+  ]);
 
   return (
     <section className="py-6">
@@ -111,6 +117,11 @@ export default async function GameView(props: {
           })),
         }))}
       />
+      {showStory && userId ? (
+        <Suspense fallback={<GameStorySkeleton />}>
+          <GameStory game={game} viewerId={userId} />
+        </Suspense>
+      ) : null}
     </section>
   );
 }
