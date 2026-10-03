@@ -392,6 +392,11 @@ describe("Game Mutations", () => {
         loaded,
         { participantId: "player1", stylePrompt: "As a pirate shanty" },
         "player1",
+        expect.any(AbortSignal),
+      );
+      // Personal stories are written before any email goes out.
+      expect(mockTellPersonal.mock.invocationCallOrder[1]).toBeLessThan(
+        (sendGameCompleteEmail as jest.Mock).mock.invocationCallOrder[0],
       );
       expect(sendGameCompleteEmail).toHaveBeenCalledWith(
         expect.objectContaining({ email: "player1@example.com", story: "Yo ho, player one!" }),

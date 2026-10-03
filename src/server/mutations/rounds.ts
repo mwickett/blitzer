@@ -12,6 +12,8 @@ import { tellGameStory, tellPersonalGameStory } from "../ai/gameStory";
 import { getGameById } from "../queries/games";
 import type { SubmittedScore } from "@/lib/validation/submissions";
 
+const PERSONAL_STORY_TIMEOUT_MS = 15_000;
+
 async function submit(input: unknown) {
   const { userId, user, posthog } = await requireAuthContext("user");
   const result = await writeRound(
@@ -70,19 +72,27 @@ async function submit(input: unknown) {
           story = (await tellGameStory(game, userId, "game_email"))?.story;
         }
       }
+      // Players with their own style get a personal version, written in
+      // parallel and time-boxed so slow generations can't hold up delivery.
+      // Any failure falls back to the shared story.
+      const storyGame = game;
+      const timeout = AbortSignal.timeout(PERSONAL_STORY_TIMEOUT_MS);
+      const personalStories = await Promise.all(
+        recipients.map((recipient, index) =>
+          storyGame && wantsStory[index] && recipient.storyPrompt
+            ? tellPersonalGameStory(
+                storyGame,
+                { participantId: recipient.id, stylePrompt: recipient.storyPrompt },
+                recipient.clerk_user_id,
+                timeout,
+              )
+            : null,
+        ),
+      );
       let failed = 0;
       for (const [index, recipient] of recipients.entries()) {
         try {
-          // Players with their own style get a personal version, falling
-          // back to the shared story if writing it fails.
-          const personal =
-            game && wantsStory[index] && recipient.storyPrompt
-              ? await tellPersonalGameStory(
-                  game,
-                  { participantId: recipient.id, stylePrompt: recipient.storyPrompt },
-                  recipient.clerk_user_id,
-                )
-              : null;
+          const personal = personalStories[index];
           const sent = await sendGameCompleteEmail({
             email: recipient.email,
             username: recipient.username,

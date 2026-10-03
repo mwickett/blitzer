@@ -186,9 +186,13 @@ export async function tellPersonalGameStory(
   game: StoryGame,
   reader: StoryReader,
   distinctId: string,
+  abortSignal?: AbortSignal,
 ): Promise<string | null> {
   try {
-    return await writePersonalGameStory(game, reader, { model: tracedModel(distinctId, "game_email_personal") });
+    return await writePersonalGameStory(game, reader, {
+      model: tracedModel(distinctId, "game_email_personal"),
+      abortSignal,
+    });
   } catch (error) {
     reportStoryError(distinctId, "game_email_personal", error);
     return null;
