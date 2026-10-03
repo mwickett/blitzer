@@ -84,4 +84,21 @@ describe("RoundHistoryTable show the math", () => {
     getItem.mockRestore();
     setItem.mockRestore();
   });
+
+  it("keeps the toggle working when storage reads but rejects writes", () => {
+    window.localStorage.setItem("blitzer:round-history-show-math", "false");
+    const setItem = jest
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("quota");
+      });
+    render(<RoundHistoryTable players={players} rounds={rounds} />);
+    const toggle = screen.getByRole("button", { name: /the math/ });
+    const wasShowing = toggle.getAttribute("aria-pressed") === "true";
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", String(!wasShowing));
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", String(wasShowing));
+    setItem.mockRestore();
+  });
 });

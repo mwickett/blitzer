@@ -20,6 +20,7 @@ const SHOW_MATH_STORAGE_KEY = "blitzer:round-history-show-math";
 // Per-device preference. The in-memory value keeps the toggle working when
 // storage is blocked; listeners keep every mounted table in sync.
 let showMathFallback = false;
+let showMathStorageUsable = true;
 const showMathListeners = new Set<() => void>();
 
 function subscribeShowMath(listener: () => void) {
@@ -30,6 +31,7 @@ function subscribeShowMath(listener: () => void) {
 }
 
 function readShowMath(): boolean {
+  if (!showMathStorageUsable) return showMathFallback;
   try {
     return window.localStorage.getItem(SHOW_MATH_STORAGE_KEY) === "true";
   } catch {
@@ -42,7 +44,9 @@ function writeShowMath(value: boolean) {
   try {
     window.localStorage.setItem(SHOW_MATH_STORAGE_KEY, String(value));
   } catch {
-    // Storage is a convenience; the in-memory value still applies.
+    // Storage is a convenience. Once a write fails, reads use memory so a
+    // readable-but-unwritable store cannot snap the toggle back.
+    showMathStorageUsable = false;
   }
   showMathListeners.forEach((listener) => listener());
 }
