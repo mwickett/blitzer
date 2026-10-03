@@ -12,6 +12,8 @@ import { auth } from "@clerk/nextjs/server";
 import { Suspense } from "react";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import GameStory, { GameStorySkeleton } from "./GameStory";
+import KeyMoments from "./KeyMoments";
+import { isKeyMomentStorageConfigured } from "@/server/keyMoments";
 
 export default async function GameView(props: {
   params: Promise<{ id: string }>;
@@ -124,6 +126,16 @@ export default async function GameView(props: {
       {showStory && userId ? (
         <Suspense fallback={<GameStorySkeleton />}>
           <GameStory game={game} viewerId={userId} />
+        </Suspense>
+      ) : null}
+      {isKeyMomentStorageConfigured() ? (
+        <Suspense fallback={null}>
+          <KeyMoments
+            gameId={game.id}
+            viewerId={userId}
+            canUpload={canEdit}
+            rounds={game.rounds.map((r) => ({ id: r.id, round: r.round }))}
+          />
         </Suspense>
       ) : null}
     </section>

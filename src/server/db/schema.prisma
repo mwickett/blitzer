@@ -23,6 +23,7 @@ model User {
   createdGuests          GuestUser[]              @relation("CreatedGuests")
   OrganizationMembership OrganizationMembership[]
   hostedGames            Game[]                   @relation("GameHost")
+  keyMoments             KeyMoment[]
 }
 
 enum GameKind {
@@ -65,6 +66,7 @@ model Game {
   players        GamePlayers[]
   rounds         Round[]
   story          GameStory?
+  keyMoments     KeyMoment[]
 
   @@index([organizationId])
   @@index([hostUserId])
@@ -83,14 +85,35 @@ model GameStory {
   game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
 }
 
+// A captioned photo of a memorable moment, stored in Vercel Blob. The blob is
+// public by URL; pathname is kept so the file can be removed with the row.
+model KeyMoment {
+  id         String   @id @default(uuid())
+  gameId     String   @map("game_id")
+  roundId    String?  @map("round_id")
+  uploaderId String?  @map("uploader_id")
+  url        String
+  pathname   String
+  caption    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  round      Round?   @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  uploader   User?    @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
+
+  @@index([gameId, createdAt])
+  @@index([roundId])
+  @@index([uploaderId])
+}
+
 model Round {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now()) @map("created_at")
-  gameId    String
-  round     Int
-  revision  Int      @default(0)
-  game      Game     @relation(fields: [gameId], references: [id])
-  scores    Score[]
+  id         String      @id @default(uuid())
+  createdAt  DateTime    @default(now()) @map("created_at")
+  gameId     String
+  round      Int
+  revision   Int         @default(0)
+  game       Game        @relation(fields: [gameId], references: [id])
+  scores     Score[]
+  keyMoments KeyMoment[]
 
   @@unique([gameId, round])
   @@index([gameId])

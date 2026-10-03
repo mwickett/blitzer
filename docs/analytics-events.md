@@ -45,6 +45,13 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | --- | --- | --- |
 | `dashboard_customized` / `dashboard_reset` | A user saves or resets their dashboard card layout | `visible_cards`, `hidden_cards` |
 
+## Key-moment photos (server)
+
+| Event | Fires when | Properties |
+| --- | --- | --- |
+| `key_moment_uploaded` | A player saves a photo to a game | `game_id`, `has_caption`, `has_round`, `size_kb` |
+| `key_moment_deleted` | The uploader removes their photo | `game_id` |
+
 ## Email and LLM (server)
 
 | Event | Fires when | Properties |
