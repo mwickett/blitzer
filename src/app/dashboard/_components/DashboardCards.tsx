@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import type { DashboardCardId } from "@/lib/dashboardLayout";
 import type { DashboardStats } from "@/server/queries/stats";
-import type { RecentGame } from "@/server/queries/playerStats";
+import type { RecentGame, SpreadGame } from "@/server/queries/playerStats";
 import { BigNumber, EmptyNote, StatRow } from "./StatCard";
 import { cn } from "@/lib/utils";
 import { DeckIcon } from "@/components/scoring/DeckIcon";
@@ -412,6 +412,70 @@ function DecksCard({ stats }: { stats: DashboardStats }) {
   );
 }
 
+const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+
+// Rendered in the viewer's time zone, which can differ from the server's.
+function GameDate({ iso }: { iso: string }) {
+  return (
+    <time dateTime={iso} suppressHydrationWarning>
+      {shortDate.format(new Date(iso))}
+    </time>
+  );
+}
+
+function spreadPoints(entry: SpreadGame) {
+  return `+${oneDecimal.format(entry.spread)}`;
+}
+
+function WidestCard({ stats }: { stats: DashboardStats }) {
+  const { games, round } = stats.widest;
+  const [top, ...rest] = games;
+  if (!top) return <EmptyNote>{NO_GAMES}</EmptyNote>;
+  const leader = (entry: SpreadGame) => (entry.leaderIsMe ? "You" : entry.leaderName);
+  return (
+    <>
+      <Link href={`/games/${top.gameId}`} className="group">
+        <BigNumber
+          value={spreadPoints(top)}
+          caption={
+            <span className="group-hover:underline">
+              {leader(top)} finished this far ahead of the table&apos;s average on{" "}
+              <GameDate iso={top.finishedAt} />
+            </span>
+          }
+        />
+      </Link>
+      <ul className="mt-auto pt-3">
+        {rest.map((game) => (
+          <li key={game.gameId}>
+            <StatRow
+              label={
+                <Link href={`/games/${game.gameId}`} className="hover:underline">
+                  <GameDate iso={game.finishedAt} />, {leader(game)} led
+                </Link>
+              }
+              value={spreadPoints(game)}
+            />
+          </li>
+        ))}
+        {round ? (
+          <li>
+            <StatRow
+              label={
+                <Link href={`/games/${round.gameId}`} className="hover:underline">
+                  Widest round: {leader(round)} in round {round.roundNumber},{" "}
+                  <GameDate iso={round.finishedAt} />
+                </Link>
+              }
+              value={spreadPoints(round)}
+            />
+          </li>
+        ) : null}
+      </ul>
+    </>
+  );
+}
+
 export const WIDE_CARDS = new Set<DashboardCardId>(["recentScores", "rivals", "moments"]);
 
 export function DashboardCardBody({
@@ -442,6 +506,8 @@ export function DashboardCardBody({
       return <MomentsCard stats={stats} />;
     case "decks":
       return <DecksCard stats={stats} />;
+    case "widest":
+      return <WidestCard stats={stats} />;
     case "averages":
       return <AveragesCard stats={stats} />;
   }
