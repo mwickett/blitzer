@@ -130,7 +130,12 @@ export function GameOverView({
           </div>
           <GraphCarousel
             context="game_over"
-            graphNames={["score_progression", "hot_cold"]}
+            graphNames={[
+              "score_progression",
+              "hot_cold",
+              "round_mvps",
+              "blitz_pile",
+            ]}
           >
             <ScoreProgressionCard
               players={players}

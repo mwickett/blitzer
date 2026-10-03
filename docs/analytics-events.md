@@ -18,7 +18,7 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | `scoring_round_edit_cancelled` | The user backs out of editing a saved round | `game_id`, `round_number`, `had_conflict` |
 | `scoring_round_conflict` | The server rejects a save as stale or conflicting | `game_id`, `round_number`, `is_edit`, `reason` (`round_conflict`, `stale_round`, `game_finished`) |
 | `scoring_enter_next_round` | "Enter Round N Scores" is tapped | `round_number` |
-| `scoring_graph_viewed` | A graph card is swiped into view, once per card per screen visit (the first card is visible by default and not counted) | `graph` (`score_progression`, `hot_cold`, `win_probability`), `position`, `context` (`between_rounds`, `game_over`) |
+| `scoring_graph_viewed` | A graph card is swiped into view, once per card per screen visit (the first card is visible by default and not counted) | `graph` (`score_progression`, `hot_cold`, `round_mvps`, `blitz_pile`, `win_probability`), `position`, `context` (`between_rounds`, `game_over`) |
 | `game_over_rematch` | "New Game with Same Players" is tapped | `player_count` |
 | `game_over_back_to_games` | "Back to Games" is tapped on the finished screen | none |
 

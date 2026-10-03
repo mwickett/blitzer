@@ -68,7 +68,13 @@ export function BetweenRoundsView({
       {/* Graph carousel */}
       <GraphCarousel
         context="between_rounds"
-        graphNames={["score_progression", "hot_cold", "win_probability"]}
+        graphNames={[
+          "score_progression",
+          "hot_cold",
+          "round_mvps",
+          "blitz_pile",
+          "win_probability",
+        ]}
       >
         <ScoreProgressionCard
           players={players}
