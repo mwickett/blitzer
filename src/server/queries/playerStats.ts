@@ -2,6 +2,7 @@ import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { LOBBY_MAX_AGE_MS } from "@/lib/lobbies";
 import { ROUND_SCORE_SQL } from "@/lib/validation/gameRules";
+import { isDeckId, type DeckId } from "@/lib/scoring/decks";
 
 type Db = Pick<PrismaClient, "$queryRaw">;
 
@@ -286,4 +287,41 @@ export async function getRivalsForUser(
     myWins: Number(row.myWins),
     theirWins: Number(row.theirWins),
   }));
+}
+
+export type DeckStat = {
+  deck: DeckId;
+  games: number;
+  wins: number;
+  winRate: number;
+};
+
+/** Win rate per deck the user played, over completed games with a winner. */
+export async function getDeckStatsForUser(
+  userId: string,
+  db: Db = prisma,
+): Promise<DeckStat[]> {
+  type Row = { deck: string; games: number | bigint; wins: number | bigint };
+  const rows = await db.$queryRaw<Row[]>(Prisma.sql`
+    SELECT
+      p.deck,
+      COUNT(*) AS games,
+      COUNT(*) FILTER (WHERE g."winnerId" = ${userId}) AS wins
+    FROM "GamePlayers" p
+    INNER JOIN "Game" g ON g.id = p."gameId"
+    WHERE p."userId" = ${userId}
+      AND p.deck IS NOT NULL
+      AND g.started_at IS NOT NULL
+      AND g.is_finished
+      AND g."winnerId" IS NOT NULL
+    GROUP BY p.deck
+  `);
+  return rows
+    .filter((row): row is Row & { deck: DeckId } => isDeckId(row.deck))
+    .map((row) => {
+      const games = Number(row.games);
+      const wins = Number(row.wins);
+      return { deck: row.deck, games, wins, winRate: games ? (wins / games) * 100 : 0 };
+    })
+    .sort((a, b) => b.games - a.games || a.deck.localeCompare(b.deck));
 }

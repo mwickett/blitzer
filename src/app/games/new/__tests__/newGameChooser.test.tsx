@@ -1,9 +1,10 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import NewGameChooser from "../newGameChooser";
 
 const mockCreateGame = jest.fn();
 const mockSaveDefault = jest.fn();
+const mockSaveDeck = jest.fn();
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn() };
 let mockStep: string | null = null;
 let mockIsLoaded = true;
@@ -18,9 +19,10 @@ jest.mock("@clerk/nextjs", () => ({
 jest.mock("@/server/mutations/games", () => ({
   createGame: (...args: unknown[]) => mockCreateGame(...args),
   saveUserAccentColor: (...args: unknown[]) => mockSaveDefault(...args),
+  saveUserPreferredDeck: (...args: unknown[]) => mockSaveDeck(...args),
 }));
 
-const users = [{ id: "alice", clerk_user_id: "clerk-alice", username: "Alice", avatarUrl: null, accentColor: null }];
+const users = [{ id: "alice", clerk_user_id: "clerk-alice", username: "Alice", avatarUrl: null, accentColor: null, preferredDeck: "pump" }];
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -28,6 +30,7 @@ beforeEach(() => {
   mockIsLoaded = true;
   mockCreateGame.mockResolvedValue({ ok: true, gameId: "new-game" });
   mockSaveDefault.mockResolvedValue(undefined);
+  mockSaveDeck.mockResolvedValue(undefined);
 });
 
 async function selectGuestAndColors() {
@@ -105,4 +108,27 @@ it.each([
   fireEvent.click(screen.getByRole("button", { name: "Start Game" }));
   await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith("/games/new-game"));
   expect(mockCreateGame.mock.calls[1]).toEqual(mockCreateGame.mock.calls[0]);
+});
+
+it("starts from the saved deck, lets each player pick one, and saves the creator's deck", async () => {
+  await selectGuestAndColors();
+  const user = userEvent.setup();
+  const aliceDecks = screen.getByRole("group", { name: "Deck for Alice (optional)" });
+  expect(within(aliceDecks).getByRole("button", { name: "Pump" })).toHaveAttribute("aria-pressed", "true");
+  await user.click(within(aliceDecks).getByRole("button", { name: "Carriage" }));
+  const bobDecks = screen.getByRole("group", { name: "Deck for Bob (optional)" });
+  await user.click(within(bobDecks).getByRole("button", { name: "Bucket" }));
+  // Picking the selected deck again clears it.
+  await user.click(within(bobDecks).getByRole("button", { name: "Bucket" }));
+  expect(within(bobDecks).getByRole("button", { name: "Bucket" })).toHaveAttribute("aria-pressed", "false");
+
+  await user.click(screen.getByRole("button", { name: "Start Game" }));
+  await waitFor(() => expect(mockCreateGame).toHaveBeenCalledWith(
+    [
+      expect.objectContaining({ id: "alice", deck: "carriage" }),
+      expect.objectContaining({ username: "Bob", deck: null }),
+    ],
+    50,
+  ));
+  expect(mockSaveDeck).toHaveBeenCalledWith("carriage");
 });

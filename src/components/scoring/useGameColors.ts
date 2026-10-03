@@ -4,6 +4,7 @@
 import { useState, useCallback } from "react";
 import { ACCENT_COLORS, assignColorsToPlayers } from "@/lib/scoring/colors";
 import { resolveColorCascade } from "@/lib/scoring/colorCascade";
+import type { DeckId } from "@/lib/scoring/decks";
 
 export interface ColorStepPlayer {
   id: string;
@@ -11,6 +12,7 @@ export interface ColorStepPlayer {
   isGuest: boolean;
   isCurrentUser: boolean;
   defaultColor: string | null;
+  defaultDeck?: DeckId | null;
   avatarUrl?: string | null;
 }
 
