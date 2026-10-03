@@ -135,7 +135,11 @@ export function GameOverView({
               winThreshold={winThreshold}
             />
             <HotColdCard players={players} deltasByRound={deltasByRound} />
-            <RoundMvpsCard players={players} deltasByRound={deltasByRound} />
+            <RoundMvpsCard
+              players={players}
+              deltasByRound={deltasByRound}
+              blitzByRound={blitzByRound}
+            />
             <BlitzPileCard players={players} blitzByRound={blitzByRound} />
           </GraphCarousel>
         </>

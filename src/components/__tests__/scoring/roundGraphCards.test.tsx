@@ -38,6 +38,16 @@ describe("computeRoundMvps", () => {
     expect(result.mvpsByRound).toEqual([["b"]]);
   });
 
+  it("skips players with no saved score that round", () => {
+    const result = computeRoundMvps(
+      players,
+      { a: [-6, 0], b: [-2, 0], c: [0, 0] },
+      { a: [5, 3], b: [4, 3], c: [null, null] },
+    );
+    expect(result.mvpsByRound).toEqual([["b"], ["a", "b"]]);
+    expect(result.winsByPlayer.c).toBe(0);
+  });
+
   it("handles a game with no rounds", () => {
     expect(computeRoundMvps(players, { a: [], b: [], c: [] })).toEqual({
       mvpsByRound: [],
