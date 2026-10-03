@@ -5,13 +5,17 @@ import { captureServerEvent } from "@/server/telemetry";
 import prisma from "@/server/db/db";
 import { Prisma } from "@/generated/prisma/client";
 import { requireAuthContext } from "./common";
-import { assertGameInCircle } from "../scoring/access";
+import { assertGameInCircle, assertGameScoringAccess } from "../scoring/access";
 import { getOrgMemberClerkIds } from "../clerkOrgs";
 import {
   resolvePlayerColor,
   assignColorsToPlayers,
 } from "@/lib/scoring/colors";
-import { circleGameSchema, deckSchema } from "@/lib/validation/submissions";
+import {
+  circleGameSchema,
+  deckSchema,
+  gameNoteSchema,
+} from "@/lib/validation/submissions";
 import type { DeckId } from "@/lib/scoring/decks";
 
 // Create a new game with support for guest players
@@ -196,6 +200,41 @@ export async function saveUserPreferredDeck(deck: unknown) {
     event: "set_preferred_deck",
     properties: { deck: parsed.data },
   });
+}
+
+/**
+ * Saves the game's note. Anyone who may score the game may write it, during
+ * or after play; an empty note clears it.
+ */
+export async function saveGameNote(gameId: string, note: unknown) {
+  const { userId, user, posthog } = await requireAuthContext("user");
+  const parsed = gameNoteSchema.safeParse(note);
+  if (!parsed.success) {
+    return { ok: false as const, message: parsed.error.issues[0].message };
+  }
+
+  const game = await prisma.game.findUnique({
+    where: { id: gameId },
+    select: {
+      kind: true,
+      organizationId: true,
+      startedAt: true,
+      players: { select: { user: { select: { clerk_user_id: true } } } },
+    },
+  });
+  assertGameScoringAccess(game, { userId, orgId: user.orgId ?? undefined });
+  await prisma.game.update({
+    where: { id: gameId },
+    data: { note: parsed.data },
+  });
+
+  // Note text is user content, so only whether one exists is recorded.
+  captureServerEvent(posthog, {
+    distinctId: userId,
+    event: "game_note_saved",
+    properties: { game_id: gameId, has_note: parsed.data !== null },
+  });
+  return { ok: true as const, note: parsed.data };
 }
 
 // Clone an existing game

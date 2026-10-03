@@ -145,3 +145,14 @@ export const dashboardLayoutSchema = z
   .nullable();
 
 export const scoreEntryModeSchema = z.enum(["CARDS", "TOTAL"]);
+
+export const GAME_NOTE_MAX_LENGTH = 280;
+// Blank notes clear the stored note.
+export const gameNoteSchema = z
+  .string()
+  .trim()
+  .max(
+    GAME_NOTE_MAX_LENGTH,
+    `Keep the note to ${GAME_NOTE_MAX_LENGTH} characters.`,
+  )
+  .transform((note) => note || null);

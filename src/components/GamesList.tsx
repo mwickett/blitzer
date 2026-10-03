@@ -202,6 +202,13 @@ export default function GameList({
                     Winner: <strong>{game.winnerName}</strong>
                   </p>
                 )}
+                {game.note && (
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                    <span aria-hidden="true">📝 </span>
+                    <span className="sr-only">Note: </span>
+                    {game.note}
+                  </p>
+                )}
               </div>
               <dl className="space-y-1 text-sm">
                 <div>

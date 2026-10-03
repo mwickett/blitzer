@@ -27,6 +27,7 @@ const page: GameListPage = {
       roundCount: 5,
       players: [player],
       winnerName: null,
+      note: "Grandma blitzed three rounds in a row",
     },
   ],
   filters: {
@@ -49,6 +50,9 @@ it("renders each game once, with the actual start date and filter-preserving pag
   expect(within(list).getAllByRole("link")).toHaveLength(1);
   expect(within(list).getByText("Jan 2, 2026")).toBeInTheDocument();
   expect(within(list).queryByText("Jan 1, 2026")).not.toBeInTheDocument();
+  expect(
+    within(list).getByText("Grandma blitzed three rounds in a row"),
+  ).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
     "href",
     gameListHref("/games", page.filters, "next"),

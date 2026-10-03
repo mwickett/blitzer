@@ -10,6 +10,7 @@ jest.mock("resend", () => ({
 import {
   createGame,
   cloneGame,
+  saveGameNote,
   saveUserAccentColor,
   saveUserPreferredDeck,
 } from "../mutations/games";
@@ -911,6 +912,65 @@ describe("Game Mutations", () => {
         "No active circle",
       );
       expect(prisma.game.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("saveGameNote", () => {
+    const circleGame = {
+      kind: "CIRCLE",
+      organizationId: mockOrgId,
+      startedAt: new Date(),
+      players: [],
+    };
+
+    it("stores a trimmed note and clears it when blank", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(circleGame);
+      (prisma.game.update as jest.Mock).mockResolvedValue({});
+
+      expect(await saveGameNote(mockGameId, "  Gran blitzed twice  ")).toEqual({
+        ok: true,
+        note: "Gran blitzed twice",
+      });
+      expect(prisma.game.update).toHaveBeenLastCalledWith({
+        where: { id: mockGameId },
+        data: { note: "Gran blitzed twice" },
+      });
+
+      expect(await saveGameNote(mockGameId, "   ")).toEqual({
+        ok: true,
+        note: null,
+      });
+      expect(prisma.game.update).toHaveBeenLastCalledWith({
+        where: { id: mockGameId },
+        data: { note: null },
+      });
+    });
+
+    it("rejects long or non-text notes before loading the game", async () => {
+      for (const note of ["x".repeat(281), 42]) {
+        expect(await saveGameNote(mockGameId, note)).toMatchObject({
+          ok: false,
+        });
+      }
+      expect(prisma.game.findUnique).not.toHaveBeenCalled();
+      expect(prisma.game.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses games the caller cannot score", async () => {
+      for (const game of [
+        { ...circleGame, organizationId: "another-circle" },
+        { ...circleGame, kind: "LEGACY" },
+        {
+          ...circleGame,
+          kind: "PICKUP",
+          players: [{ user: { clerk_user_id: "someone-else" } }],
+        },
+        null,
+      ]) {
+        (prisma.game.findUnique as jest.Mock).mockResolvedValue(game);
+        await expect(saveGameNote(mockGameId, "hi")).rejects.toThrow();
+      }
+      expect(prisma.game.update).not.toHaveBeenCalled();
     });
   });
 

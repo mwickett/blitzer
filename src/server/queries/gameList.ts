@@ -23,6 +23,7 @@ const gameListSelect = {
   isFinished: true,
   endedAt: true,
   winnerId: true,
+  note: true,
   _count: { select: { rounds: true } },
   players: {
     select: {
@@ -140,6 +141,7 @@ function toListItem(game: Row, now: Date): GameListItem {
     winnerName: game.winnerId
       ? (winner?.user?.username ?? winner?.guestUser?.name ?? null)
       : null,
+    note: game.note,
   };
 }
 

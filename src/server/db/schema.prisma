@@ -68,6 +68,8 @@ model Game {
   hostUserId     String?       @map("host_user_id")
   joinToken      String?       @unique @map("join_token")
   joinCode       String?       @unique @map("join_code")
+  // Free-text note about a noteworthy moment; players can edit it any time.
+  note           String?
   host           User?         @relation("GameHost", fields: [hostUserId], references: [id])
   players        GamePlayers[]
   rounds         Round[]
