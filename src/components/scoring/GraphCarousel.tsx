@@ -47,9 +47,10 @@ export function GraphCarousel({
       const firstCard = el.firstElementChild as HTMLElement | null;
       if (!firstCard) return;
       const cardStride = firstCard.offsetWidth + 12; // card width + gap-3
-      const index = Math.min(
-        Math.round(scrollLeft / cardStride),
-        children.length - 1,
+      // Elastic overscroll (Safari) can report a negative scrollLeft.
+      const index = Math.max(
+        0,
+        Math.min(Math.round(scrollLeft / cardStride), children.length - 1),
       );
       setActiveIndex(index);
       track(index);

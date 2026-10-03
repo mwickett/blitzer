@@ -128,6 +128,8 @@ describe("GraphCarousel analytics", () => {
     const firstCard = scroller.firstElementChild as HTMLElement;
     Object.defineProperty(firstCard, "offsetWidth", { value: 300 });
 
+    scroller.scrollLeft = -400; // elastic overscroll past the first card
+    fireEvent.scroll(scroller);
     scroller.scrollLeft = 312;
     fireEvent.scroll(scroller);
     scroller.scrollLeft = 0;
