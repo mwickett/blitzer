@@ -29,7 +29,7 @@ export function calcGameStats(
   for (let ri = 0; ri < rounds.length; ri++) {
     const round = rounds[ri];
     let bestDelta = -Infinity;
-    let bestPlayer = "";
+    let bestPlayers: string[] = [];
 
     for (const [pid, delta] of Object.entries(round.deltas)) {
       if (delta > biggestRound.delta) {
@@ -48,11 +48,14 @@ export function calcGameStats(
       }
       if (delta > bestDelta) {
         bestDelta = delta;
-        bestPlayer = pid;
+        bestPlayers = [pid];
+      } else if (delta === bestDelta) {
+        bestPlayers.push(pid);
       }
     }
 
-    if (bestPlayer) roundWins[bestPlayer]++;
+    // Tied top scores share the round win.
+    for (const pid of bestPlayers) roundWins[pid]++;
 
     for (const [pid, count] of Object.entries(round.blitzCounts)) {
       blitzCounts[pid] += count;

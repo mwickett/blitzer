@@ -57,6 +57,10 @@ describe("buildRoundGraphSeries", () => {
       { totalCardsPlayed: 20, blitzPileRemaining: 5 },
     ]);
     expect(roundSamplesByPlayer.p2).toHaveLength(2);
+    expect(buildRoundGraphSeries(players, rounds).blitzByRound).toEqual({
+      p1: [0, 5],
+      p2: [5, 5],
+    });
   });
 
   it("treats missing player scores as zero delta without samples", () => {
@@ -74,5 +78,8 @@ describe("buildRoundGraphSeries", () => {
     expect(deltasByRound.p2).toEqual([0]);
     expect(scoresByRound.p2).toEqual([0]);
     expect(roundSamplesByPlayer.p2).toEqual([]);
+    expect(buildRoundGraphSeries(players, incomplete).blitzByRound.p2).toEqual([
+      null,
+    ]);
   });
 });

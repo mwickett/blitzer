@@ -50,6 +50,14 @@ describe("calcGameStats", () => {
     expect(stats.roundWins["p2"]).toBe(1);
   });
 
+  it("shares a round win between tied top scorers", () => {
+    const stats = calcGameStats(
+      [{ deltas: { p1: 10, p2: 10, p3: 4 }, blitzCounts: {} }],
+      { p1: "Mike", p2: "Sarah", p3: "Dan" },
+    );
+    expect(stats.roundWins).toEqual({ p1: 1, p2: 1, p3: 0 });
+  });
+
   it("returns total rounds played", () => {
     const stats = calcGameStats(sampleRounds, playerNames);
     expect(stats.roundsPlayed).toBe(3);

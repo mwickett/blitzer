@@ -10,6 +10,8 @@ import { GraphCarousel } from "./GraphCarousel";
 import { ScoreProgressionCard } from "./graphs/ScoreProgressionCard";
 import { HotColdCard } from "./graphs/HotColdCard";
 import { WinProbabilityCard } from "./graphs/WinProbabilityCard";
+import { RoundMvpsCard } from "./graphs/RoundMvpsCard";
+import { BlitzPileCard } from "./graphs/BlitzPileCard";
 import { buildRoundGraphSeries } from "./roundGraphSeries";
 import { type PlayerWithScore, type RoundData } from "./types";
 import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
@@ -53,10 +55,8 @@ export function BetweenRoundsView({
     onEnterScores();
   };
 
-  const { scoresByRound, deltasByRound, roundSamplesByPlayer } = useMemo(
-    () => buildRoundGraphSeries(players, rounds),
-    [players, rounds],
-  );
+  const { scoresByRound, deltasByRound, roundSamplesByPlayer, blitzByRound } =
+    useMemo(() => buildRoundGraphSeries(players, rounds), [players, rounds]);
 
   return (
     <>
@@ -73,6 +73,12 @@ export function BetweenRoundsView({
           winThreshold={winThreshold}
         />
         <HotColdCard players={players} deltasByRound={deltasByRound} />
+        <RoundMvpsCard
+          players={players}
+          deltasByRound={deltasByRound}
+          blitzByRound={blitzByRound}
+        />
+        <BlitzPileCard players={players} blitzByRound={blitzByRound} />
         <WinProbabilityCard
           players={players}
           roundsPlayed={rounds.length}

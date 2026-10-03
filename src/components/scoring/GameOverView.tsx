@@ -8,7 +8,11 @@ import { RaceTrack } from "./RaceTrack";
 import { GraphCarousel } from "./GraphCarousel";
 import { ScoreProgressionCard } from "./graphs/ScoreProgressionCard";
 import { HotColdCard } from "./graphs/HotColdCard";
+import { RoundMvpsCard } from "./graphs/RoundMvpsCard";
+import { BlitzPileCard } from "./graphs/BlitzPileCard";
 import { buildRoundGraphSeries } from "./roundGraphSeries";
+import { GameHighlights } from "./GameHighlights";
+import { findGameHighlights } from "@/lib/scoring/gameHighlights";
 import { usePostHog } from "posthog-js/react";
 
 interface GameOverViewProps {
@@ -42,9 +46,20 @@ export function GameOverView({
   const [rematchError, setRematchError] = useState<string | null>(null);
   const rematching = useRef(false);
   const sorted = [...players].sort((a, b) => b.score - a.score);
-  const { scoresByRound, deltasByRound } = useMemo(
+  const { scoresByRound, deltasByRound, blitzByRound } = useMemo(
     () => buildRoundGraphSeries(players, rounds),
     [players, rounds],
+  );
+  const highlights = useMemo(
+    () =>
+      findGameHighlights({
+        players,
+        winnerId: winner.id,
+        scoresByRound,
+        deltasByRound,
+        blitzByRound,
+      }),
+    [players, winner.id, scoresByRound, deltasByRound, blitzByRound],
   );
   const handleRematch = async () => {
     if (rematching.current) return;
@@ -105,6 +120,8 @@ export function GameOverView({
         </div>
       </div>
 
+      <GameHighlights highlights={highlights} players={players} />
+
       {/* Final race position + retrospective graphs (kept from between-rounds) */}
       {rounds.length > 0 && (
         <>
@@ -118,6 +135,12 @@ export function GameOverView({
               winThreshold={winThreshold}
             />
             <HotColdCard players={players} deltasByRound={deltasByRound} />
+            <RoundMvpsCard
+              players={players}
+              deltasByRound={deltasByRound}
+              blitzByRound={blitzByRound}
+            />
+            <BlitzPileCard players={players} blitzByRound={blitzByRound} />
           </GraphCarousel>
         </>
       )}
