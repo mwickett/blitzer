@@ -16,7 +16,7 @@ export const DEMO_PLAYERS: PlayerWithScore[] = [
   {
     id: "dana",
     name: "Dana",
-    color: "#eab308",
+    color: "#8f6a0a",
     isGuest: false,
     userId: "dana",
     score: 58,
@@ -24,7 +24,7 @@ export const DEMO_PLAYERS: PlayerWithScore[] = [
   {
     id: "mike",
     name: "Mike",
-    color: "#ef4444",
+    color: "#c44536",
     isGuest: false,
     userId: "mike",
     score: 54,
@@ -32,7 +32,7 @@ export const DEMO_PLAYERS: PlayerWithScore[] = [
   {
     id: "priya",
     name: "Priya",
-    color: "#22c55e",
+    color: "#2f7a45",
     isGuest: false,
     userId: "priya",
     score: 42,
@@ -40,7 +40,7 @@ export const DEMO_PLAYERS: PlayerWithScore[] = [
   {
     id: "tom",
     name: "Tom",
-    color: "#3b82f6",
+    color: "#356f9f",
     isGuest: true,
     guestId: "tom",
     score: 30,
