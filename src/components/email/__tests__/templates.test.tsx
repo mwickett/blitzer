@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import { renderToStaticMarkup } from "react-dom/server";
+import { render } from "react-email";
 import { GameCompleteEmail } from "../game-complete-template";
 import { WelcomeEmail } from "../welcome-template";
 
@@ -28,9 +29,14 @@ test("other players hear who won", () => {
   expect(html).not.toContain("You won the game");
 });
 
-test("templates also produce their plain-text part", async () => {
-  expect(await GameCompleteEmail({ ...game, isWinner: true }).text).toBe("plain text");
-  expect(await WelcomeEmail({ username: "Ada" }).text).toBe("plain text");
+test("templates render their own component as the plain-text part", async () => {
+  const complete = GameCompleteEmail({ ...game, isWinner: true });
+  const welcome = WelcomeEmail({ username: "Ada" });
+
+  expect(render).toHaveBeenCalledWith(complete.component, { plainText: true });
+  expect(render).toHaveBeenCalledWith(welcome.component, { plainText: true });
+  expect(await complete.text).toBe("plain text");
+  expect(await welcome.text).toBe("plain text");
 });
 
 test("the welcome email greets the new player by username", () => {
