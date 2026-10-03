@@ -19,6 +19,7 @@ interface GameCompleteEmailProps {
   isWinner: boolean;
   gameId: string;
   story?: string;
+  guestNames?: string[];
 }
 
 const GameCompleteEmailTemplate = ({
@@ -27,6 +28,7 @@ const GameCompleteEmailTemplate = ({
   isWinner,
   gameId,
   story,
+  guestNames = [],
 }: GameCompleteEmailProps) => {
   const previewText = isWinner
     ? "Congratulations on your win!"
@@ -78,6 +80,14 @@ const GameCompleteEmailTemplate = ({
                 View Game Details
               </Button>
             </Section>
+            {guestNames.length > 0 ? (
+              <Text style={paragraph}>
+                {formatNames(guestNames)} played as{" "}
+                {guestNames.length === 1 ? "a guest" : "guests"}. Invite{" "}
+                {guestNames.length === 1 ? "them" : "them all"} from the game
+                page so their next games count toward their own stats.
+              </Text>
+            ) : null}
             <Text style={paragraph}>
               Ready for another game? Start a new one and challenge your
               friends!
@@ -92,6 +102,11 @@ const GameCompleteEmailTemplate = ({
     </Html>
   );
 };
+
+function formatNames(names: string[]) {
+  if (names.length <= 2) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
 
 const main = {
   backgroundColor: "#fff7ea",

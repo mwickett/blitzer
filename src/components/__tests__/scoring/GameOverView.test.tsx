@@ -186,3 +186,21 @@ describe("GameOverView spectator mode", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+describe("GameOverView guest invites", () => {
+  const withGuest: PlayerWithScore[] = [
+    ...players,
+    { id: "g1", name: "Gran", color: "#00aa00", isGuest: true, guestId: "g1", score: 20 },
+  ];
+
+  it("offers players an invite for each guest", () => {
+    render(<GameOverView {...baseProps} players={withGuest} />);
+    expect(screen.getByRole("button", { name: "Invite Gran to Blitzer" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Invite Alice/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps invites out of the spectator view", () => {
+    render(<GameOverView {...baseProps} players={withGuest} canEdit={false} />);
+    expect(screen.queryByText("Bring your guests along")).not.toBeInTheDocument();
+  });
+});

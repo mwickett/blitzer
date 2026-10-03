@@ -365,6 +365,7 @@ describe("Game Mutations", () => {
         isWinner: true,
         gameId: mockGameId,
         userId: "player1",
+        guestNames: ["Gran"],
       });
       expect(sendGameCompleteEmail).toHaveBeenCalledWith(
         expect.objectContaining({

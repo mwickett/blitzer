@@ -46,6 +46,9 @@ async function submit(input: unknown) {
       const recipients = transition.players.flatMap((player) =>
         player.user && !player.user.deactivatedAt ? [player.user] : [],
       );
+      const guestNames = transition.players.flatMap((player) =>
+        player.guestUser ? [player.guestUser.name] : [],
+      );
       // The story is written once here, after the response, and only when a
       // recipient has llm-features; it is also cached for the game page.
       const wantsStory = await Promise.all(
@@ -92,6 +95,7 @@ async function submit(input: unknown) {
             gameId: transition.gameId,
             userId: recipient.clerk_user_id,
             story: wantsStory[index] ? story : undefined,
+            guestNames,
           });
           if (!sent.success) failed++;
         } catch {
