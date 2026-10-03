@@ -8,7 +8,7 @@ import { requireAuthContext } from "./common";
 import { writeRound } from "../scoring/writeRound";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 import { isFeatureEnabledForUser } from "@/featureFlags";
-import { tellGameStory } from "../ai/gameStory";
+import { tellGameStory, tellPersonalGameStory } from "../ai/gameStory";
 import { getGameById } from "../queries/games";
 import type { SubmittedScore } from "@/lib/validation/submissions";
 
@@ -60,18 +60,29 @@ async function submit(input: unknown) {
         ),
       );
       let story: string | undefined;
+      let game: Awaited<ReturnType<typeof getGameById>> = null;
       if (wantsStory.some(Boolean)) {
-        const game = await getGameById(transition.gameId).catch(() => null);
+        const loaded = await getGameById(transition.gameId).catch(() => null);
         // A correction may land before this runs; skip the story unless the
         // game still has the winner this email announces.
-        story =
-          game?.isFinished && game.winnerId === transition.winnerId
-            ? (await tellGameStory(game, userId, "game_email"))?.story
-            : undefined;
+        if (loaded?.isFinished && loaded.winnerId === transition.winnerId) {
+          game = loaded;
+          story = (await tellGameStory(game, userId, "game_email"))?.story;
+        }
       }
       let failed = 0;
       for (const [index, recipient] of recipients.entries()) {
         try {
+          // Players with their own style get a personal version, falling
+          // back to the shared story if writing it fails.
+          const personal =
+            game && wantsStory[index] && recipient.storyPrompt
+              ? await tellPersonalGameStory(
+                  game,
+                  { participantId: recipient.id, stylePrompt: recipient.storyPrompt },
+                  recipient.clerk_user_id,
+                )
+              : null;
           const sent = await sendGameCompleteEmail({
             email: recipient.email,
             username: recipient.username,
@@ -79,7 +90,7 @@ async function submit(input: unknown) {
             isWinner: recipient.id === transition.winnerId,
             gameId: transition.gameId,
             userId: recipient.clerk_user_id,
-            story: wantsStory[index] ? story : undefined,
+            story: wantsStory[index] ? (personal ?? story) : undefined,
             guestNames,
           });
           if (!sent.success) failed++;

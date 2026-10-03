@@ -39,6 +39,7 @@ function user(overrides: Partial<User> = {}): User {
     accentColor: null,
     dashboardLayout: null,
     preferredDeck: null,
+    storyPrompt: null,
     ...overrides,
   };
 }

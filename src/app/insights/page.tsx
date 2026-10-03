@@ -3,6 +3,8 @@ import { isLlmFeaturesEnabled } from "@/featureFlags";
 import { Badge } from "@/components/ui/badge";
 import PlayerHighlights from "@/components/insights/PlayerHighlights";
 import { getPlayerHighlightsForClerkUser } from "@/server/queries/playerHighlights";
+import { getStoryPromptForClerkUser } from "@/server/queries/storyPrompt";
+import { StoryPromptForm } from "@/components/insights/StoryPromptForm";
 import { requireCircle } from "@/server/pageAuth";
 
 export default async function InsightsPage() {
@@ -10,7 +12,9 @@ export default async function InsightsPage() {
 
   // Check if LLM features are enabled
   const llmFeaturesEnabled = await isLlmFeaturesEnabled();
-  const highlights = llmFeaturesEnabled ? await getPlayerHighlightsForClerkUser(userId) : null;
+  const [highlights, storyPrompt] = llmFeaturesEnabled
+    ? await Promise.all([getPlayerHighlightsForClerkUser(userId), getStoryPromptForClerkUser(userId)])
+    : [null, null];
 
   return (
     <div className="container mx-auto p-4">
@@ -34,6 +38,7 @@ export default async function InsightsPage() {
             </p>
             <ModernChatUI />
           </section>
+          <StoryPromptForm initialPrompt={storyPrompt} />
         </div>
       ) : (
         <div className="p-6 border rounded-lg bg-muted/30 text-center">

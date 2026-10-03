@@ -104,3 +104,12 @@ const dashboardCardIdsSchema = z.array(z.string().max(40)).max(50);
 export const dashboardLayoutSchema = z
   .object({ order: dashboardCardIdsSchema, hidden: dashboardCardIdsSchema })
   .nullable();
+
+/** Personal story style is a short note, not a second system prompt. */
+export const STORY_PROMPT_MAX_LENGTH = 280;
+// Blank clears the prompt.
+export const storyPromptSchema = z
+  .string()
+  .trim()
+  .max(STORY_PROMPT_MAX_LENGTH)
+  .transform((prompt) => prompt || null);

@@ -61,7 +61,7 @@ flowchart LR
 
 **Dashboard.** The dashboard loads everything through `getDashboard` in `queries/stats.ts`, which builds on the shared bounded aggregates in `queries/playerStats.ts`. Each user's card order and hidden cards are saved on their `User` row through `mutations/dashboard.ts`.
 
-**Insights.** Everything AI is gated by the `llm-features` flag and traced to PostHog in privacy mode. `/api/chat` builds a system prompt from the caller's aggregate stats plus `queries/playerHighlights.ts` (rivals, streaks, comebacks) and streams a reply from OpenAI. Finished games get a story from `ai/gameStory.ts`, written from the stored rounds and `lib/scoring/gameHighlights.ts`, cached in `GameStory` until a round revision changes; the completion email reuses it for flagged recipients. Between rounds, `/api/games/[gameId]/recap` writes a short announcer recap from the standings and `queries/rosterHistory.ts`, and the browser reads it aloud with speech synthesis.
+**Insights.** Everything AI is gated by the `llm-features` flag and traced to PostHog in privacy mode. `/api/chat` builds a system prompt from the caller's aggregate stats plus `queries/playerHighlights.ts` (rivals, streaks, comebacks) and streams a reply from OpenAI. Finished games get a story from `ai/gameStory.ts`, written from the stored rounds and `lib/scoring/gameHighlights.ts`, cached in `GameStory` until a round revision changes; the completion email reuses it for flagged recipients, or writes a personal version for players who saved a story style on Insights. Between rounds, `/api/games/[gameId]/recap` writes a short announcer recap from the standings and `queries/rosterHistory.ts`, and the browser reads it aloud with speech synthesis.
 
 ## Data model
 
