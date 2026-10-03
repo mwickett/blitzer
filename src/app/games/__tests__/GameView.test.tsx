@@ -22,9 +22,11 @@ jest.mock("@/components/scoring/ScoringShell", () => ({
     isFinished: boolean;
     canEdit: boolean;
     rounds: unknown[];
+    recapEnabled?: boolean;
   }) => (
     <div
       data-testid="scoring"
+      data-recap={String(!!props.recapEnabled)}
       data-finished={props.isFinished}
       data-editable={props.canEdit}
       data-rounds={props.rounds.length}
@@ -145,5 +147,20 @@ it.each([
   });
   render(await GameView({ params: Promise.resolve({ id: "game" }) }));
   expect(screen.queryByTestId("story") !== null).toBe(shown);
-  if (!finished) expect(isLlmFeaturesEnabled).not.toHaveBeenCalled();
+  // Players get spoken recaps between rounds instead.
+  expect(screen.getByTestId("scoring")).toHaveAttribute("data-recap", String(!finished && enabled));
+});
+
+it("does not offer recaps or check flags for spectators of a game in progress", async () => {
+  const { auth } = jest.requireMock("@clerk/nextjs/server");
+  (auth as jest.Mock).mockResolvedValueOnce({ userId: "clerk-z", orgId: "elsewhere" });
+  (isLlmFeaturesEnabled as jest.Mock).mockResolvedValue(true);
+  (getGameById as jest.Mock).mockResolvedValue({
+    id: "game", kind: "CIRCLE", organizationId: "circle", isFinished: false, winnerId: null, endedAt: null, winThreshold: 75,
+    players: ["a", "b"].map((id) => ({ id, userId: id, user: { username: id, clerk_user_id: `clerk-${id}` } })),
+    rounds: [],
+  });
+  render(await GameView({ params: Promise.resolve({ id: "game" }) }));
+  expect(screen.getByTestId("scoring")).toHaveAttribute("data-recap", "false");
+  expect(isLlmFeaturesEnabled).not.toHaveBeenCalled();
 });

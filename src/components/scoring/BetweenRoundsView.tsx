@@ -13,10 +13,13 @@ import { WinProbabilityCard } from "./graphs/WinProbabilityCard";
 import { RoundMvpsCard } from "./graphs/RoundMvpsCard";
 import { BlitzPileCard } from "./graphs/BlitzPileCard";
 import { buildRoundGraphSeries } from "./roundGraphSeries";
+import { RoundRecap } from "./RoundRecap";
 import { type PlayerWithScore, type RoundData } from "./types";
 import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
 
 interface BetweenRoundsViewProps {
+  /** Set only when the spoken round recap is enabled for this viewer. */
+  recapGameId?: string;
   players: PlayerWithScore[];
   rounds: RoundData[];
   winThreshold: number;
@@ -31,6 +34,7 @@ interface BetweenRoundsViewProps {
 }
 
 export function BetweenRoundsView({
+  recapGameId,
   players,
   rounds,
   winThreshold,
@@ -97,6 +101,10 @@ export function BetweenRoundsView({
           roundSamplesByPlayer={roundSamplesByPlayer}
         />
       </GraphCarousel>
+
+      {recapGameId && canEdit && (
+        <RoundRecap key={rounds.length} gameId={recapGameId} roundsPlayed={rounds.length} />
+      )}
 
       {/* Standings */}
       <div className="pt-2 pb-2">
