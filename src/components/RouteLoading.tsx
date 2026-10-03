@@ -1,6 +1,8 @@
 /**
  * Shared streaming fallback for route `loading.tsx` files: a title bar and a
- * few placeholder rows, announced to assistive tech as one busy region.
+ * few placeholder rows. It renders inside the layout's <main>, so it is not a
+ * landmark itself, and the label sits in a status region that is never busy
+ * so screen readers can announce it.
  */
 export function RouteLoading({
   label,
@@ -10,12 +12,10 @@ export function RouteLoading({
   rows?: number;
 }) {
   return (
-    <main
-      className="container mx-auto px-4 py-8"
-      aria-busy="true"
-      aria-live="polite"
-    >
-      <span className="sr-only">{label}</span>
+    <div className="container mx-auto px-4 py-8">
+      <p role="status" className="sr-only">
+        {label}
+      </p>
       <div aria-hidden="true" className="animate-pulse space-y-4">
         <div className="h-8 w-48 rounded-md bg-[#e6d7c3]" />
         <div className="h-4 w-72 max-w-full rounded bg-[#f0e6d2]" />
@@ -26,6 +26,6 @@ export function RouteLoading({
           />
         ))}
       </div>
-    </main>
+    </div>
   );
 }
