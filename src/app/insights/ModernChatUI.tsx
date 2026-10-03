@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useEffect, useRef, useState } from "react";
 
+const SUGGESTED_QUESTIONS = [
+  "Who is my nemesis?",
+  "Tell me about my best comeback",
+  "How's my recent form?",
+  "Roast my worst round, gently",
+];
+
 export default function ModernChatUI() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,6 +29,11 @@ export default function ModernChatUI() {
     if (!input.trim() || isLoading) return;
     sendMessage({ text: input });
     setInput("");
+  };
+
+  const ask = (text: string) => {
+    if (isLoading) return;
+    sendMessage({ text });
   };
 
   // Function to scroll to bottom of messages
@@ -54,13 +66,20 @@ export default function ModernChatUI() {
         >
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground p-8">
-              <p>Ask basic questions about your game history!</p>
-              <p className="text-sm mt-2">Try questions like:</p>
-              <ul className="text-sm text-left mt-2 max-w-md mx-auto space-y-1">
-                <li>• How many games have I played?</li>
-                <li>• What&apos;s my win-loss record?</li>
-                <li>• Summarize my recent gameplay</li>
-              </ul>
+              <p>Ask about your record, rivals, and memorable games.</p>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {SUGGESTED_QUESTIONS.map((question) => (
+                  <Button
+                    key={question}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => ask(question)}
+                  >
+                    {question}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -70,7 +89,7 @@ export default function ModernChatUI() {
               className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                className={`max-w-[80%] whitespace-pre-wrap rounded-lg px-4 py-2 ${
                   message.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted"
