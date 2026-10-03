@@ -25,9 +25,14 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 export default function DashboardGrid({
   stats,
   initialLayout,
+  heading,
+  intro,
 }: {
   stats: DashboardStats;
   initialLayout: DashboardLayout;
+  heading?: React.ReactNode;
+  /** Shown between the heading and the cards. */
+  intro?: React.ReactNode;
 }) {
   const [layout, setLayout] = useState(initialLayout);
   const [editing, setEditing] = useState(false);
@@ -64,10 +69,12 @@ export default function DashboardGrid({
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>{heading}</div>
+        <div className="flex flex-wrap items-center gap-2">
         {editing ? (
           <>
-            <span className="mr-auto text-sm text-textMuted" role="status" aria-live="polite">
+            <span className="text-sm text-textMuted" role="status" aria-live="polite">
               {saveState === "saving"
                 ? "Saving…"
                 : saveState === "error"
@@ -92,10 +99,12 @@ export default function DashboardGrid({
             Customize
           </Button>
         )}
+        </div>
       </div>
 
+      {intro}
       {shown.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-flow-row-dense gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((id, index) => {
             const info = CARD_INFO.get(id)!;
             return (

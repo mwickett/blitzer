@@ -74,14 +74,14 @@ function FormCard({ stats }: { stats: DashboardStats }) {
   if (!games.length) return <EmptyNote>{NO_GAMES}</EmptyNote>;
   return (
     <>
-      <ol className="flex flex-wrap gap-1.5" aria-label="Results, oldest to newest">
+      <ol className="grid grid-cols-10 gap-1" aria-label="Results, oldest to newest">
         {games.map((game) => (
           <li key={game.id}>
             <Link
               href={`/games/${game.id}`}
               title={`${ordinal(game.place)} of ${game.playerCount}, ${game.score} points`}
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold",
+                "flex aspect-square max-w-8 items-center justify-center rounded-md text-xs font-bold",
                 game.won === true && "bg-[#dcfce7] text-[#2a6517]",
                 game.won === false && "bg-[#fef2f2] text-[#b91c1c]",
                 game.won === null && "bg-surfaceSubtle text-textMuted",
