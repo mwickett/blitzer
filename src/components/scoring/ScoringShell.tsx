@@ -29,6 +29,8 @@ interface ScoringShellProps {
   canEdit?: boolean;
   canRematch?: boolean;
   sharedScoring?: boolean;
+  /** Between-rounds spoken recap; the page enables it for flagged players. */
+  recapEnabled?: boolean;
 }
 
 export function ScoringShell(props: ScoringShellProps) {
@@ -48,6 +50,7 @@ function ScoringSession({
   canEdit = true,
   canRematch = true,
   sharedScoring = false,
+  recapEnabled = false,
 }: ScoringShellProps) {
   const router = useRouter();
   const [savedRound, setSavedRound] = useState<RoundData | null>(null);
@@ -334,6 +337,7 @@ function ScoringSession({
           </fieldset>
         ) : (
           <BetweenRoundsView
+            recapGameId={recapEnabled ? gameId : undefined}
             players={effectivePlayers}
             rounds={effectiveRounds}
             winThreshold={winThreshold}

@@ -80,12 +80,15 @@ export default async function GameView(props: {
   // read-only spectator view of the same scoring UI.
   const isCircleMember =
     !!userId && !!game.organizationId && game.organizationId === orgId;
-  const [predictionProfiles, showStory] = await Promise.all([
+  const canEdit = isCircleMember || isPickupPlayer;
+  // Stories show to any flagged viewer of a finished game; recaps to players.
+  const [predictionProfiles, llmEnabled] = await Promise.all([
     isCircleMember && !isFinished && game.rounds.length > 0
       ? getPredictionProfilesForGame(game, { userId, orgId })
       : {},
-    isFinished && !!userId && isLlmFeaturesEnabled(),
+    !!userId && (isFinished || canEdit) && isLlmFeaturesEnabled(),
   ]);
+  const showStory = isFinished && llmEnabled;
 
   return (
     <section className="py-6">
@@ -102,7 +105,8 @@ export default async function GameView(props: {
         isFinished={isFinished}
         winnerId={displayScores.find((s) => s.isWinner)?.id}
         endedAt={game.endedAt?.toISOString()}
-        canEdit={isCircleMember || isPickupPlayer}
+        canEdit={canEdit}
+        recapEnabled={!isFinished && canEdit && llmEnabled}
         canRematch={game.kind === "CIRCLE"}
         sharedScoring={game.kind === "PICKUP"}
         predictionProfiles={predictionProfiles}
