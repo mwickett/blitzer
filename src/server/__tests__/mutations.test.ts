@@ -11,6 +11,7 @@ import {
   createGame,
   cloneGame,
   saveGameNote,
+  saveGameTag,
   saveUserAccentColor,
   saveUserPreferredDeck,
 } from "../mutations/games";
@@ -970,6 +971,43 @@ describe("Game Mutations", () => {
         (prisma.game.findUnique as jest.Mock).mockResolvedValue(game);
         await expect(saveGameNote(mockGameId, "hi")).rejects.toThrow();
       }
+      expect(prisma.game.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("saveGameTag", () => {
+    it("stores a tidied tag, clears blanks, and refuses overlong tags", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        kind: "CIRCLE",
+        organizationId: mockOrgId,
+        startedAt: new Date(),
+        players: [],
+      });
+      (prisma.game.update as jest.Mock).mockResolvedValue({});
+
+      expect(await saveGameTag(mockGameId, "  late   night ")).toEqual({
+        ok: true,
+        tag: "late night",
+      });
+      expect(prisma.game.update).toHaveBeenLastCalledWith({
+        where: { id: mockGameId },
+        data: { tag: "late night" },
+      });
+      expect(await saveGameTag(mockGameId, "")).toEqual({ ok: true, tag: null });
+      expect(await saveGameTag(mockGameId, "x".repeat(25))).toMatchObject({
+        ok: false,
+      });
+      expect(prisma.game.update).toHaveBeenCalledTimes(2);
+    });
+
+    it("refuses games from another circle", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        kind: "CIRCLE",
+        organizationId: "another-circle",
+        startedAt: new Date(),
+        players: [],
+      });
+      await expect(saveGameTag(mockGameId, "sober")).rejects.toThrow();
       expect(prisma.game.update).not.toHaveBeenCalled();
     });
   });

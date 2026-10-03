@@ -33,6 +33,7 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | `create_game` | A Circle game is created | `gameId`, `playerCount`, `guestPlayerCount`, `win_threshold` (camelCase kept for history) |
 | `clone_game` | A rematch creates a new game | `originalGameId`, `newGameId` (camelCase kept for history) |
 | `game_note_saved` | A player saves or clears a game's note | `game_id`, `has_note` (the note text is never sent) |
+| `game_tag_saved` | A player sets, changes or removes a game's tag | `game_id`, `has_tag` (the tag text is never sent) |
 | `set_accent_color` | The creator saves a default colour from the colour step | `color` (a palette hex) |
 | `update_game_as_finished` | A round save completes the game | `game_id` |
 | `game_reopened_after_edit` | An edit drops the leader back under the threshold | `game_id` |

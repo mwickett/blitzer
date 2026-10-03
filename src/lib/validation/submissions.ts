@@ -156,3 +156,14 @@ export const gameNoteSchema = z
     `Keep the note to ${GAME_NOTE_MAX_LENGTH} characters.`,
   )
   .transform((note) => note || null);
+
+export const GAME_TAG_MAX_LENGTH = 24;
+// Blank tags clear the stored tag.
+export const gameTagSchema = z
+  .string()
+  .trim()
+  .max(
+    GAME_TAG_MAX_LENGTH,
+    `Keep the tag to ${GAME_TAG_MAX_LENGTH} characters.`,
+  )
+  .transform((tag) => tag.replace(/\s+/g, " ") || null);

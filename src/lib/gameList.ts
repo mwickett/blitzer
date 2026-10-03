@@ -18,6 +18,8 @@ export type GameListFilters = {
   status: GameStatusFilter;
   players: string[];
   search: string;
+  /** Exact tag, matched case-insensitively; empty means any. */
+  tag: string;
   cursor?: string;
 };
 export type GameListItem = {
@@ -29,6 +31,7 @@ export type GameListItem = {
   players: GamePlayerOption[];
   winnerName: string | null;
   note: string | null;
+  tag: string | null;
 };
 export type GameListPage = {
   games: GameListItem[];
@@ -66,6 +69,7 @@ export function parseGameListFilters(
       ),
     ].slice(0, 9),
     search: (first(params.search) ?? "").trim().slice(0, 100),
+    tag: (first(params.tag) ?? "").trim().replace(/\s+/g, " ").slice(0, 24),
     ...(cursor && cursor.length <= 512 ? { cursor } : {}),
   };
 }
@@ -79,6 +83,7 @@ export function gameListHref(
   if (filters.status !== "all") params.set("status", filters.status);
   for (const player of filters.players) params.append("player", player);
   if (filters.search) params.set("search", filters.search);
+  if (filters.tag) params.set("tag", filters.tag);
   if (cursor) params.set("cursor", cursor);
   const query = params.toString();
   return query ? `${basePath}?${query}` : basePath;
