@@ -1,7 +1,6 @@
 /**
- * The dashboard's BasicStatBlock is not reused here: it wraps ui/card, which
- * hardcodes shadow-sm, and the marketing page is flat throughout. This also
- * lets the numeral use the display face.
+ * The dashboard's StatCard is not reused here: the marketing page is flat
+ * throughout and shows a single numeral in the display face.
  */
 export function StatTile({ label, value }: { label: string; value: string }) {
   return (

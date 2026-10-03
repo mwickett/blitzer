@@ -37,6 +37,7 @@ function user(overrides: Partial<User> = {}): User {
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
     accentColor: null,
+    dashboardLayout: null,
     ...overrides,
   };
 }

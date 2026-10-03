@@ -16,6 +16,7 @@ model User {
   username               String                   @unique
   avatarUrl              String?
   accentColor            String?                  @map("accent_color")
+  dashboardLayout        Json?                    @map("dashboard_layout")
   games                  GamePlayers[]
   scores                 Score[]
   createdGuests          GuestUser[]              @relation("CreatedGuests")
