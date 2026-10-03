@@ -27,7 +27,7 @@ export function ColorPicker({
             onClick={() => !isUsed && onChange(c.value)}
             className={`w-9 h-9 rounded-full border-2 transition-all ${
               isSelected
-                ? "border-[#290806] scale-110 shadow-sm"
+                ? "border-[#290806] scale-110 shadow-xs"
                 : isUsed
                   ? "border-transparent opacity-25 cursor-not-allowed"
                   : "border-transparent hover:border-[#d1bfa8] cursor-pointer"

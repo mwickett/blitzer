@@ -235,7 +235,7 @@ export default function NewGameChooser({
   if (step === "colors" && validDraft) {
     return (
       <Card className="mx-auto shadow-md border-[#e6d7c3] max-w-md my-6">
-        <CardHeader className="bg-gradient-to-r from-[#5a341f] to-[#8b5e3c] text-white rounded-t-lg">
+        <CardHeader className="bg-linear-to-r from-[#5a341f] to-[#8b5e3c] text-white rounded-t-lg">
           <CardTitle className="text-xl flex items-center gap-2">
             <PlayCircle className="h-5 w-5" />
             Choose Colors
@@ -254,7 +254,7 @@ export default function NewGameChooser({
 
   return (
     <Card className="mx-auto shadow-md border-[#e6d7c3] max-w-md my-6">
-      <CardHeader className="bg-gradient-to-r from-[#5a341f] to-[#8b5e3c] text-white rounded-t-lg">
+      <CardHeader className="bg-linear-to-r from-[#5a341f] to-[#8b5e3c] text-white rounded-t-lg">
         <CardTitle className="text-xl flex items-center gap-2">
           <PlayCircle className="h-5 w-5" />
           Create New Game
@@ -293,7 +293,7 @@ export default function NewGameChooser({
                       <span className="sr-only">Remove</span>
                     </Button>
                   </div>
-                  <Avatar className="h-12 w-12 sm:mb-2 mr-3 sm:mr-0 flex-shrink-0">
+                  <Avatar className="h-12 w-12 sm:mb-2 mr-3 sm:mr-0 shrink-0">
                     {"avatarUrl" in player && player.avatarUrl ? (
                       <AvatarImage
                         src={player.avatarUrl}
@@ -330,7 +330,7 @@ export default function NewGameChooser({
                   className="flex items-center sm:flex-col sm:items-center justify-start sm:justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] transition-colors sm:h-[130px]"
                   onClick={startAddingPlayer}
                 >
-                  <div className="h-12 w-12 rounded-full bg-[#f0e6d2] flex items-center justify-center sm:mb-2 mr-3 sm:mr-0 flex-shrink-0">
+                  <div className="h-12 w-12 rounded-full bg-[#f0e6d2] flex items-center justify-center sm:mb-2 mr-3 sm:mr-0 shrink-0">
                     <Plus className="h-6 w-6 text-[#8b5e3c]" />
                   </div>
                   <span className="font-medium text-[#5a341f] text-sm">

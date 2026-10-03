@@ -132,7 +132,7 @@ export default function GameList({
                       defaultChecked={filters.players.includes(player.key)}
                       className="h-4 w-4 shrink-0"
                     />
-                    <span className="break-words">
+                    <span className="wrap-break-word">
                       {player.name}
                       {player.key.startsWith("guest:") ? " (guest)" : ""}
                     </span>
@@ -191,7 +191,7 @@ export default function GameList({
                     <Badge
                       key={player.key}
                       variant="outline"
-                      className="max-w-full break-words"
+                      className="max-w-full wrap-break-word"
                     >
                       {player.name}
                     </Badge>

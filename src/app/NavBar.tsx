@@ -52,9 +52,9 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
         <div className="container flex h-14 min-w-0 items-center gap-2 sm:gap-3">
-          <div className="flex flex-shrink-0 items-center md:hidden">
+          <div className="flex shrink-0 items-center md:hidden">
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -104,7 +104,7 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
           </div>
           <Link
             href="/"
-            className="flex flex-shrink-0 items-center md:mr-4 lg:mr-6"
+            className="flex shrink-0 items-center md:mr-4 lg:mr-6"
           >
             <span className="text-xl font-bold">Blitzer</span>
           </Link>
@@ -142,7 +142,7 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
           </nav>
           <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 md:gap-2 lg:gap-4">
             <Show when="signed-in">
-              <div className="min-w-0 max-w-[120px] flex-shrink overflow-hidden sm:max-w-[180px] md:max-w-[220px] lg:max-w-none">
+              <div className="min-w-0 max-w-[120px] shrink overflow-hidden sm:max-w-[180px] md:max-w-[220px] lg:max-w-none">
                 <OrganizationSwitcher
                   hidePersonal
                   afterSelectOrganizationUrl="/dashboard"

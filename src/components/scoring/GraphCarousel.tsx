@@ -73,7 +73,7 @@ export function GraphCarousel({
           </div>
         ))}
         {/* Peek spacer */}
-        <div className="min-w-[2%] flex-shrink-0" />
+        <div className="min-w-[2%] shrink-0" />
       </div>
 
       {/* Dot indicators */}

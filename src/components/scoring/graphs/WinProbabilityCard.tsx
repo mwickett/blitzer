@@ -90,7 +90,7 @@ export function WinProbabilityCard({
             <div key={player.id} className="space-y-1">
               <div className="flex items-center gap-2">
                 <div
-                  className="w-14 md:w-10 text-[13px] md:text-[11px] font-semibold text-right flex-shrink-0 truncate leading-tight"
+                  className="w-14 md:w-10 text-[13px] md:text-[11px] font-semibold text-right shrink-0 truncate leading-tight"
                   style={{ color: player.color }}
                 >
                   {player.name}

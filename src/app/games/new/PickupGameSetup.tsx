@@ -57,7 +57,7 @@ export function PickupGameSetup() {
 
   return (
     <Card className="mx-auto my-6 max-w-md border-[#e6d7c3] shadow-md">
-      <CardHeader className="rounded-t-lg bg-gradient-to-r from-[#5a341f] to-[#8b5e3c] text-white">
+      <CardHeader className="rounded-t-lg bg-linear-to-r from-[#5a341f] to-[#8b5e3c] text-white">
         <CardTitle className="flex items-center gap-2">
           <QrCode className="h-5 w-5" />
           Create pickup lobby

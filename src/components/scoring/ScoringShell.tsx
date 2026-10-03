@@ -257,7 +257,7 @@ function ScoringSession({
                       const entry = draft.entries[player.id];
                       return (
                         <tr key={player.id}>
-                          <th scope="row" className="break-words p-2 text-left">
+                          <th scope="row" className="wrap-break-word p-2 text-left">
                             {player.name}
                           </th>
                           <td className="p-2 text-center">
