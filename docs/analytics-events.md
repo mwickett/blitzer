@@ -38,6 +38,12 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | `join_pickup_game` / `join_pickup_game_rejected` | A player joins a lobby, or the join is refused | `game_id` / `reason`, optional `game_id` |
 | `start_pickup_game` / `start_pickup_game_rejected` | The host starts a lobby, or the start is refused | `game_id` / `reason`, `game_id` |
 
+## Dashboard (server)
+
+| Event | Fires when | Properties |
+| --- | --- | --- |
+| `dashboard_customized` / `dashboard_reset` | A user saves or resets their dashboard card layout | `visible_cards`, `hidden_cards` |
+
 ## Email and LLM (server)
 
 | Event | Fires when | Properties |
