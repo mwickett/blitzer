@@ -48,7 +48,17 @@ export function useScoringDraft(
   const [error, setError] = useState<string | null>(null);
   const [hasConflict, setHasConflict] = useState(false);
   const saving = useRef(false);
+  // Measures entry effort, not round length: starts at the first value typed.
+  const firstEntryAt = useRef<number | null>(null);
   const posthog = usePostHog();
+
+  const track = (event: string, properties: Record<string, unknown>) => {
+    try {
+      posthog.capture(event, properties);
+    } catch {
+      // Optional telemetry must never change scoring behavior.
+    }
+  };
 
   const open = (next: ScoringDraft) => {
     if (saving.current) return;
@@ -58,6 +68,7 @@ export function useScoringDraft(
     setDraft(next);
     setError(null);
     setHasConflict(false);
+    firstEntryAt.current = null;
   };
   const edit = (
     players: PlayerWithScore[],
@@ -87,6 +98,7 @@ export function useScoringDraft(
     value: number | null,
   ) => {
     if (saving.current) return;
+    firstEntryAt.current ??= Date.now();
     setDraft(
       (current) =>
         current && {
@@ -101,6 +113,14 @@ export function useScoringDraft(
   };
   const cancel = () => {
     if (saving.current) return;
+    if (draft?.round) {
+      track("scoring_round_edit_cancelled", {
+        game_id: gameId,
+        round_number: draft.roundNumber,
+        had_conflict: hasConflict,
+      });
+    }
+    firstEntryAt.current = null;
     setDraft(null);
     setError(null);
     setHasConflict(false);
@@ -140,22 +160,29 @@ export function useScoringDraft(
       if (!result.ok) {
         setError(result.message);
         setHasConflict(result.reason !== "invalid_input");
-        return;
-      }
-      setDraft(null);
-      onSaved(result.round);
-      try {
-        posthog.capture(
-          draft.round ? "scoring_round_edited" : "scoring_round_submitted",
-          {
+        if (result.reason !== "invalid_input") {
+          track("scoring_round_conflict", {
             game_id: gameId,
             round_number: draft.roundNumber,
-            player_count: draft.players.length,
-          },
-        );
-      } catch {
-        // Optional telemetry must not turn a committed score into a retry.
+            is_edit: Boolean(draft.round),
+            reason: result.reason,
+          });
+        }
+        return;
       }
+      const entryDurationMs =
+        firstEntryAt.current === null
+          ? null
+          : Date.now() - firstEntryAt.current;
+      firstEntryAt.current = null;
+      setDraft(null);
+      onSaved(result.round);
+      track(draft.round ? "scoring_round_edited" : "scoring_round_submitted", {
+        game_id: gameId,
+        round_number: draft.roundNumber,
+        player_count: draft.players.length,
+        entry_duration_ms: entryDurationMs,
+      });
     } catch (cause) {
       setError(
         cause instanceof Error
