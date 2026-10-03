@@ -335,7 +335,7 @@ describe("Game Mutations", () => {
       });
       (sendGameCompleteEmail as jest.Mock).mockResolvedValue({ success: true });
       mockFlagFor.mockImplementation(async (_flag: string, user: { clerkUserId: string }) => user.clerkUserId === "player1");
-      mockGetGameById.mockResolvedValue({ id: mockGameId });
+      mockGetGameById.mockResolvedValue({ id: mockGameId, isFinished: true, winnerId: "player1" });
       mockTellStory.mockResolvedValue({ story: "Player one ran away with it." });
 
       await createRoundForGame(mockGameId, 1, scores);
@@ -347,12 +347,37 @@ describe("Game Mutations", () => {
         username: "player1",
       });
       expect(mockTellStory).toHaveBeenCalledTimes(1);
-      expect(mockTellStory).toHaveBeenCalledWith({ id: mockGameId }, mockUserId, "game_email");
+      expect(mockTellStory).toHaveBeenCalledWith(
+        { id: mockGameId, isFinished: true, winnerId: "player1" },
+        mockUserId,
+        "game_email",
+      );
       expect(sendGameCompleteEmail).toHaveBeenCalledWith(
         expect.objectContaining({ email: "player1@example.com", story: "Player one ran away with it." }),
       );
       expect(sendGameCompleteEmail).toHaveBeenCalledWith(
         expect.objectContaining({ email: "player2@example.com", story: undefined }),
+      );
+    });
+
+    it("omits the story when a correction changed the winner before the email", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        players: game().players.map((player) => ({
+          ...player,
+          user: { ...player.user, email: `${player.userId}@example.com` },
+        })),
+      });
+      (sendGameCompleteEmail as jest.Mock).mockResolvedValue({ success: true });
+      mockFlagFor.mockResolvedValue(true);
+      mockGetGameById.mockResolvedValue({ id: mockGameId, isFinished: true, winnerId: "player2" });
+
+      await createRoundForGame(mockGameId, 1, scores);
+      await flushAfter();
+
+      expect(mockTellStory).not.toHaveBeenCalled();
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "player1@example.com", isWinner: true, story: undefined }),
       );
     });
 

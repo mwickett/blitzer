@@ -59,9 +59,12 @@ async function submit(input: unknown) {
       let story: string | undefined;
       if (wantsStory.some(Boolean)) {
         const game = await getGameById(transition.gameId).catch(() => null);
-        story = game
-          ? (await tellGameStory(game, userId, "game_email"))?.story
-          : undefined;
+        // A correction may land before this runs; skip the story unless the
+        // game still has the winner this email announces.
+        story =
+          game?.isFinished && game.winnerId === transition.winnerId
+            ? (await tellGameStory(game, userId, "game_email"))?.story
+            : undefined;
       }
       let failed = 0;
       for (const [index, recipient] of recipients.entries()) {
