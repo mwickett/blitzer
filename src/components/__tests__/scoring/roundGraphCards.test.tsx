@@ -4,6 +4,7 @@ import {
   computeRoundMvps,
 } from "../../scoring/graphs/RoundMvpsCard";
 import { BlitzPileCard } from "../../scoring/graphs/BlitzPileCard";
+import { GameHighlights } from "../../scoring/GameHighlights";
 import { type PlayerWithScore } from "../../scoring/types";
 
 const player = (id: string, name: string): PlayerWithScore => ({
@@ -81,5 +82,32 @@ describe("BlitzPileCard", () => {
     expect(screen.getByText(/Blitzes:/)).toHaveTextContent(
       "Blitzes: Alice 1, Bob 1",
     );
+  });
+});
+
+describe("GameHighlights", () => {
+  it("renders readable highlight copy", () => {
+    render(
+      <GameHighlights
+        players={players}
+        highlights={[
+          { kind: "comeback", playerId: "a", deficit: 22, roundNumber: 2 },
+          { kind: "photo_finish", playerId: "a", margin: 0 },
+        ]}
+      />,
+    );
+    expect(
+      screen.getByText("Alice was 22 points back after round 2 and still won."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Level on points; decided on the tiebreak."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders nothing when the game had no highlights", () => {
+    const { container } = render(
+      <GameHighlights players={players} highlights={[]} />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });

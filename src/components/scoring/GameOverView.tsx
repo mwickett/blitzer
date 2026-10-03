@@ -11,6 +11,8 @@ import { HotColdCard } from "./graphs/HotColdCard";
 import { RoundMvpsCard } from "./graphs/RoundMvpsCard";
 import { BlitzPileCard } from "./graphs/BlitzPileCard";
 import { buildRoundGraphSeries } from "./roundGraphSeries";
+import { GameHighlights } from "./GameHighlights";
+import { findGameHighlights } from "@/lib/scoring/gameHighlights";
 import { usePostHog } from "posthog-js/react";
 
 interface GameOverViewProps {
@@ -47,6 +49,17 @@ export function GameOverView({
   const { scoresByRound, deltasByRound, blitzByRound } = useMemo(
     () => buildRoundGraphSeries(players, rounds),
     [players, rounds],
+  );
+  const highlights = useMemo(
+    () =>
+      findGameHighlights({
+        players,
+        winnerId: winner.id,
+        scoresByRound,
+        deltasByRound,
+        blitzByRound,
+      }),
+    [players, winner.id, scoresByRound, deltasByRound, blitzByRound],
   );
   const handleRematch = async () => {
     if (rematching.current) return;
@@ -106,6 +119,8 @@ export function GameOverView({
           </div>
         </div>
       </div>
+
+      <GameHighlights highlights={highlights} players={players} />
 
       {/* Final race position + retrospective graphs (kept from between-rounds) */}
       {rounds.length > 0 && (
