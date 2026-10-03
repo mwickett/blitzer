@@ -7,9 +7,11 @@ const mockGame = jest.fn();
 const mockPut = jest.fn();
 const mockDel = jest.fn();
 const mockCapture = jest.fn();
-const mockPrisma = {
+const mockEnsureUser = jest.fn();
+const mockPrisma: Record<string, any> = {
   keyMoment: { count: jest.fn(), create: jest.fn(), findFirst: jest.fn(), delete: jest.fn() },
-  user: { findUnique: jest.fn() },
+  $queryRaw: jest.fn(),
+  $transaction: jest.fn((run: (tx: unknown) => unknown): unknown => run(mockPrisma)),
 };
 jest.mock("@clerk/nextjs/server", () => ({ auth: () => mockAuth() }));
 jest.mock("@vercel/blob", () => ({
@@ -23,6 +25,7 @@ jest.mock("@/server/db/db", () => ({
     return mockPrisma;
   },
 }));
+jest.mock("@/server/mutations/common", () => ({ ensureCurrentPrismaUser: () => mockEnsureUser() }));
 jest.mock("@/server/telemetry", () => ({ captureServerEvent: (...args: unknown[]) => mockCapture(...args) }));
 jest.mock("@/app/posthog", () => ({ __esModule: true, default: () => ({}) }));
 
@@ -51,7 +54,7 @@ beforeEach(() => {
   mockGame.mockResolvedValue(circleGame());
   mockPrisma.keyMoment.count.mockResolvedValue(0);
   mockPrisma.keyMoment.create.mockResolvedValue({ id: "m1" });
-  mockPrisma.user.findUnique.mockResolvedValue({ id: "u1" });
+  mockEnsureUser.mockResolvedValue({ id: "u1" });
   mockPut.mockResolvedValue({ url: "https://blob.example/key-moments/game-1/photo-abc.jpg", pathname: "key-moments/game-1/photo-abc.jpg" });
   mockDel.mockResolvedValue(undefined);
 });
@@ -101,6 +104,20 @@ describe("POST photos", () => {
     expect(mockPut).not.toHaveBeenCalled();
   });
 
+  it("rechecks the cap under the game lock and drops the file when the last slot went", async () => {
+    mockPrisma.keyMoment.count.mockResolvedValueOnce(29).mockResolvedValueOnce(30);
+    expect((await upload({ photo: photo() })).status).toBe(409);
+    expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+    expect(mockPrisma.keyMoment.create).not.toHaveBeenCalled();
+    expect(mockDel).toHaveBeenCalledWith("https://blob.example/key-moments/game-1/photo-abc.jpg");
+  });
+
+  it("provisions the uploader before storing anything", async () => {
+    mockEnsureUser.mockRejectedValueOnce(new Error("Unable to load your account"));
+    expect((await upload({ photo: photo() })).status).toBe(503);
+    expect(mockPut).not.toHaveBeenCalled();
+  });
+
   it("removes the uploaded file when the row can't be saved", async () => {
     mockPrisma.keyMoment.create.mockRejectedValueOnce(new Error("db down"));
     await expect(upload({ photo: photo() })).rejects.toThrow("db down");
@@ -134,10 +151,11 @@ describe("DELETE photo", () => {
     expect((await remove()).status).toBe(401);
   });
 
-  it("still succeeds when the file delete fails", async () => {
+  it("keeps the row for a retry when the file delete fails", async () => {
     mockPrisma.keyMoment.findFirst.mockResolvedValue({ id: "m1", url: "https://blob.example/x.jpg" });
     mockDel.mockRejectedValueOnce(new Error("blob down"));
     jest.spyOn(console, "warn").mockImplementation(() => undefined);
-    expect((await remove()).status).toBe(204);
+    expect((await remove()).status).toBe(502);
+    expect(mockPrisma.keyMoment.delete).not.toHaveBeenCalled();
   });
 });

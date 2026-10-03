@@ -1,7 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { del, put } from "@vercel/blob";
 import PostHogClient from "@/app/posthog";
+import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
+import { ensureCurrentPrismaUser } from "@/server/mutations/common";
 import { getGameById } from "@/server/queries/games";
 import { isKeyMomentStorageConfigured } from "@/server/keyMoments";
 import { assertGameScoringAccess } from "@/server/scoring/access";
@@ -67,14 +69,18 @@ export async function POST(req: Request, context: { params: Promise<{ gameId: st
     return Response.json({ error: "That round isn't part of this game" }, { status: 400 });
   }
 
-  const existing = await prisma.keyMoment.count({ where: { gameId: game.id } });
-  if (existing >= KEY_MOMENT_MAX_PER_GAME) {
+  // Cheap early refusal; the locked check below is the one that holds.
+  if ((await prisma.keyMoment.count({ where: { gameId: game.id } })) >= KEY_MOMENT_MAX_PER_GAME) {
     return Response.json({ error: `A game can hold ${KEY_MOMENT_MAX_PER_GAME} photos` }, { status: 409 });
   }
-  const uploader = await prisma.user.findUnique({
-    where: { clerk_user_id: userId },
-    select: { id: true },
-  });
+  // Provision the local user if the Clerk webhook hasn't yet, so the
+  // uploader can always find and remove their own photo.
+  let uploader: { id: string };
+  try {
+    uploader = await ensureCurrentPrismaUser();
+  } catch {
+    return Response.json({ error: "Couldn't load your account. Please try again." }, { status: 503 });
+  }
 
   let blob: Awaited<ReturnType<typeof put>>;
   try {
@@ -87,24 +93,34 @@ export async function POST(req: Request, context: { params: Promise<{ gameId: st
     console.warn("Key moment blob upload failed", { error: error instanceof Error ? error.name : "UnknownError" });
     return Response.json({ error: "Couldn't save that photo. Please try again." }, { status: 502 });
   }
-  let momentId: string;
+  let momentId: string | null;
   try {
-    const moment = await prisma.keyMoment.create({
-      data: {
-        gameId: game.id,
-        roundId: round?.id ?? null,
-        uploaderId: uploader?.id ?? null,
-        url: blob.url,
-        pathname: blob.pathname,
-        caption: caption || null,
-      },
-      select: { id: true },
+    // Lock the game so concurrent uploads can't both take the last slot.
+    momentId = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Game" WHERE "id" = ${game.id} FOR UPDATE`);
+      const count = await tx.keyMoment.count({ where: { gameId: game.id } });
+      if (count >= KEY_MOMENT_MAX_PER_GAME) return null;
+      const moment = await tx.keyMoment.create({
+        data: {
+          gameId: game.id,
+          roundId: round?.id ?? null,
+          uploaderId: uploader.id,
+          url: blob.url,
+          pathname: blob.pathname,
+          caption: caption || null,
+        },
+        select: { id: true },
+      });
+      return moment.id;
     });
-    momentId = moment.id;
   } catch (error) {
     // Don't leave an unreachable file behind when the row can't be saved.
     await del(blob.url).catch(() => undefined);
     throw error;
+  }
+  if (!momentId) {
+    await del(blob.url).catch(() => undefined);
+    return Response.json({ error: `A game can hold ${KEY_MOMENT_MAX_PER_GAME} photos` }, { status: 409 });
   }
 
   captureServerEvent(PostHogClient(), {

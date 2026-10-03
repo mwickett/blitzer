@@ -19,13 +19,15 @@ export async function DELETE(
   });
   if (!moment) return Response.json({ error: "Photo not found" }, { status: 404 });
 
-  await prisma.keyMoment.delete({ where: { id: moment.id } });
-  // The row is gone either way; a stray file only costs storage.
+  // The file goes first: public URLs outlive the row, so a failed delete
+  // keeps the row and the uploader can retry.
   try {
     await del(moment.url);
   } catch {
     console.warn("Key moment blob delete failed", { photoId: moment.id });
+    return Response.json({ error: "Couldn't remove that photo. Please try again." }, { status: 502 });
   }
+  await prisma.keyMoment.delete({ where: { id: moment.id } });
 
   captureServerEvent(PostHogClient(), {
     distinctId: userId,
