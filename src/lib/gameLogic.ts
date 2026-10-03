@@ -7,10 +7,13 @@ import { breakTie } from "./scoring/tiebreak";
 type GamePlayer = GameDetail["players"][number];
 type GameRound = GameDetail["rounds"][number];
 type ScoredRound = Pick<GameRound, "round"> & {
-  scores: Pick<
+  scores: (Pick<
     GameRound["scores"][number],
     "userId" | "guestId" | "totalCardsPlayed" | "blitzPileRemaining"
-  >[];
+  > & {
+    // Set instead of the breakdown when the round total was typed.
+    typedScore?: number | null;
+  })[];
 };
 export type ScoredGame = Pick<GameDetail, "isFinished" | "winThreshold"> & {
   players: (Pick<GamePlayer, "id" | "userId" | "guestId" | "accentColor"> & {

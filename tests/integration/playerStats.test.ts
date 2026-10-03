@@ -44,10 +44,14 @@ test("statistics distinguish played games from lobbies and count losses to a gue
   await prisma.round.create({ data: {
     gameId: won.id, round: 2, scores: { create: { userId: player.id, totalCardsPlayed: 4, blitzPileRemaining: 10 } },
   } });
+  // A typed "Do math" total scores, but has no cards or Blitz pile to count.
+  await prisma.round.create({ data: {
+    gameId: won.id, round: 3, scores: { create: { userId: player.id, typedScore: 35 } },
+  } });
   assert.deepEqual(await getRoundStatsForUser(player.id, prisma), {
-    totalRounds: 2, totalBlitzes: 1, totalCardsPlayed: 34,
+    totalRounds: 3, breakdownRounds: 2, totalBlitzes: 1, totalCardsPlayed: 34,
     avgCardsPlayed: 17, avgBlitzRemaining: 5, blitzPercentage: 50,
-    highestScore: 30, lowestScore: -16, cumulativeScore: 14,
+    highestScore: 35, lowestScore: -16, cumulativeScore: 49,
   });
   assert.deepEqual(await getGameStatsForUser("missing-player", prisma, now), EMPTY_GAME_STATS);
   assert.deepEqual(await getRoundStatsForUser("missing-player", prisma), EMPTY_ROUND_STATS);

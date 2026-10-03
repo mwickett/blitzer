@@ -23,6 +23,9 @@ jest.mock("../../scoring/ScoreEntryView", () => ({
 jest.mock("../../scoring/CelebrationOverlay", () => ({
   CelebrationOverlay: () => null,
 }));
+jest.mock("@/server/mutations/preferences", () => ({
+  saveScoreEntryMode: jest.fn().mockResolvedValue({ ok: true }),
+}));
 jest.mock("@/server/mutations/games", () => ({ cloneGame: jest.fn() }));
 jest.mock("@/server/mutations/rounds", () => ({
   updateRoundScores: jest.fn(),

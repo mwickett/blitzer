@@ -10,11 +10,34 @@ import { RoundEditor } from "./RoundEditor";
 import { roundEditButtonId } from "./RoundHistoryTable";
 import { findPlayerScore } from "./utils";
 import { newRoundDraft, useScoringDraft } from "./useScoringDraft";
-import { type PlayerWithScore, type RoundData } from "./types";
+import {
+  type EntryMode,
+  type PlayerWithScore,
+  type RoundData,
+  type RoundScoreData,
+} from "./types";
 import { calcGameStats, type RoundResult } from "@/lib/scoring/gameStats";
 import { type PredictionProfilesByPlayer } from "@/lib/scoring/probability";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
 import { cloneGame } from "@/server/mutations/games";
+import { saveScoreEntryMode } from "@/server/mutations/preferences";
+
+function describeEntry(score: {
+  cards: number | null;
+  blitz: number | null;
+  typed: number | null;
+}) {
+  if (score.typed !== null) return `${score.typed} pts`;
+  return `${score.cards ?? "—"} / ${score.blitz ?? "—"}`;
+}
+
+function savedEntry(score: RoundScoreData | undefined) {
+  return {
+    cards: score?.totalCardsPlayed ?? null,
+    blitz: score?.blitzPileRemaining ?? null,
+    typed: score?.typedScore ?? null,
+  };
+}
 
 interface ScoringShellProps {
   gameId: string;
@@ -31,6 +54,8 @@ interface ScoringShellProps {
   sharedScoring?: boolean;
   /** Between-rounds spoken recap; the page enables it for flagged players. */
   recapEnabled?: boolean;
+  /** The signed-in player's saved entry preference ("Do math" is "total"). */
+  entryMode?: EntryMode;
 }
 
 export function ScoringShell(props: ScoringShellProps) {
@@ -51,12 +76,14 @@ function ScoringSession({
   canRematch = true,
   sharedScoring = false,
   recapEnabled = false,
+  entryMode = "cards",
 }: ScoringShellProps) {
   const router = useRouter();
+  const [preferredMode, setPreferredMode] = useState(entryMode);
   const [savedRound, setSavedRound] = useState<RoundData | null>(null);
   const initialDraft = () =>
     canEdit && !isFinished && rounds.length === 0
-      ? newRoundDraft(players, currentRoundNumber)
+      ? newRoundDraft(players, currentRoundNumber, preferredMode)
       : null;
   const session = useScoringDraft(gameId, initialDraft, (round) => {
     setSavedRound(round);
@@ -146,6 +173,7 @@ function ScoringSession({
       for (const score of round.scores) {
         const id = score.userId ?? score.guestId ?? "";
         deltas[id] = calculateRoundScore(score);
+        // Typed totals have no Blitz pile, so they never count as a blitz.
         blitzCounts[id] = score.blitzPileRemaining === 0 ? 1 : 0;
       }
       return { deltas, blitzCounts };
@@ -155,6 +183,13 @@ function ScoringSession({
       Object.fromEntries(players.map((player) => [player.id, player.name])),
     );
   }, [effectiveRounds, players]);
+
+  const changeMode = (mode: EntryMode) => {
+    session.setMode(mode);
+    setPreferredMode(mode);
+    // The preference is a convenience; the draft switches even if it fails.
+    saveScoreEntryMode(mode === "total" ? "TOTAL" : "CARDS").catch(() => {});
+  };
 
   const handleEdit = (index: number) => {
     if (!canEdit || isSaving || awaitingRefresh || !rounds[index]) return;
@@ -242,7 +277,9 @@ function ScoringSession({
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <caption className="text-left font-semibold">
-                    Round {draft.roundNumber}: cards played / blitz left
+                    {draft.mode === "total"
+                      ? `Round ${draft.roundNumber}: round totals`
+                      : `Round ${draft.roundNumber}: cards played / blitz left`}
                   </caption>
                   <thead>
                     <tr>
@@ -261,12 +298,22 @@ function ScoringSession({
                             {player.name}
                           </th>
                           <td className="p-2 text-center">
-                            {entry.cardsPlayed ?? "—"} /{" "}
-                            {entry.blitzRemaining ?? "—"}
+                            {describeEntry(
+                              draft.mode === "total"
+                                ? {
+                                    cards: null,
+                                    blitz: null,
+                                    typed: entry.total ?? null,
+                                  }
+                                : {
+                                    cards: entry.cardsPlayed,
+                                    blitz: entry.blitzRemaining,
+                                    typed: null,
+                                  },
+                            )}
                           </td>
                           <td className="p-2 text-center">
-                            {saved?.totalCardsPlayed ?? "—"} /{" "}
-                            {saved?.blitzPileRemaining ?? "—"}
+                            {describeEntry(savedEntry(saved))}
                           </td>
                         </tr>
                       );
@@ -300,6 +347,7 @@ function ScoringSession({
           isSaving={isSaving}
           blocked={hasConflict || !canEdit}
           onUpdate={session.update}
+          onModeChange={changeMode}
           onSave={session.submit}
           onCancel={session.cancel}
         />
@@ -311,6 +359,7 @@ function ScoringSession({
           isSaving={isSaving}
           blocked={hasConflict || !canEdit}
           onUpdate={session.update}
+          onModeChange={changeMode}
           onSubmit={session.submit}
           onCancel={rounds.length || isFinished ? session.cancel : undefined}
         />
@@ -350,7 +399,9 @@ function ScoringSession({
             disabled={isSaving || awaitingRefresh}
             onEnterScores={() => {
               if (!awaitingRefresh && !isSaving)
-                session.open(newRoundDraft(players, currentRoundNumber));
+                session.open(
+                  newRoundDraft(players, currentRoundNumber, preferredMode),
+                );
             }}
             predictionProfiles={predictionProfiles}
           />

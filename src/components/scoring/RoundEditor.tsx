@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { ScoreEntryCard } from "./ScoreEntryCard";
-import { getEntryStatus, type PlayerEntry } from "./types";
+import { EntryModeToggle } from "./EntryModeToggle";
+import { getEntryStatus, type EntryMode, type PlayerEntry } from "./types";
 import { type ScoringDraft } from "./useScoringDraft";
 
 interface RoundEditorProps {
@@ -14,6 +15,7 @@ interface RoundEditorProps {
     field: keyof PlayerEntry,
     value: number | null,
   ) => void;
+  onModeChange: (mode: EntryMode) => void;
   onSave: () => void;
   onCancel: () => void;
 }
@@ -23,6 +25,7 @@ export function RoundEditor({
   isSaving,
   blocked,
   onUpdate,
+  onModeChange,
   onSave,
   onCancel,
 }: RoundEditorProps) {
@@ -31,7 +34,7 @@ export function RoundEditor({
     form.current?.querySelector<HTMLInputElement>("input")?.focus();
   }, []);
   const complete = Object.values(draft.entries).every(
-    (entry) => getEntryStatus(entry) === "complete",
+    (entry) => getEntryStatus(entry, draft.mode) === "complete",
   );
   return (
     <form
@@ -45,6 +48,9 @@ export function RoundEditor({
       <h2 className="mb-3 font-bold text-[#290806]">
         Edit Round {draft.roundNumber}
       </h2>
+      <div className="mb-3">
+        <EntryModeToggle mode={draft.mode} onChange={onModeChange} />
+      </div>
       <fieldset disabled={isSaving} className="space-y-2">
         <legend className="sr-only">Round {draft.roundNumber} scores</legend>
         {draft.players.map((player) => (
@@ -54,7 +60,8 @@ export function RoundEditor({
             color={player.color}
             score={player.score}
             entry={draft.entries[player.id]}
-            status={getEntryStatus(draft.entries[player.id])}
+            status={getEntryStatus(draft.entries[player.id], draft.mode)}
+            mode={draft.mode}
             onUpdate={(field, value) => onUpdate(player.id, field, value)}
           />
         ))}

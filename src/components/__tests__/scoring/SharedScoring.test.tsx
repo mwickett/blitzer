@@ -20,6 +20,9 @@ jest.mock("@/server/mutations/rounds", () => ({
   createRoundForGame: (...args: unknown[]) => mockCreate(...args),
   updateRoundScores: (...args: unknown[]) => mockEdit(...args),
 }));
+jest.mock("@/server/mutations/preferences", () => ({
+  saveScoreEntryMode: jest.fn().mockResolvedValue({ ok: true }),
+}));
 jest.mock("@/server/mutations/games", () => ({ cloneGame: jest.fn() }));
 jest.mock("../../scoring/RaceTrack", () => ({ RaceTrack: () => null }));
 jest.mock("../../scoring/Standings", () => ({ Standings: () => null }));

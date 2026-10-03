@@ -33,6 +33,7 @@ jest.mock("../db/db", () => {
       create: jest.fn(),
       findFirst: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
     },
     score: {
       create: jest.fn(),
@@ -471,6 +472,97 @@ describe("Game Mutations", () => {
         ),
       ).toMatchObject({ ok: false, reason: "invalid_input" });
       expect(after).not.toHaveBeenCalled();
+    });
+
+    it("stores a typed round total with an empty breakdown", async () => {
+      const typed = [
+        { userId: "player1", typedScore: 30 },
+        { userId: "player2", typedScore: -6 },
+      ];
+      (prisma.round.create as jest.Mock).mockResolvedValue({
+        ...stored(),
+        scores: typed.map((score) => ({
+          ...score,
+          guestId: null,
+          totalCardsPlayed: null,
+          blitzPileRemaining: null,
+        })),
+      });
+      expect(await createRoundForGame(mockGameId, 1, typed)).toMatchObject({
+        ok: true,
+      });
+      const { data } = (prisma.round.create as jest.Mock).mock.calls[0][0];
+      expect(data.scores.create).toEqual([
+        expect.objectContaining({
+          userId: "player1",
+          typedScore: 30,
+          totalCardsPlayed: null,
+          blitzPileRemaining: null,
+        }),
+        expect.objectContaining({
+          userId: "player2",
+          typedScore: -6,
+          totalCardsPlayed: null,
+          blitzPileRemaining: null,
+        }),
+      ]);
+      // 30 reaches the 25-point threshold, so the typed total completes the game.
+      expect(prisma.game.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ winnerId: "player1" }),
+        }),
+      );
+    });
+
+    it("rejects typed totals mixed with breakdowns, out of range, or with both forms", async () => {
+      for (const invalid of [
+        [{ userId: "player1", typedScore: 30 }, scores[1]],
+        [
+          { userId: "player1", typedScore: 41 },
+          { userId: "player2", typedScore: 0 },
+        ],
+        [
+          { userId: "player1", typedScore: -21 },
+          { userId: "player2", typedScore: 0 },
+        ],
+        [
+          { ...scores[0], typedScore: 30 },
+          { userId: "player2", typedScore: 0 },
+        ],
+      ]) {
+        expect(await createRoundForGame(mockGameId, 1, invalid)).toMatchObject({
+          ok: false,
+          reason: "invalid_input",
+        });
+      }
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("clears the breakdown when an edit switches a round to typed totals", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        rounds: [stored()],
+      });
+      (prisma.round.update as jest.Mock).mockResolvedValue(stored(1));
+      await updateRoundScores(
+        mockGameId,
+        "round-1",
+        [
+          { userId: "player1", typedScore: 12 },
+          { userId: "player2", typedScore: 4 },
+        ],
+        0,
+      );
+      const { data } = (prisma.round.update as jest.Mock).mock.calls[0][0];
+      expect(data.scores.updateMany[0]).toEqual({
+        where: { userId: "player1" },
+        data: {
+          typedScore: 12,
+          totalCardsPlayed: null,
+          blitzPileRemaining: null,
+          updatedAt: expect.any(Date),
+        },
+      });
     });
 
     it("rejects unauthenticated and wrong-circle callers", async () => {

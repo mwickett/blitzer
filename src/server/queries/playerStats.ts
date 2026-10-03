@@ -21,6 +21,7 @@ export const EMPTY_GAME_STATS = {
 
 export const EMPTY_ROUND_STATS = {
   totalRounds: 0,
+  breakdownRounds: 0,
   totalBlitzes: 0,
   totalCardsPlayed: 0,
   avgCardsPlayed: 0,
@@ -66,11 +67,16 @@ export async function getGameStatsForUser(
   return { ...counts, decidedGames, winRate: decidedGames ? counts.winCount / decidedGames * 100 : 0 };
 }
 
-/** One aggregate row, independent of the length of a player's score history. */
+/**
+ * One aggregate row, independent of the length of a player's score history.
+ * Rounds typed as totals ("Do math" mode) count toward rounds and scores, but
+ * blitz and card stats cover only breakdownRounds: SQL aggregates skip nulls.
+ */
 export async function getRoundStatsForUser(userId: string, db: Db = prisma) {
   type Row = { [K in Exclude<keyof typeof EMPTY_ROUND_STATS, "blitzPercentage">]: number | bigint | null };
   const [row] = await db.$queryRaw<Row[]>(Prisma.sql`
     SELECT COUNT(*) AS "totalRounds",
+      COUNT("blitzPileRemaining") AS "breakdownRounds",
       COUNT(*) FILTER (WHERE "blitzPileRemaining" = 0) AS "totalBlitzes",
       SUM("totalCardsPlayed") AS "totalCardsPlayed",
       AVG("totalCardsPlayed")::float8 AS "avgCardsPlayed",
@@ -82,14 +88,16 @@ export async function getRoundStatsForUser(userId: string, db: Db = prisma) {
     WHERE "userId" = ${userId}
   `);
   const totalRounds = Number(row?.totalRounds ?? 0);
+  const breakdownRounds = Number(row?.breakdownRounds ?? 0);
   const totalBlitzes = Number(row?.totalBlitzes ?? 0);
   return {
     totalRounds,
+    breakdownRounds,
     totalBlitzes,
     totalCardsPlayed: Number(row?.totalCardsPlayed ?? 0),
     avgCardsPlayed: Number(row?.avgCardsPlayed ?? 0),
     avgBlitzRemaining: Number(row?.avgBlitzRemaining ?? 0),
-    blitzPercentage: totalRounds ? totalBlitzes / totalRounds * 100 : 0,
+    blitzPercentage: breakdownRounds ? totalBlitzes / breakdownRounds * 100 : 0,
     highestScore: Number(row?.highestScore ?? 0),
     lowestScore: Number(row?.lowestScore ?? 0),
     cumulativeScore: Number(row?.cumulativeScore ?? 0),

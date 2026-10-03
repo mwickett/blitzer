@@ -43,7 +43,7 @@ export function ScoreEntryPreview() {
               name={player.name}
               color={player.color}
               score={scoreBeforeRound}
-              entry={DEMO_LAST_ROUND_ENTRIES[player.id]}
+              entry={{ ...DEMO_LAST_ROUND_ENTRIES[player.id], total: null }}
               status="complete"
               onUpdate={noop}
             />

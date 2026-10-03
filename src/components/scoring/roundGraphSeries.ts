@@ -1,4 +1,4 @@
-import { calculateRoundScore } from "@/lib/validation/gameRules";
+import { calculateRoundScore, hasBreakdown } from "@/lib/validation/gameRules";
 import { type ForecastRoundSample } from "@/lib/scoring/probability";
 import { findPlayerScore } from "./utils";
 import { type PlayerWithScore, type RoundData } from "./types";
@@ -14,19 +14,26 @@ export function buildRoundGraphSeries(
   scoresByRound: Record<string, number[]>;
   deltasByRound: Record<string, number[]>;
   roundSamplesByPlayer: Record<string, ForecastRoundSample[]>;
-  /** Blitz pile left per round; null where the player has no saved score. */
+  /**
+   * Blitz pile left per round; null where the player has no saved score or
+   * the round total was typed, so breakdown-based graphs skip it.
+   */
   blitzByRound: Record<string, (number | null)[]>;
+  /** Whether the player has a saved score (breakdown or typed) per round. */
+  scoredByRound: Record<string, boolean[]>;
 } {
   const scoresByRound: Record<string, number[]> = {};
   const deltasByRound: Record<string, number[]> = {};
   const roundSamplesByPlayer: Record<string, ForecastRoundSample[]> = {};
   const blitzByRound: Record<string, (number | null)[]> = {};
+  const scoredByRound: Record<string, boolean[]> = {};
 
   for (const player of players) {
     scoresByRound[player.id] = [];
     deltasByRound[player.id] = [];
     roundSamplesByPlayer[player.id] = [];
     blitzByRound[player.id] = [];
+    scoredByRound[player.id] = [];
     let cumulative = 0;
 
     for (const round of rounds) {
@@ -36,7 +43,10 @@ export function buildRoundGraphSeries(
       scoresByRound[player.id].push(cumulative);
       deltasByRound[player.id].push(delta);
       blitzByRound[player.id].push(s ? s.blitzPileRemaining : null);
-      if (s) {
+      scoredByRound[player.id].push(Boolean(s));
+      // Forecast mechanics model cards and Blitz piles; typed totals still
+      // feed the forecast through deltasByRound.
+      if (s && hasBreakdown(s)) {
         roundSamplesByPlayer[player.id].push({
           totalCardsPlayed: s.totalCardsPlayed,
           blitzPileRemaining: s.blitzPileRemaining,
@@ -45,5 +55,11 @@ export function buildRoundGraphSeries(
     }
   }
 
-  return { scoresByRound, deltasByRound, roundSamplesByPlayer, blitzByRound };
+  return {
+    scoresByRound,
+    deltasByRound,
+    roundSamplesByPlayer,
+    blitzByRound,
+    scoredByRound,
+  };
 }

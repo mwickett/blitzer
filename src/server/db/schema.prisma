@@ -18,12 +18,18 @@ model User {
   accentColor            String?                  @map("accent_color")
   dashboardLayout        Json?                    @map("dashboard_layout")
   preferredDeck          String?                  @map("preferred_deck")
+  scoreEntryMode         ScoreEntryMode           @default(CARDS) @map("score_entry_mode")
   games                  GamePlayers[]
   scores                 Score[]
   createdGuests          GuestUser[]              @relation("CreatedGuests")
   OrganizationMembership OrganizationMembership[]
   hostedGames            Game[]                   @relation("GameHost")
   keyMoments             KeyMoment[]
+}
+
+enum ScoreEntryMode {
+  CARDS
+  TOTAL
 }
 
 enum GameKind {
@@ -123,8 +129,11 @@ model Score {
   id                 String     @id @default(uuid())
   userId             String?
   guestId            String?
-  totalCardsPlayed   Int
-  blitzPileRemaining Int
+  // Cards played and Blitz pile left are null when the round's total was
+  // typed directly ("Do math" entry); typedScore is set only in that case.
+  totalCardsPlayed   Int?
+  blitzPileRemaining Int?
+  typedScore         Int?       @map("typed_score")
   createdAt          DateTime   @default(now()) @map("created_at")
   roundId            String
   updatedAt          DateTime   @default(now()) @map("updated_at")

@@ -40,8 +40,9 @@ export type BattingAverageStats = {
 
 export type ScoreExtreme = {
   score: number;
-  totalCardsPlayed: number;
-  blitzPileRemaining: number;
+  /** Null, like blitzPileRemaining, when the round total was typed. */
+  totalCardsPlayed: number | null;
+  blitzPileRemaining: number | null;
 };
 
 export type ScoreExtremes = {
@@ -180,7 +181,8 @@ export async function getDashboardStatsForUser(
 
   return {
     battingAverage: {
-      totalHandsPlayed: roundStats.totalRounds,
+      // Typed round totals cannot say who blitzed, so they are left out.
+      totalHandsPlayed: roundStats.breakdownRounds,
       totalHandsWon: roundStats.totalBlitzes,
       battingAverage: (roundStats.blitzPercentage / 100).toFixed(3),
     },

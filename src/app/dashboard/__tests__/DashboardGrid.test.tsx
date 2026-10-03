@@ -26,7 +26,7 @@ const stats: DashboardStats = {
     shortest: { id: "short", roundCount: 3 },
   },
   games: { ...EMPTY_GAME_STATS, gamesCount: 4, completedGames: 4, winCount: 3, lossCount: 1, decidedGames: 4, winRate: 75 },
-  rounds: { ...EMPTY_ROUND_STATS, totalRounds: 20, totalBlitzes: 5, totalCardsPlayed: 300, avgCardsPlayed: 15, avgBlitzRemaining: 2.5 },
+  rounds: { ...EMPTY_ROUND_STATS, totalRounds: 20, breakdownRounds: 20, totalBlitzes: 5, totalCardsPlayed: 300, avgCardsPlayed: 15, avgBlitzRemaining: 2.5 },
   recentGames: [
     { id: "g4", finishedAt: "2026-10-03T00:00:00.000Z", won: true, score: 80, place: 1, playerCount: 3, roundCount: 5 },
     { id: "g3", finishedAt: "2026-10-02T00:00:00.000Z", won: true, score: 77, place: 1, playerCount: 3, roundCount: 6 },

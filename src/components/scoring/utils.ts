@@ -3,14 +3,12 @@ import { type PlayerWithScore } from "./types";
 type RoundScore = {
   userId?: string | null;
   guestId?: string | null;
-  blitzPileRemaining: number;
-  totalCardsPlayed: number;
 };
 
-export function findPlayerScore(
+export function findPlayerScore<T extends RoundScore>(
   player: Pick<PlayerWithScore, "userId" | "guestId">,
-  roundScores: RoundScore[]
-) {
+  roundScores: T[]
+): T | undefined {
   return roundScores.find(
     (s) =>
       (player.userId && s.userId === player.userId) ||
