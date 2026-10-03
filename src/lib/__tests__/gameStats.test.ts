@@ -23,6 +23,27 @@ const playerNames: Record<string, string> = {
 };
 
 describe("calcGameStats", () => {
+  it("finds the widest round and the final spread against the field", () => {
+    const stats = calcGameStats(sampleRounds, playerNames);
+    // Round 2: Sarah's 14 against the others' average of 0.67.
+    expect(stats.widestRound).toEqual({
+      range: 13.3,
+      playerName: "Sarah",
+      roundNumber: 2,
+    });
+    // Final totals 38, 34, 20 and -4: 38 against an average of 16.67.
+    expect(stats.finalSpread).toBe(21.3);
+  });
+
+  it("has no spread without at least two players", () => {
+    const stats = calcGameStats(
+      [{ deltas: { p1: 10 }, blitzCounts: { p1: 1 } }],
+      { p1: "Mike" },
+    );
+    expect(stats.widestRound).toBeNull();
+    expect(stats.finalSpread).toBeNull();
+  });
+
   it("finds the biggest single round", () => {
     const stats = calcGameStats(sampleRounds, playerNames);
     expect(stats.biggestRound.delta).toBe(18);
