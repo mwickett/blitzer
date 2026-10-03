@@ -33,6 +33,13 @@ it("turns highlights into linked moment cards", () => {
   expect(screen.getByLabelText("Recent results, newest first")).toHaveTextContent("WWL");
 });
 
+it("names tiebreak finishes instead of a zero-point margin", () => {
+  const tied = { ...highlights, closestWin: game("tie-win", 0), heartbreaker: game("tie-loss", 0) };
+  render(<PlayerHighlights highlights={tied} />);
+  expect(screen.getByText("Won on a tiebreak")).toBeInTheDocument();
+  expect(screen.getByText("Lost on a tiebreak")).toBeInTheDocument();
+});
+
 it("only falls back to the usual opponent without a nemesis or favorite", () => {
   expect(highlightMoments(highlights).map((moment) => moment.key)).not.toContain("rival");
   const friendly = { ...highlights, rivals: { ...highlights.rivals, nemesis: null } };

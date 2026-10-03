@@ -34,10 +34,10 @@ export function highlightMoments(highlights: Highlights): Moment[] {
       ? { key: "favorite", emoji: "😇", title: "Favorite opponent", headline: rivals.favoriteOpponent.name, detail: record(rivals.favoriteOpponent) }
       : null,
     closestWin
-      ? { key: "closest", emoji: "😅", title: "Photo finish", headline: `Won by ${plural(closestWin.finalMargin, "point")}`, detail: when(closestWin), gameId: closestWin.gameId }
+      ? { key: "closest", emoji: "😅", title: "Photo finish", headline: closestWin.finalMargin ? `Won by ${plural(closestWin.finalMargin, "point")}` : "Won on a tiebreak", detail: when(closestWin), gameId: closestWin.gameId }
       : null,
     heartbreaker
-      ? { key: "heartbreaker", emoji: "💔", title: "So close", headline: `Lost by ${plural(-heartbreaker.finalMargin, "point")}`, detail: when(heartbreaker), gameId: heartbreaker.gameId }
+      ? { key: "heartbreaker", emoji: "💔", title: "So close", headline: heartbreaker.finalMargin ? `Lost by ${plural(-heartbreaker.finalMargin, "point")}` : "Lost on a tiebreak", detail: when(heartbreaker), gameId: heartbreaker.gameId }
       : null,
     biggestWin
       ? { key: "blowout", emoji: "🚀", title: "Biggest blowout", headline: `Won by ${plural(biggestWin.finalMargin, "point")}`, detail: when(biggestWin), gameId: biggestWin.gameId }

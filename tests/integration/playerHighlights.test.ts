@@ -69,3 +69,27 @@ test("highlights find rivals, comebacks, close finishes and blitz streaks", asyn
 
   assert.deepEqual(await getPlayerHighlightsForUser("missing-player", prisma), EMPTY_HIGHLIGHTS);
 });
+
+test("tiebreak finishes count as close games and every opponent can be a nemesis", async () => {
+  const player = await prisma.user.create({ data: {
+    clerk_user_id: "highlights-tiebreak", email: "highlights-tiebreak@example.invalid", username: "highlights-tiebreak",
+  } });
+  const me = { userId: player.id };
+  // Thirty opponents the player always beats, played more often than the one who beats them.
+  for (let index = 0; index < 30; index++) {
+    const guest = await prisma.guestUser.create({ data: { name: `Guest ${String(index).padStart(2, "0")}`, createdById: player.id } });
+    const seat = { guestId: guest.id };
+    await playGame([me, seat], [[[30, 0], [5, 6]]], me, "2026-08-01T12:00:00Z");
+    await playGame([me, seat], [[[30, 0], [5, 6]]], me, "2026-08-02T12:00:00Z");
+  }
+  const rare = await prisma.guestUser.create({ data: { name: "Rare Rival", createdById: player.id } });
+  const tieWin = await playGame([me, { guestId: rare.id }], [[[20, 0], [20, 0]]], me, "2026-08-03T12:00:00Z");
+  const tieLoss = await playGame([me, { guestId: rare.id }], [[[20, 0], [20, 0]]], { guestId: rare.id }, "2026-08-04T12:00:00Z");
+
+  const highlights = await getPlayerHighlightsForUser(player.id, prisma);
+  assert.equal(highlights.rivals.nemesis?.name, "Rare Rival");
+  assert.equal(highlights.closestWin?.gameId, tieWin);
+  assert.equal(highlights.closestWin?.finalMargin, 0);
+  assert.equal(highlights.heartbreaker?.gameId, tieLoss);
+  assert.equal(highlights.heartbreaker?.finalMargin, 0);
+});

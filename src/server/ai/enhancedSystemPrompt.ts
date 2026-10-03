@@ -8,6 +8,7 @@ import { HIGHLIGHT_GAME_LIMIT, type HighlightRival, type PlayerHighlights } from
 
 const date = (value: Date) => value.toISOString().slice(0, 10);
 const points = (count: number) => `${count} point${count === 1 ? "" : "s"}`;
+const margin = (count: number) => count ? `by ${points(count)}` : "on a tiebreak (tied totals)";
 // Player names are user-entered text; quote them so the model reads them as data.
 const rival = (label: string, value: HighlightRival | null) => value
   ? `- ${label}: ${JSON.stringify(value.name)} (${value.gamesPlayed} games together, user won ${value.wins}, they won ${value.losses})`
@@ -31,9 +32,9 @@ export function describeHighlights(highlights: PlayerHighlights): string {
     biggestComeback
       ? `- Biggest comeback: won on ${date(biggestComeback.finishedAt)} after trailing by ${points(biggestComeback.maxDeficit)}`
       : null,
-    closestWin ? `- Closest win: by ${points(closestWin.finalMargin)} on ${date(closestWin.finishedAt)}` : null,
+    closestWin ? `- Closest win: ${margin(closestWin.finalMargin)} on ${date(closestWin.finishedAt)}` : null,
     biggestWin ? `- Biggest win: by ${points(biggestWin.finalMargin)} on ${date(biggestWin.finishedAt)}` : null,
-    heartbreaker ? `- Most heartbreaking loss: by ${points(-heartbreaker.finalMargin)} on ${date(heartbreaker.finishedAt)}` : null,
+    heartbreaker ? `- Most heartbreaking loss: ${margin(-heartbreaker.finalMargin)} on ${date(heartbreaker.finishedAt)}` : null,
     blitzStreak ? `- Hottest hand: blitzed ${blitzStreak.rounds} rounds in a row in one game` : null,
   ].filter(Boolean).join("\n");
 }

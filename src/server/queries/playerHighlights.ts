@@ -137,7 +137,6 @@ export async function getPlayerHighlightsForUser(
         AND p."userId" IS DISTINCT FROM ${userId}
       GROUP BY COALESCE(p."userId", p."guestId"), COALESCE(u.username, gu.name)
       ORDER BY "gamesPlayed" DESC, name
-      LIMIT 25
     `),
     db.$queryRaw<MarginRow[]>(Prisma.sql`
       WITH recent AS (${recentGames(userId)}),
@@ -230,9 +229,10 @@ export async function getPlayerHighlightsForUser(
     ...streaks(recentResults),
     rivals: { mostPlayed: rivals[0] ?? null, nemesis, favoriteOpponent },
     biggestComeback: comeback,
-    closestWin: pickBy(wins.filter((game) => game.finalMargin > 0), (game) => -game.finalMargin + newest(game)),
+    // Tied totals still have a winner via the blitz-pile tiebreak: margin 0.
+    closestWin: pickBy(wins.filter((game) => game.finalMargin >= 0), (game) => -game.finalMargin + newest(game)),
     biggestWin: pickBy(wins.filter((game) => game.finalMargin > 0), (game) => game.finalMargin + newest(game)),
-    heartbreaker: pickBy(losses.filter((game) => game.finalMargin < 0), (game) => game.finalMargin + newest(game)),
+    heartbreaker: pickBy(losses.filter((game) => game.finalMargin <= 0), (game) => game.finalMargin + newest(game)),
     blitzStreak: streak && Number(streak.rounds) >= 2
       ? { gameId: streak.gameId, rounds: Number(streak.rounds) }
       : null,
