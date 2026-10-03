@@ -11,6 +11,7 @@ import {
   createGame,
   cloneGame,
   saveUserAccentColor,
+  saveUserPreferredDeck,
 } from "../mutations/games";
 import { createRoundForGame, updateRoundScores } from "../mutations/rounds";
 import { requireAuthContext } from "../mutations/common";
@@ -664,6 +665,41 @@ describe("Game Mutations", () => {
       ]);
     });
 
+    it("seats explicit decks, falls back to saved decks, and keeps 'no deck' explicit", async () => {
+      mockGetOrganizationMembershipList.mockResolvedValue({
+        data: [
+          { publicUserData: { userId: mockUserId } },
+          { publicUserData: { userId: "clerk-player-2" } },
+          { publicUserData: { userId: "clerk-player-3" } },
+        ],
+      });
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([
+        { id: "prisma-user-id", clerk_user_id: mockUserId, accentColor: null, preferredDeck: "pump" },
+        { id: "player-2", clerk_user_id: "clerk-player-2", accentColor: null, preferredDeck: "plow" },
+        { id: "player-3", clerk_user_id: "clerk-player-3", accentColor: null, preferredDeck: "not-a-deck" },
+      ]);
+      (prisma.guestUser.create as jest.Mock).mockResolvedValueOnce({ id: "guest-db-1" });
+
+      await createGame([
+        { id: "prisma-user-id", username: "TestUser" },
+        { id: "player-2", username: "Player2", deck: null },
+        { id: "player-3", username: "Player3" },
+        { id: "temp-guest", username: "Guest Bob", isGuest: true, deck: "bucket" },
+      ]);
+
+      const { data: rows } = (prisma.gamePlayers.createMany as jest.Mock).mock.calls[0][0];
+      expect(rows.map((row: { deck: string | null }) => row.deck)).toEqual(["pump", null, null, "bucket"]);
+    });
+
+    it("rejects an unknown deck", async () => {
+      const result = await createGame([
+        { id: "a", username: "A", isGuest: true, deck: "spoon" as never },
+        { id: "b", username: "B", isGuest: true },
+      ]);
+      expect(result).toMatchObject({ ok: false, reason: "invalid_input" });
+      expect(prisma.game.create).not.toHaveBeenCalled();
+    });
+
     it("should accept members beyond Clerk's default membership page size (#246)", async () => {
       // 12-member circle; the selected player is the 12th member. Clerk's
       // API returns only 10 memberships when no limit is passed.
@@ -713,8 +749,8 @@ describe("Game Mutations", () => {
       organizationId: mockOrgId,
       winThreshold: 75,
       players: [
-        { userId: "player1", guestId: null, accentColor: "#356f9f" },
-        { userId: null, guestId: "guest-1", accentColor: null },
+        { userId: "player1", guestId: null, accentColor: "#356f9f", deck: "pump" },
+        { userId: null, guestId: "guest-1", accentColor: null, deck: null },
       ],
       ...overrides,
     });
@@ -734,7 +770,7 @@ describe("Game Mutations", () => {
           organizationId: mockOrgId,
           players: {
             create: [
-              { userId: "player1", accentColor: "#356f9f" },
+              { userId: "player1", accentColor: "#356f9f", deck: "pump" },
               { guestId: "guest-1" },
             ],
           },
@@ -805,6 +841,25 @@ describe("Game Mutations", () => {
       await expect(saveUserAccentColor("#c44536")).rejects.toThrow(
         "Unauthorized",
       );
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("saveUserPreferredDeck", () => {
+    beforeEach(() => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: "prisma-user-id" });
+    });
+
+    it.each([["bucket"], [null]])("stores %p on the caller's own user row", async (deck) => {
+      await saveUserPreferredDeck(deck);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: "prisma-user-id" },
+        data: { preferredDeck: deck },
+      });
+    });
+
+    it("rejects an unknown deck without writing", async () => {
+      await expect(saveUserPreferredDeck("spoon")).rejects.toThrow("Unknown deck.");
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });

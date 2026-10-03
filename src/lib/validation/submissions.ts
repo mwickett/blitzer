@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { validateGameRules, ValidationError, GAME_RULES } from "./gameRules";
 import { scoreValidationSchema } from "./schema";
+import { DECK_IDS } from "@/lib/scoring/decks";
 
 export const winThresholdSchema = z.number().int().min(25).max(200).default(75);
+export const deckSchema = z.enum(DECK_IDS);
 export const guestNameSchema = z.string().trim().min(1).max(50);
 export const pickupGameSchema = z.object({
   winThreshold: winThresholdSchema,
@@ -53,6 +55,8 @@ const playerSchema = z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/)
       .optional(),
+    // undefined falls back to the player's saved deck; null means no deck.
+    deck: deckSchema.nullable().optional(),
   })
   .superRefine((player, ctx) => {
     if (player.isGuest && !guestNameSchema.safeParse(player.username).success) {

@@ -11,7 +11,8 @@ import {
   resolvePlayerColor,
   assignColorsToPlayers,
 } from "@/lib/scoring/colors";
-import { circleGameSchema } from "@/lib/validation/submissions";
+import { circleGameSchema, deckSchema } from "@/lib/validation/submissions";
+import type { DeckId } from "@/lib/scoring/decks";
 
 // Create a new game with support for guest players
 export async function createGame(
@@ -20,6 +21,7 @@ export async function createGame(
     username?: string;
     isGuest?: boolean;
     accentColor?: string;
+    deck?: DeckId | null;
   }[],
   winThreshold?: number,
 ) {
@@ -44,7 +46,7 @@ export async function createGame(
     regularPlayerIds.length > 0
       ? await prisma.user.findMany({
           where: { id: { in: regularPlayerIds } },
-          select: { id: true, clerk_user_id: true, accentColor: true },
+          select: { id: true, clerk_user_id: true, accentColor: true, preferredDeck: true },
         })
       : [];
 
@@ -85,6 +87,14 @@ export async function createGame(
     };
   });
   const playerColors = assignColorsToPlayers(colorInputs);
+  // An explicit pick (including "no deck") wins over the saved preference.
+  const playerDecks = new Map(
+    users.map((u) => {
+      const saved = regularPlayers.find((p) => p.id === u.id)?.preferredDeck;
+      const fallback = deckSchema.safeParse(saved).success ? saved! : null;
+      return [u.id, u.deck !== undefined ? u.deck : fallback];
+    }),
+  );
 
   try {
     // Game, guests, and players are created atomically so a failure part-way
@@ -116,11 +126,12 @@ export async function createGame(
       const playerRows = users.flatMap(
         (player): Prisma.GamePlayersCreateManyInput[] => {
           const accentColor = playerColors[player.id] ?? null;
+          const deck = playerDecks.get(player.id) ?? null;
           if (player.isGuest) {
             const guestId = guestDbIds.get(player.id);
-            return guestId ? [{ gameId: game.id, guestId, accentColor }] : [];
+            return guestId ? [{ gameId: game.id, guestId, accentColor, deck }] : [];
           }
-          return [{ gameId: game.id, userId: player.id, accentColor }];
+          return [{ gameId: game.id, userId: player.id, accentColor, deck }];
         },
       );
 
@@ -137,6 +148,7 @@ export async function createGame(
         gameId: newGame.id,
         playerCount: users.length,
         guestPlayerCount: users.filter((u) => u.isGuest).length,
+        deck_count: [...playerDecks.values()].filter(Boolean).length,
         win_threshold: winThreshold ?? 75,
       },
     });
@@ -164,6 +176,25 @@ export async function saveUserAccentColor(color: string) {
     distinctId: user.userId,
     event: "set_accent_color",
     properties: { color },
+  });
+}
+
+// Save the user's default deck; null clears it
+export async function saveUserPreferredDeck(deck: unknown) {
+  const { user, posthog, prismaUserId } = await requireAuthContext("prismaId");
+
+  const parsed = deckSchema.nullable().safeParse(deck);
+  if (!parsed.success) throw new Error("Unknown deck.");
+
+  await prisma.user.update({
+    where: { id: prismaUserId },
+    data: { preferredDeck: parsed.data },
+  });
+
+  captureServerEvent(posthog, {
+    distinctId: user.userId,
+    event: "set_preferred_deck",
+    properties: { deck: parsed.data },
   });
 }
 
@@ -195,11 +226,13 @@ export async function cloneGame(originalGameId: string) {
         return {
           userId: player.userId,
           ...(player.accentColor ? { accentColor: player.accentColor } : {}),
+          ...(player.deck ? { deck: player.deck } : {}),
         };
       } else if (player.guestId) {
         return {
           guestId: player.guestId,
           ...(player.accentColor ? { accentColor: player.accentColor } : {}),
+          ...(player.deck ? { deck: player.deck } : {}),
         };
       }
       throw new Error("Player has neither userId nor guestId");

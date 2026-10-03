@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../src/generated/prisma/client";
-import { EMPTY_GAME_STATS, EMPTY_ROUND_STATS, getGameStatsForUser, getRoundStatsForUser } from "../../src/server/queries/playerStats";
+import { EMPTY_GAME_STATS, EMPTY_ROUND_STATS, getDeckStatsForUser, getGameStatsForUser, getRoundStatsForUser } from "../../src/server/queries/playerStats";
 
 assert.equal(process.env.BLITZER_INTEGRATION_TEST, "1", "Use npm run test:integration");
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
@@ -63,4 +63,31 @@ test("one completed win plus a waiting lobby is a 100 percent win rate", async (
   assert.equal(stats.gamesCount, 1);
   assert.equal(stats.waitingLobbies, 1);
   assert.equal(stats.winRate, 100);
+});
+
+test("deck win rates count only completed games with a winner", async () => {
+  const player = await prisma.user.create({ data: {
+    clerk_user_id: "stats-decks", email: "stats-decks@example.invalid", username: "stats-decks",
+    preferredDeck: "pump",
+  } });
+  const guest = await prisma.guestUser.create({ data: { name: "Deck Guest", createdById: player.id } });
+  const createGame = (deck: string | null, data: Record<string, unknown>) => prisma.game.create({ data: {
+    kind: "PICKUP", startedAt: new Date("2026-09-05T11:00:00Z"),
+    players: { create: [{ userId: player.id, deck }, { guestId: guest.id, deck: "pump" }] },
+    ...data,
+  } });
+  await createGame("pump", { isFinished: true, winnerId: player.id });
+  await createGame("pump", { isFinished: true, winnerId: guest.id });
+  await createGame("carriage", { isFinished: true, winnerId: player.id });
+  await createGame("carriage", {}); // In progress.
+  await createGame("carriage", { isFinished: true }); // No recorded winner.
+  await createGame("bucket", { isFinished: true, winnerId: player.id, startedAt: null });
+  await createGame(null, { isFinished: true, winnerId: player.id });
+  await createGame("anchor", { isFinished: true, winnerId: player.id }); // Not a known deck.
+
+  assert.deepEqual(await getDeckStatsForUser(player.id, prisma), [
+    { deck: "pump", games: 2, wins: 1, winRate: 50 },
+    { deck: "carriage", games: 1, wins: 1, winRate: 100 },
+  ]);
+  assert.deepEqual(await getDeckStatsForUser("missing-player", prisma), []);
 });

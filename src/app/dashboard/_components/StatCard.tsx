@@ -54,7 +54,7 @@ export function BigNumber({
   );
 }
 
-export function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
+export function StatRow({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between border-t border-borderWarm/60 py-1.5 text-sm first:border-t-0">
       <span className="text-textMuted">{label}</span>

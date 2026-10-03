@@ -54,6 +54,7 @@ export default async function NewGamePage({
       clerk_user_id: true,
       avatarUrl: true,
       accentColor: true,
+      preferredDeck: true,
     },
   });
 
