@@ -178,12 +178,15 @@ export async function sendGameCompleteEmail(params: {
   isWinner: boolean;
   gameId: string;
   userId?: string;
+  /** AI recap, included only for recipients with llm-features enabled. */
+  story?: string;
 }): Promise<EmailResult> {
   const emailTemplate = GameCompleteEmail({
     username: params.username,
     winnerUsername: params.winnerUsername,
     isWinner: params.isWinner,
     gameId: params.gameId,
+    story: params.story,
   });
   const subject = params.isWinner
     ? "Congratulations on your win! 🎉"

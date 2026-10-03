@@ -18,6 +18,7 @@ interface GameCompleteEmailProps {
   winnerUsername: string;
   isWinner: boolean;
   gameId: string;
+  story?: string;
 }
 
 const GameCompleteEmailTemplate = ({
@@ -25,6 +26,7 @@ const GameCompleteEmailTemplate = ({
   winnerUsername,
   isWinner,
   gameId,
+  story,
 }: GameCompleteEmailProps) => {
   const previewText = isWinner
     ? "Congratulations on your win!"
@@ -59,6 +61,12 @@ const GameCompleteEmailTemplate = ({
                 time! 🎮
               </Text>
             )}
+            {story ? (
+              <Section style={storySection}>
+                <Text style={storyTitle}>The story of this game</Text>
+                <Text style={storyText}>{story}</Text>
+              </Section>
+            ) : null}
             <Text style={paragraph}>
               Want to see the final scores? Check out the game details:
             </Text>
@@ -119,6 +127,27 @@ const paragraph = {
   lineHeight: "26px",
   color: "#290806",
   margin: "0 0 12px 0",
+};
+
+const storySection = {
+  backgroundColor: "#fff7ea",
+  borderRadius: "12px",
+  padding: "16px 20px",
+  margin: "20px 0",
+};
+
+const storyTitle = {
+  fontSize: "14px",
+  fontWeight: "700",
+  color: "#290806",
+  margin: "0 0 8px 0",
+};
+
+const storyText = {
+  fontSize: "16px",
+  lineHeight: "26px",
+  color: "#290806",
+  margin: "0",
 };
 
 const buttonContainer = {
