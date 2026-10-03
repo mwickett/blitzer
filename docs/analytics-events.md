@@ -19,6 +19,7 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | `scoring_round_conflict` | The server rejects a save as stale or conflicting | `game_id`, `round_number`, `is_edit`, `reason` (`round_conflict`, `stale_round`, `game_finished`) |
 | `scoring_enter_next_round` | "Enter Round N Scores" is tapped | `round_number` |
 | `scoring_graph_viewed` | A graph card is swiped into view, once per card per screen visit (the first card is visible by default and not counted) | `graph` (`score_progression`, `hot_cold`, `round_mvps`, `blitz_pile`, `win_probability`), `position`, `context` (`between_rounds`, `game_over`) |
+| `scoring_show_math_toggled` | "Show the math" / "Hide the math" is tapped under the round table | `enabled` |
 | `game_over_rematch` | "New Game with Same Players" is tapped | `player_count` |
 | `game_over_back_to_games` | "Back to Games" is tapped on the finished screen | none |
 
@@ -58,6 +59,7 @@ LLM generations are traced separately by `@posthog/ai` in privacy mode.
 - **How often are rounds corrected?** `scoring_round_edited` against `scoring_round_submitted`; `scoring_round_edit_cancelled` shows edits opened and abandoned.
 - **Which graphs do people look at?** `scoring_graph_viewed` by `graph` and `context`.
 - **Is score entry smooth?** Median `entry_duration_ms` on `scoring_round_submitted`, broken down by `player_count`.
+- **Does anyone want the score breakdown?** `scoring_show_math_toggled` with `enabled: true`.
 - **Do people use "save as my default colour"?** `set_accent_color` against `create_game`.
 - **Do games get abandoned?** `create_game` and `start_pickup_game` that never reach `update_game_as_finished` for the same game.
 - **How often do two devices collide?** `scoring_round_conflict` by `reason`.

@@ -2,6 +2,11 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { RoundHistoryTable } from "../../scoring/RoundHistoryTable";
 import { type PlayerWithScore } from "../../scoring/types";
 
+const mockCapture = jest.fn();
+jest.mock("posthog-js/react", () => ({
+  usePostHog: () => ({ capture: mockCapture }),
+}));
+
 const players: PlayerWithScore[] = [
   {
     id: "p1",
@@ -47,6 +52,9 @@ describe("RoundHistoryTable show the math", () => {
     fireEvent.click(toggle);
 
     expect(within(table).getByText("30 played")).toBeInTheDocument();
+    expect(mockCapture).toHaveBeenCalledWith("scoring_show_math_toggled", {
+      enabled: true,
+    });
     expect(within(table).getByText("20 played − 5×2")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Hide the math" }),

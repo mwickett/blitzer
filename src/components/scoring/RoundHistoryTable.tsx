@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { Calculator, Pencil } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
 import { type PlayerWithScore, type RoundData } from "./types";
 import { calculateRoundScore, GAME_RULES } from "@/lib/validation/gameRules";
 import { findPlayerScore } from "./utils";
@@ -57,6 +58,7 @@ export function RoundHistoryTable({
   onEditRound,
   disabled = false,
 }: RoundHistoryTableProps) {
+  const posthog = usePostHog();
   const showMath = useSyncExternalStore(
     subscribeShowMath,
     readShowMath,
@@ -65,7 +67,14 @@ export function RoundHistoryTable({
 
   if (rounds.length === 0) return null;
 
-  const toggleShowMath = () => writeShowMath(!showMath);
+  const toggleShowMath = () => {
+    writeShowMath(!showMath);
+    try {
+      posthog?.capture("scoring_show_math_toggled", { enabled: !showMath });
+    } catch {
+      // Optional analytics must not affect the toggle.
+    }
+  };
 
   return (
     <div className="mx-4 space-y-2">
