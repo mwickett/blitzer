@@ -86,6 +86,20 @@ export async function requireAuthContext(
 }
 
 /**
+ * For write actions that only need the Clerk session: refuse an account that
+ * was deactivated but whose Clerk login has not been removed yet (deletion
+ * deactivates first, and a failed Clerk call leaves the login until retried).
+ * @throws {AccountDeactivatedError}
+ */
+export async function assertAccountActive(clerkUserId: string) {
+  const account = await prisma.user.findUnique({
+    where: { clerk_user_id: clerkUserId },
+    select: { deactivatedAt: true },
+  });
+  if (account?.deactivatedAt) throw new AccountDeactivatedError();
+}
+
+/**
  * Resolve (or provision) the local user for authenticated pickup-game flows.
  * Clerk webhooks normally create this row; doing it here as well removes the
  * race for somebody who signs up from a QR code and immediately taps Join.

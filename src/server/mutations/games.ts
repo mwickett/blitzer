@@ -4,7 +4,7 @@ import { captureServerEvent } from "@/server/telemetry";
 
 import prisma from "@/server/db/db";
 import { Prisma } from "@/generated/prisma/client";
-import { requireAuthContext } from "./common";
+import { assertAccountActive, requireAuthContext } from "./common";
 import { assertGameInCircle } from "../scoring/access";
 import { getOrgMemberClerkIds } from "../clerkOrgs";
 import {
@@ -170,6 +170,7 @@ export async function saveUserAccentColor(color: string) {
 // Clone an existing game
 export async function cloneGame(originalGameId: string) {
   const { user, posthog, orgId } = await requireAuthContext("org");
+  await assertAccountActive(user.userId);
 
   // Fetch the original game with its players
   const originalGame = await prisma.game.findUnique({

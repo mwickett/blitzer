@@ -4,7 +4,7 @@ import { captureServerEvent } from "@/server/telemetry";
 
 import { after } from "next/server";
 import prisma from "@/server/db/db";
-import { requireAuthContext } from "./common";
+import { assertAccountActive, requireAuthContext } from "./common";
 import { writeRound } from "../scoring/writeRound";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 import { isFeatureEnabledForUser } from "@/featureFlags";
@@ -14,6 +14,7 @@ import type { SubmittedScore } from "@/lib/validation/submissions";
 
 async function submit(input: unknown) {
   const { userId, user, posthog } = await requireAuthContext("user");
+  await assertAccountActive(userId);
   const result = await writeRound(
     prisma,
     { userId, orgId: user.orgId ?? undefined },
@@ -42,7 +43,6 @@ async function submit(input: unknown) {
     // delivery; the provider's game+recipient key deduplicates within its
     // retention window. This does not promise permanent once-only delivery.
     after(async () => {
-      // Players who deleted their account no longer get mail.
       const recipients = transition.players.flatMap((player) =>
         player.user && !player.user.deactivatedAt ? [player.user] : [],
       );
@@ -67,8 +67,22 @@ async function submit(input: unknown) {
             ? (await tellGameStory(game, userId, "game_email"))?.story
             : undefined;
       }
+      // Re-read just before sending: a player who deleted their account since
+      // the score was saved (flag checks and the story take a while) gets no mail.
+      const stillActive = new Set(
+        (
+          await prisma.user.findMany({
+            where: {
+              id: { in: recipients.map((recipient) => recipient.id) },
+              deactivatedAt: null,
+            },
+            select: { id: true },
+          })
+        ).map((recipient) => recipient.id),
+      );
       let failed = 0;
       for (const [index, recipient] of recipients.entries()) {
+        if (!stillActive.has(recipient.id)) continue;
         try {
           const sent = await sendGameCompleteEmail({
             email: recipient.email,
@@ -93,7 +107,7 @@ async function submit(input: unknown) {
         event: "email_batch_completed",
         properties: {
           game_id: transition.gameId,
-          recipient_count: recipients.length,
+          recipient_count: stillActive.size,
           failed_count: failed,
         },
       });

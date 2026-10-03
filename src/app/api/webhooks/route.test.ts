@@ -164,6 +164,29 @@ it("does not let a late user.updated rewrite a deactivated profile", async () =>
   expect(rows[0].username).toBe("Former player 1");
 });
 
+it("does not restore a profile when deletion wins the race with user.updated", async () => {
+  const stale = user();
+  rows.push(
+    user({
+      username: "Former player 1",
+      email: "former-player-local-current@deactivated.invalid",
+      avatarUrl: null,
+      deactivatedAt: new Date("2026-10-01"),
+      anonymizedAt: new Date("2026-10-01"),
+    }),
+  );
+  // The sync read the row just before deletion deactivated it.
+  (prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(stale);
+  (verifyWebhook as jest.Mock).mockResolvedValue(event("user.updated", { username: "carol" }));
+
+  expect((await POST(request)).status).toBe(200);
+  expect(rows[0]).toMatchObject({
+    username: "Former player 1",
+    email: "former-player-local-current@deactivated.invalid",
+    avatarUrl: null,
+  });
+});
+
 it("asks Clerk to retry when deactivation fails", async () => {
   rows.push(user());
   (verifyWebhook as jest.Mock).mockResolvedValue(event("user.deleted"));
@@ -206,7 +229,7 @@ it("syncs a real username change while retaining the immutable account identity"
   expect((await POST(request)).status).toBe(200);
   expect(rows[0]).toMatchObject({ id: "local-current", clerk_user_id: "clerk-current", username: "chosen-name" });
   expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
-    where: { clerk_user_id: "clerk-current" },
+    where: { clerk_user_id: "clerk-current", deactivatedAt: null },
     data: expect.not.objectContaining({ clerk_user_id: expect.anything() }),
   }));
 });

@@ -17,13 +17,28 @@ type StoryGame = Pick<GameDetail, "id" | "isFinished" | "winThreshold" | "player
 
 const STORY_MAX_OUTPUT_TOKENS = 400;
 
-/** Fingerprint of the scores a story was written from; edits produce a new key. */
-export function storySourceKey(game: Pick<GameDetail, "rounds">): string {
+/**
+ * Fingerprint of the scores a story was written from; edits produce a new key.
+ * Anonymized players are part of it too, so a story written from a name that
+ * was removed mid-generation can never be served as current.
+ */
+export function storySourceKey(
+  game: Pick<GameDetail, "rounds"> & {
+    players?: { user: { id: string; anonymizedAt: Date | null } | null }[];
+  },
+): string {
   const rounds = game.rounds
     .map((round) => `${round.id}:${round.revision}`)
     .sort()
     .join(",");
-  return createHash("sha256").update(rounds).digest("hex").slice(0, 32);
+  const anonymized = (game.players ?? [])
+    .flatMap((player) => (player.user?.anonymizedAt ? [player.user.id] : []))
+    .sort();
+  // Games without a former player keep their existing keys.
+  const source = anonymized.length
+    ? `${rounds}|anonymized:${anonymized.join(",")}`
+    : rounds;
+  return createHash("sha256").update(source).digest("hex").slice(0, 32);
 }
 
 /** Model context built only from the stored game: standings, rounds and detected moments. */
