@@ -70,3 +70,22 @@ export async function isFeatureEnabled(flagKey: string): Promise<boolean> {
 export async function isLlmFeaturesEnabled(): Promise<boolean> {
   return isFeatureEnabled("llm-features");
 }
+
+/**
+ * Flag check for a known user outside their own request, such as an email
+ * recipient. Targeting properties come from the stored profile, not Clerk.
+ */
+export async function isFeatureEnabledForUser(
+  flagKey: string,
+  user: { clerkUserId: string; email?: string | null; username?: string | null },
+): Promise<boolean> {
+  const personProperties: Record<string, string> = {};
+  if (user.email) personProperties.email = user.email;
+  if (user.username) personProperties.username = user.username;
+  try {
+    const value = await PostHogClient().getFeatureFlag(flagKey, user.clerkUserId, { personProperties });
+    return value === true;
+  } catch {
+    return false;
+  }
+}

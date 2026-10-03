@@ -92,6 +92,19 @@ jest.mock("@/app/posthog", () => ({
   }),
 }));
 
+const mockFlagFor = jest.fn();
+jest.mock("@/featureFlags", () => ({
+  isFeatureEnabledForUser: (...args: unknown[]) => mockFlagFor(...args),
+}));
+const mockTellStory = jest.fn();
+jest.mock("../ai/gameStory", () => ({
+  tellGameStory: (...args: unknown[]) => mockTellStory(...args),
+}));
+const mockGetGameById = jest.fn();
+jest.mock("../queries/games", () => ({
+  getGameById: (...args: unknown[]) => mockGetGameById(...args),
+}));
+
 jest.mock("../email", () => ({
   sendGameCompleteEmail: jest.fn(),
   EMAIL_INTER_SEND_DELAY_MS: 0,
@@ -123,6 +136,9 @@ describe("Game Mutations", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFlagFor.mockReset().mockResolvedValue(false);
+    mockTellStory.mockReset();
+    mockGetGameById.mockReset();
     (auth as unknown as jest.Mock).mockResolvedValue({
       userId: mockUserId,
       orgId: mockOrgId,
@@ -307,6 +323,81 @@ describe("Game Mutations", () => {
           failed_count: 1,
         },
       });
+    });
+
+    it("writes one story and includes it only for recipients with llm-features", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        players: game().players.map((player) => ({
+          ...player,
+          user: { ...player.user, email: `${player.userId}@example.com` },
+        })),
+      });
+      (sendGameCompleteEmail as jest.Mock).mockResolvedValue({ success: true });
+      mockFlagFor.mockImplementation(async (_flag: string, user: { clerkUserId: string }) => user.clerkUserId === "player1");
+      mockGetGameById.mockResolvedValue({ id: mockGameId, isFinished: true, winnerId: "player1" });
+      mockTellStory.mockResolvedValue({ story: "Player one ran away with it." });
+
+      await createRoundForGame(mockGameId, 1, scores);
+      await flushAfter();
+
+      expect(mockFlagFor).toHaveBeenCalledWith("llm-features", {
+        clerkUserId: "player1",
+        email: "player1@example.com",
+        username: "player1",
+      });
+      expect(mockTellStory).toHaveBeenCalledTimes(1);
+      expect(mockTellStory).toHaveBeenCalledWith(
+        { id: mockGameId, isFinished: true, winnerId: "player1" },
+        mockUserId,
+        "game_email",
+      );
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "player1@example.com", story: "Player one ran away with it." }),
+      );
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "player2@example.com", story: undefined }),
+      );
+    });
+
+    it("omits the story when a correction changed the winner before the email", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        players: game().players.map((player) => ({
+          ...player,
+          user: { ...player.user, email: `${player.userId}@example.com` },
+        })),
+      });
+      (sendGameCompleteEmail as jest.Mock).mockResolvedValue({ success: true });
+      mockFlagFor.mockResolvedValue(true);
+      mockGetGameById.mockResolvedValue({ id: mockGameId, isFinished: true, winnerId: "player2" });
+
+      await createRoundForGame(mockGameId, 1, scores);
+      await flushAfter();
+
+      expect(mockTellStory).not.toHaveBeenCalled();
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "player1@example.com", isWinner: true, story: undefined }),
+      );
+    });
+
+    it("skips writing a story when no recipient has llm-features", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        players: game().players.map((player) => ({
+          ...player,
+          user: { ...player.user, email: `${player.userId}@example.com` },
+        })),
+      });
+      (sendGameCompleteEmail as jest.Mock).mockResolvedValue({ success: true });
+      mockFlagFor.mockResolvedValue(false);
+
+      await createRoundForGame(mockGameId, 1, scores);
+      await flushAfter();
+
+      expect(mockGetGameById).not.toHaveBeenCalled();
+      expect(mockTellStory).not.toHaveBeenCalled();
+      expect(sendGameCompleteEmail).toHaveBeenCalledTimes(2);
     });
 
     it("keeps sending after one recipient's email throws", async () => {

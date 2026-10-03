@@ -61,7 +61,7 @@ flowchart LR
 
 **Dashboard.** The dashboard loads everything through `getDashboard` in `queries/stats.ts`, which builds on the shared bounded aggregates in `queries/playerStats.ts`. Each user's card order and hidden cards are saved on their `User` row through `mutations/dashboard.ts`.
 
-**Insights.** `/api/chat` is gated by the `llm-features` flag. It builds a system prompt from the caller's aggregate stats and streams a reply from OpenAI. Generations are traced to PostHog in privacy mode.
+**Insights.** Everything AI is gated by the `llm-features` flag and traced to PostHog in privacy mode. `/api/chat` builds a system prompt from the caller's aggregate stats plus `queries/playerHighlights.ts` (rivals, streaks, comebacks) and streams a reply from OpenAI. Finished games get a story from `ai/gameStory.ts`, written from the stored rounds and `lib/scoring/gameHighlights.ts`, cached in `GameStory` until a round revision changes; the completion email reuses it for flagged recipients.
 
 ## Data model
 

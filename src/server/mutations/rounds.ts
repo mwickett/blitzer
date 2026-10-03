@@ -7,6 +7,9 @@ import prisma from "@/server/db/db";
 import { requireAuthContext } from "./common";
 import { writeRound } from "../scoring/writeRound";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
+import { isFeatureEnabledForUser } from "@/featureFlags";
+import { tellGameStory } from "../ai/gameStory";
+import { getGameById } from "../queries/games";
 import type { SubmittedScore } from "@/lib/validation/submissions";
 
 async function submit(input: unknown) {
@@ -42,6 +45,27 @@ async function submit(input: unknown) {
       const recipients = transition.players.flatMap((player) =>
         player.user ? [player.user] : [],
       );
+      // The story is written once here, after the response, and only when a
+      // recipient has llm-features; it is also cached for the game page.
+      const wantsStory = await Promise.all(
+        recipients.map((recipient) =>
+          isFeatureEnabledForUser("llm-features", {
+            clerkUserId: recipient.clerk_user_id,
+            email: recipient.email,
+            username: recipient.username,
+          }),
+        ),
+      );
+      let story: string | undefined;
+      if (wantsStory.some(Boolean)) {
+        const game = await getGameById(transition.gameId).catch(() => null);
+        // A correction may land before this runs; skip the story unless the
+        // game still has the winner this email announces.
+        story =
+          game?.isFinished && game.winnerId === transition.winnerId
+            ? (await tellGameStory(game, userId, "game_email"))?.story
+            : undefined;
+      }
       let failed = 0;
       for (const [index, recipient] of recipients.entries()) {
         try {
@@ -52,6 +76,7 @@ async function submit(input: unknown) {
             isWinner: recipient.id === transition.winnerId,
             gameId: transition.gameId,
             userId: recipient.clerk_user_id,
+            story: wantsStory[index] ? story : undefined,
           });
           if (!sent.success) failed++;
         } catch {

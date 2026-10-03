@@ -1,7 +1,8 @@
 const mockGetAllFlags = jest.fn();
+const mockGetFeatureFlag = jest.fn();
 jest.mock("@/app/posthog", () => ({
   __esModule: true,
-  default: () => ({ getAllFlags: mockGetAllFlags }),
+  default: () => ({ getAllFlags: mockGetAllFlags, getFeatureFlag: mockGetFeatureFlag }),
 }));
 
 const mockAuth = jest.fn();
@@ -89,5 +90,33 @@ describe("isFeatureEnabled (#200 — server-side flag caching)", () => {
     await expect(isFeatureEnabled("llm-features")).resolves.toBe(false);
     expect(mockGetAllFlags).not.toHaveBeenCalled();
     expect(mockCurrentUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("isFeatureEnabledForUser (email recipients)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("targets the stored profile without the caller's Clerk session", async () => {
+    const { isFeatureEnabledForUser } = await importFlags();
+    mockGetFeatureFlag.mockResolvedValue(true);
+    await expect(isFeatureEnabledForUser("llm-features", {
+      clerkUserId: "user-2", email: "user-2@example.com", username: "user-two",
+    })).resolves.toBe(true);
+    expect(mockGetFeatureFlag).toHaveBeenCalledWith("llm-features", "user-2", {
+      personProperties: { email: "user-2@example.com", username: "user-two" },
+    });
+    expect(mockAuth).not.toHaveBeenCalled();
+  });
+
+  it.each([["variant"], [false], [undefined]])("treats %p as disabled", async (value) => {
+    const { isFeatureEnabledForUser } = await importFlags();
+    mockGetFeatureFlag.mockResolvedValue(value);
+    await expect(isFeatureEnabledForUser("llm-features", { clerkUserId: "user-2" })).resolves.toBe(false);
+  });
+
+  it("fails closed when evaluation errors", async () => {
+    const { isFeatureEnabledForUser } = await importFlags();
+    mockGetFeatureFlag.mockRejectedValue(new Error("network"));
+    await expect(isFeatureEnabledForUser("llm-features", { clerkUserId: "user-2" })).resolves.toBe(false);
   });
 });
