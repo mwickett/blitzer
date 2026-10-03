@@ -21,8 +21,8 @@ export function highlightMoments(highlights: Highlights): Moment[] {
   const moments: Array<Moment | null> = [
     currentStreak && currentStreak.length >= 2
       ? currentStreak.result === "W"
-        ? { key: "streak", emoji: "🔥", title: "On a heater", headline: plural(currentStreak.length, "win") + " in a row", detail: `Longest ever: ${highlights.longestWinStreak}` }
-        : { key: "streak", emoji: "🌧️", title: "Due for a bounce", headline: `${currentStreak.length} losses in a row`, detail: `Your best run is ${plural(highlights.longestWinStreak, "win")}` }
+        ? { key: "streak", emoji: "🔥", title: "On a heater", headline: plural(currentStreak.length, "win") + " in a row", detail: `Best recent run: ${plural(highlights.longestWinStreak, "win")}` }
+        : { key: "streak", emoji: "🌧️", title: "Due for a bounce", headline: `${currentStreak.length} losses in a row`, detail: `Your best recent run is ${plural(highlights.longestWinStreak, "win")}` }
       : null,
     biggestComeback
       ? { key: "comeback", emoji: "🎢", title: "Biggest comeback", headline: `Down ${biggestComeback.maxDeficit}, still won`, detail: when(biggestComeback), gameId: biggestComeback.gameId }

@@ -26,6 +26,7 @@ const highlights: Highlights = {
 it("turns highlights into linked moment cards", () => {
   render(<PlayerHighlights highlights={highlights} />);
   expect(screen.getByText("2 wins in a row")).toBeInTheDocument();
+  expect(screen.getByText("Best recent run: 2 wins")).toBeInTheDocument();
   expect(screen.getByText("Down 30, still won").closest("a")).toHaveAttribute("href", "/games/comeback");
   expect(screen.getByText("Lost by 1 point").closest("a")).toHaveAttribute("href", "/games/close-loss");
   expect(screen.getByText("Aunt Carol")).toBeInTheDocument();

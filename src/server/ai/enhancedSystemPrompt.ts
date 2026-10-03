@@ -25,7 +25,7 @@ export function describeHighlights(highlights: PlayerHighlights): string {
     currentStreak
       ? `- Current streak: ${currentStreak.length} ${currentStreak.result === "W" ? "win" : "loss"}${currentStreak.length === 1 ? "" : currentStreak.result === "W" ? "s" : "es"} in a row`
       : null,
-    highlights.longestWinStreak ? `- Longest win streak: ${highlights.longestWinStreak}` : null,
+    highlights.longestWinStreak ? `- Longest win streak in these games: ${highlights.longestWinStreak}` : null,
     rival("Most frequent opponent", rivals.mostPlayed),
     rival("Nemesis (beats the user most)", rivals.nemesis),
     rival("Favorite opponent (user beats them most)", rivals.favoriteOpponent),
