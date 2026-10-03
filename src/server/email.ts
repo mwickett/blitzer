@@ -35,33 +35,39 @@ async function sendEmail(options: {
 }): Promise<EmailResult> {
   const posthog = posthogClient();
   const distinctId = options.userId || "system";
-  const emailType = options.emailType || "unknown";
-
   const maxAttempts = EMAIL_MAX_RETRY_ATTEMPTS;
   const baseDelay = EMAIL_RETRY_BASE_DELAY_MS;
 
-  // Common properties for PostHog events
+  // Counts and categories only; recipients and content stay in the request
   const emailProperties = {
-    emailType,
+    emailType: options.emailType || "unknown",
     recipientCount: options.to.length,
   };
+  const capture = (event: string, properties: Record<string, unknown>) =>
+    captureServerEvent(posthog, {
+      distinctId,
+      event,
+      properties: { ...emailProperties, ...properties },
+    });
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  for (let attempt = 1; ; attempt++) {
+    if (attempt > 1) {
+      capture("email_retry_attempt", {
+        attemptNumber: attempt,
+        maxAttempts,
+        delay: baseDelay * attempt,
+      });
+    }
+
+    // A provider error result is reported by name; a thrown error only as an
+    // exception, since its message may echo the recipient
+    let failure: {
+      message: string;
+      rateLimited: boolean;
+      details: { errorName: string } | { errorType: "exception" };
+      cause: unknown;
+    };
     try {
-      // Track attempt if it's a retry
-      if (attempt > 1) {
-        captureServerEvent(posthog, {
-          distinctId,
-          event: "email_retry_attempt",
-          properties: {
-            ...emailProperties,
-            attemptNumber: attempt,
-            maxAttempts,
-            delay: baseDelay * attempt,
-          },
-        });
-      }
-
       const { data, error } = await resend.emails.send(
         {
           from: sender,
@@ -70,174 +76,74 @@ async function sendEmail(options: {
           react: options.react,
           text: options.text,
         },
-        {
-          idempotencyKey: options.idempotencyKey,
-        }
+        { idempotencyKey: options.idempotencyKey },
       );
 
-      if (error) {
-        // Check if it's a rate limit error
-        if (error.name === "rate_limit_exceeded") {
-          // Track rate limit hit
-          captureServerEvent(posthog, {
-            distinctId,
-            event: "email_rate_limit_hit",
-            properties: {
-              ...emailProperties,
-              errorName: error.name,
-              attemptNumber: attempt,
-              maxAttempts,
-            },
-          });
-
-          // If we've reached the max attempts, return failure
-          if (attempt === maxAttempts) {
-            console.error(
-              `Failed to send email after ${maxAttempts} attempts:`,
-              error
-            );
-
-            // Track final failure
-            captureServerEvent(posthog, {
-              distinctId,
-              event: "email_send_failed",
-              properties: {
-                ...emailProperties,
-                errorName: error.name,
-                attemptNumber: attempt,
-                maxAttempts,
-                reason: "rate_limit_exceeded_max_retries",
-              },
-            });
-
-            return { success: false, error: error.message };
-          }
-
-          // Otherwise, wait and retry
-          const delay = baseDelay * attempt;
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          continue;
-        }
-
-        // For non-rate-limit errors, return failure immediately
-        console.error("Failed to send email:", error);
-
-        // Track other API errors
-        captureServerEvent(posthog, {
-          distinctId,
-          event: "email_send_failed",
-          properties: {
-            ...emailProperties,
-            errorName: error.name,
-            attemptNumber: attempt,
-            reason: "resend_api_error",
-          },
-        });
-
-        return { success: false, error: error.message };
-      }
-
-      // Success! Track and return early
-      captureServerEvent(posthog, {
-        distinctId,
-        event: "email_send_success",
-        properties: {
-          ...emailProperties,
+      if (!error) {
+        capture("email_send_success", {
           attemptNumber: attempt,
           emailId: data?.id,
-        },
-      });
-
-      return { success: true };
-    } catch (error) {
-      // For unexpected errors, determine if it's rate limiting
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const isRateLimit =
-        errorMessage.includes("rate_limit") ||
-        errorMessage.includes("too many requests");
-
-      if (isRateLimit) {
-        // Track rate limit error
-        captureServerEvent(posthog, {
-          distinctId,
-          event: "email_rate_limit_hit",
-          properties: {
-            ...emailProperties,
-            attemptNumber: attempt,
-            maxAttempts,
-            errorType: "exception",
-          },
         });
-
-        // If we've reached the max attempts, return failure
-        if (attempt === maxAttempts) {
-          console.error(
-            `Failed to send email after ${maxAttempts} attempts:`,
-            error
-          );
-
-          // Track final failure
-          captureServerEvent(posthog, {
-            distinctId,
-            event: "email_send_failed",
-            properties: {
-              ...emailProperties,
-                attemptNumber: attempt,
-              maxAttempts,
-              reason: "rate_limit_exception_max_retries",
-              errorType: "exception",
-            },
-          });
-
-          return {
-            success: false,
-            error: errorMessage,
-          };
-        }
-
-        // Otherwise, wait and retry
-        const delay = baseDelay * attempt;
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
+        return { success: true };
       }
-
-      // For non-rate-limit errors, return failure immediately
-      console.error("Error sending email:", error);
-
-      // Track unexpected errors
-      captureServerEvent(posthog, {
-        distinctId,
-        event: "email_send_failed",
-        properties: {
-          ...emailProperties,
-          attemptNumber: attempt,
-          reason: "unexpected_exception",
-          errorType: "exception",
-        },
-      });
-
-      return {
-        success: false,
-        error: errorMessage,
+      failure = {
+        message: error.message,
+        rateLimited: error.name === "rate_limit_exceeded",
+        details: { errorName: error.name },
+        cause: error,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failure = {
+        message,
+        rateLimited:
+          message.includes("rate_limit") ||
+          message.includes("too many requests"),
+        details: { errorType: "exception" },
+        cause: error,
       };
     }
+
+    const thrown = "errorType" in failure.details;
+
+    // Only rate limits are worth retrying
+    if (!failure.rateLimited) {
+      console.error(
+        thrown ? "Error sending email:" : "Failed to send email:",
+        failure.cause,
+      );
+      capture("email_send_failed", {
+        ...failure.details,
+        attemptNumber: attempt,
+        reason: thrown ? "unexpected_exception" : "resend_api_error",
+      });
+      return { success: false, error: failure.message };
+    }
+
+    capture("email_rate_limit_hit", {
+      ...failure.details,
+      attemptNumber: attempt,
+      maxAttempts,
+    });
+
+    if (attempt === maxAttempts) {
+      console.error(
+        `Failed to send email after ${maxAttempts} attempts:`,
+        failure.cause,
+      );
+      capture("email_send_failed", {
+        ...failure.details,
+        attemptNumber: attempt,
+        maxAttempts,
+        reason: thrown
+          ? "rate_limit_exception_max_retries"
+          : "rate_limit_exceeded_max_retries",
+      });
+      return { success: false, error: failure.message };
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, baseDelay * attempt));
   }
-
-  // This should never be reached due to the returns above
-  captureServerEvent(posthog, {
-    distinctId,
-    event: "email_send_failed",
-    properties: {
-      ...emailProperties,
-      reason: "max_attempts_reached_unexpected",
-    },
-  });
-
-  return {
-    success: false,
-    error: "Maximum retry attempts reached",
-  };
 }
 
 interface EmailResult {
