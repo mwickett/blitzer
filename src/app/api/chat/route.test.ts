@@ -7,9 +7,10 @@ import { POST } from "./route";
 let mockModel: MockLanguageModelV3;
 const mockCapture = jest.fn();
 const mockCurrentUser = jest.fn();
+const mockAuth = jest.fn();
 const mockEnabled = jest.fn();
 const mockPrompt = jest.fn();
-jest.mock("@clerk/nextjs/server", () => ({ currentUser: () => mockCurrentUser() }));
+jest.mock("@clerk/nextjs/server", () => ({ auth: () => mockAuth(), currentUser: () => mockCurrentUser() }));
 jest.mock("@/featureFlags", () => ({ isLlmFeaturesEnabled: () => mockEnabled() }));
 jest.mock("@/server/ai/enhancedSystemPrompt", () => ({ buildEnhancedSystemPrompt: (...args: unknown[]) => mockPrompt(...args) }));
 jest.mock("@ai-sdk/openai", () => ({ openai: () => mockModel }));
@@ -23,6 +24,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   process.env.OPENAI_API_KEY = "test-only";
   mockCurrentUser.mockResolvedValue({ id: "test-user", username: "tester" });
+  mockAuth.mockResolvedValue({ userId: "test-user", orgId: "org_1" });
   mockEnabled.mockResolvedValue(true);
   mockPrompt.mockResolvedValue("Use this user's game statistics.");
   mockModel = new MockLanguageModelV3({ doStream: {
@@ -83,8 +85,11 @@ test("rejects malformed JSON and oversized chunked requests", async () => {
 test("auth and feature checks prevent provider calls", async () => {
   mockCurrentUser.mockResolvedValueOnce(null);
   expect((await POST(request({ messages: [userMessage] }))).status).toBe(401);
+  mockAuth.mockResolvedValueOnce({ userId: "test-user", orgId: null });
+  expect((await POST(request({ messages: [userMessage] }))).status).toBe(403);
   mockEnabled.mockResolvedValueOnce(false);
   expect((await POST(request({ messages: [userMessage] }))).status).toBe(403);
+  expect(mockPrompt).not.toHaveBeenCalled();
   expect(mockModel.doStreamCalls).toHaveLength(0);
 });
 

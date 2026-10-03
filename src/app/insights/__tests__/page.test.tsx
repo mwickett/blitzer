@@ -5,7 +5,8 @@ import InsightsPage from "../page";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import { getPlayerHighlightsForClerkUser } from "@/server/queries/playerHighlights";
 
-jest.mock("@clerk/nextjs/server", () => ({ auth: jest.fn() }));
+jest.mock("server-only", () => ({}));
+jest.mock("@clerk/nextjs/server", () => ({ auth: { protect: jest.fn() } }));
 jest.mock("next/navigation", () => ({
   redirect: jest.fn((path: string) => {
     throw new Error(`REDIRECT ${path}`);
@@ -24,20 +25,26 @@ jest.mock("../ModernChatUI", () => ({
   default: () => <div>chat</div>,
 }));
 
-const mockAuth = auth as unknown as jest.Mock;
+const mockProtect = auth.protect as unknown as jest.Mock;
 const mockFlag = isLlmFeaturesEnabled as jest.Mock;
 const mockHighlights = getPlayerHighlightsForClerkUser as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockAuth.mockResolvedValue({ userId: "user_1" });
+  mockProtect.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
 });
 
 describe("InsightsPage", () => {
-  it("sends signed-out visitors to sign in", async () => {
-    mockAuth.mockResolvedValue({ userId: null });
-    await expect(InsightsPage()).rejects.toThrow("REDIRECT /sign-in");
-    expect(redirect).toHaveBeenCalledWith("/sign-in");
+  it("leaves signed-out visitors to Clerk's sign-in redirect", async () => {
+    mockProtect.mockRejectedValue(new Error("NEXT_REDIRECT"));
+    await expect(InsightsPage()).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockHighlights).not.toHaveBeenCalled();
+  });
+
+  it("sends signed-in players without a Circle to setup", async () => {
+    mockProtect.mockResolvedValue({ userId: "user_1", orgId: null });
+    await expect(InsightsPage()).rejects.toThrow("REDIRECT /circles/setup");
+    expect(redirect).toHaveBeenCalledWith("/circles/setup");
     expect(mockHighlights).not.toHaveBeenCalled();
   });
 

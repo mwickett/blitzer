@@ -15,7 +15,8 @@ jest.mock("next/navigation", () => ({
   }),
 }));
 jest.mock("next/headers", () => ({ headers: jest.fn() }));
-jest.mock("@clerk/nextjs/server", () => ({ auth: jest.fn() }));
+jest.mock("server-only", () => ({}));
+jest.mock("@clerk/nextjs/server", () => ({ auth: { protect: jest.fn() } }));
 jest.mock("@/server/queries/lobbies", () => ({
   getPickupLobbyForParticipant: jest.fn(),
 }));
@@ -76,7 +77,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   for (const key of ENV_KEYS) delete env[key];
   env.NODE_ENV = "test";
-  (auth as unknown as jest.Mock).mockResolvedValue({ userId: "clerk-host" });
+  (auth.protect as unknown as jest.Mock).mockResolvedValue({ userId: "clerk-host" });
   (getPickupLobbyForParticipant as jest.Mock).mockResolvedValue(lobby());
 });
 
@@ -156,7 +157,7 @@ describe("lobby view", () => {
   });
 
   it("does not give other players host controls", async () => {
-    (auth as unknown as jest.Mock).mockResolvedValue({ userId: "clerk-other" });
+    (auth.protect as unknown as jest.Mock).mockResolvedValue({ userId: "clerk-other" });
     await renderPage();
     expect(mockControls).toHaveBeenCalledWith(expect.objectContaining({ isHost: false }));
   });

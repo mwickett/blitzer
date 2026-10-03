@@ -1,5 +1,5 @@
 import { captureServerEvent } from "@/server/telemetry";
-import { currentUser } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { openai } from "@ai-sdk/openai";
 import { convertToModelMessages, streamText } from "ai";
 import { withTracing } from "@posthog/ai";
@@ -14,6 +14,10 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
+  // Insights is a Circle feature, like the page that hosts this chat
+  if (!(await auth()).orgId) {
+    return Response.json({ error: "Join a Circle to use chat" }, { status: 403 });
+  }
   if (!(await isLlmFeaturesEnabled())) {
     return Response.json({ error: "This feature is currently disabled" }, { status: 403 });
   }

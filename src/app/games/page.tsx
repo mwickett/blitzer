@@ -2,12 +2,14 @@ import GameList from "@/components/GamesList";
 import { getGames } from "@/server/queries/games";
 import type { GameListSearchParams } from "@/lib/gameList";
 import Link from "next/link";
+import { requireSignedIn } from "@/server/pageAuth";
 
 export default async function GamesPage({
   searchParams,
 }: {
   searchParams: Promise<GameListSearchParams>;
 }) {
+  await requireSignedIn();
   const page = await getGames(await searchParams);
   return (
     <>
