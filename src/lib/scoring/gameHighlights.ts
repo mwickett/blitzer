@@ -1,7 +1,10 @@
+import { getGameCompletion, type ScoredGame } from "@/lib/gameLogic";
+import { calculateRoundScore } from "@/lib/validation/gameRules";
+
 /**
  * Deterministic "moments" from a finished game's round-by-round series.
- * Inputs are per-player arrays indexed by round, as built by
- * buildRoundGraphSeries.
+ * The scoring UI passes per-player arrays from buildRoundGraphSeries; other
+ * callers (for example post-game stories) use findScoredGameHighlights.
  */
 export interface HighlightPlayer {
   id: string;
@@ -138,4 +141,103 @@ export function findGameHighlights({
   if (bestStreak) highlights.push({ kind: "blitz_streak", ...bestStreak });
 
   return highlights;
+}
+
+/**
+ * Highlights for a finished game loaded as a ScoredGame (or GameDetail).
+ * Player ids are the userId or guestId, matching scoring and gameLogic.
+ * Returns no highlights until the game has a winner.
+ */
+export function findScoredGameHighlights(game: ScoredGame): {
+  players: HighlightPlayer[];
+  winnerId: string | null;
+  highlights: GameHighlight[];
+} {
+  const players = game.players.map((p) => ({
+    id: p.userId ?? p.guestId ?? p.id,
+    name: p.user?.username ?? p.guestUser?.name ?? "Unknown Player",
+  }));
+  const { winnerId } = getGameCompletion(game);
+  if (!winnerId) return { players, winnerId, highlights: [] };
+
+  const rounds = [...game.rounds].sort((a, b) => a.round - b.round);
+  const scoresByRound: Record<string, number[]> = {};
+  const deltasByRound: Record<string, number[]> = {};
+  const blitzByRound: Record<string, (number | null)[]> = {};
+  for (const player of players) {
+    let total = 0;
+    scoresByRound[player.id] = [];
+    deltasByRound[player.id] = [];
+    blitzByRound[player.id] = [];
+    for (const round of rounds) {
+      const score = round.scores.find(
+        (s) => (s.userId ?? s.guestId) === player.id,
+      );
+      const delta = score ? calculateRoundScore(score) : 0;
+      total += delta;
+      scoresByRound[player.id].push(total);
+      deltasByRound[player.id].push(delta);
+      blitzByRound[player.id].push(score ? score.blitzPileRemaining : null);
+    }
+  }
+
+  return {
+    players,
+    winnerId,
+    highlights: findGameHighlights({
+      players,
+      winnerId,
+      scoresByRound,
+      deltasByRound,
+      blitzByRound,
+    }),
+  };
+}
+
+/** Display copy shared by the finished screen and any text summaries. */
+export function describeHighlight(
+  highlight: GameHighlight,
+  name: (playerId: string) => string,
+): { icon: string; title: string; detail: string } {
+  switch (highlight.kind) {
+    case "wire_to_wire":
+      return {
+        icon: "🚂",
+        title: "Wire to wire",
+        detail: `${name(highlight.playerId)} led after every round.`,
+      };
+    case "comeback":
+      return {
+        icon: "🔄",
+        title: "Comeback",
+        detail: `${name(highlight.playerId)} was ${highlight.deficit} points back after round ${highlight.roundNumber} and still won.`,
+      };
+    case "lead_changes":
+      return {
+        icon: "🔀",
+        title: "Seesaw",
+        detail: `The lead changed hands ${highlight.count} times.`,
+      };
+    case "photo_finish":
+      return {
+        icon: "📸",
+        title: "Photo finish",
+        detail:
+          highlight.margin === 0
+            ? "Level on points; decided on the tiebreak."
+            : `Won by just ${highlight.margin} ${highlight.margin === 1 ? "point" : "points"}.`,
+      };
+    case "lone_survivor":
+      return {
+        icon: "🛟",
+        title: "Lone survivor",
+        detail: `In round ${highlight.roundNumber}, ${name(highlight.playerId)} was the only one to score. Everyone else went negative.`,
+      };
+    case "blitz_streak":
+      return {
+        icon: "⚡",
+        title: "On fire",
+        detail: `${name(highlight.playerId)} blitzed ${highlight.length} rounds in a row.`,
+      };
+  }
 }

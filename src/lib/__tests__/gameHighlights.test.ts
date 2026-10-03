@@ -1,4 +1,8 @@
-import { findGameHighlights } from "../scoring/gameHighlights";
+import {
+  describeHighlight,
+  findGameHighlights,
+  findScoredGameHighlights,
+} from "../scoring/gameHighlights";
 
 const players = [
   { id: "a", name: "Alice" },
@@ -88,5 +92,102 @@ describe("findGameHighlights", () => {
 
   it("returns nothing without rounds", () => {
     expect(highlights({ a: [], b: [], c: [] }, "a")).toEqual([]);
+  });
+});
+
+describe("findScoredGameHighlights", () => {
+  const score = (
+    id: { userId?: string; guestId?: string },
+    totalCardsPlayed: number,
+    blitzPileRemaining: number,
+  ) => ({
+    userId: id.userId ?? null,
+    guestId: id.guestId ?? null,
+    totalCardsPlayed,
+    blitzPileRemaining,
+  });
+
+  it("detects moments straight from a stored game, in round order", () => {
+    const game = {
+      isFinished: true,
+      winThreshold: 75,
+      players: [
+        {
+          id: "gp1",
+          userId: "u1",
+          guestId: null,
+          accentColor: null,
+          user: { username: "alice" },
+          guestUser: null,
+        },
+        {
+          id: "gp2",
+          userId: null,
+          guestId: "g1",
+          accentColor: null,
+          user: null,
+          guestUser: { name: "Bob" },
+        },
+      ],
+      // Stored out of order on purpose.
+      rounds: [
+        {
+          round: 2,
+          scores: [
+            score({ userId: "u1" }, 40, 0),
+            score({ guestId: "g1" }, 5, 0),
+          ],
+        },
+        {
+          round: 1,
+          scores: [
+            score({ userId: "u1" }, 2, 0),
+            score({ guestId: "g1" }, 30, 0),
+          ],
+        },
+        {
+          round: 3,
+          scores: [
+            score({ userId: "u1" }, 40, 0),
+            score({ guestId: "g1" }, 44, 2),
+          ],
+        },
+      ],
+    };
+    const result = findScoredGameHighlights(game);
+    expect(result.winnerId).toBe("u1");
+    expect(result.players).toEqual([
+      { id: "u1", name: "alice" },
+      { id: "g1", name: "Bob" },
+    ]);
+    expect(result.highlights).toContainEqual({
+      kind: "comeback",
+      playerId: "u1",
+      deficit: 28,
+      roundNumber: 1,
+    });
+    expect(result.highlights).toContainEqual({
+      kind: "blitz_streak",
+      playerId: "u1",
+      length: 3,
+    });
+  });
+
+  it("returns no highlights for a game without a winner", () => {
+    const result = findScoredGameHighlights({
+      isFinished: false,
+      winThreshold: 75,
+      players: [],
+      rounds: [],
+    });
+    expect(result).toEqual({ players: [], winnerId: null, highlights: [] });
+  });
+});
+
+describe("describeHighlight", () => {
+  it("writes plain-language copy", () => {
+    expect(
+      describeHighlight({ kind: "lead_changes", count: 3 }, () => "").detail,
+    ).toBe("The lead changed hands 3 times.");
   });
 });
