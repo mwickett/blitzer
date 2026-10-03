@@ -94,3 +94,196 @@ export async function getRoundStatsForUser(userId: string, db: Db = prisma) {
     cumulativeScore: Number(row?.cumulativeScore ?? 0),
   };
 }
+
+// Every completed game the user sat in, unordered. Played games have
+// started; the winner may be a guest.
+const userFinishedGames = (userId: string) => Prisma.sql`
+  SELECT g.id, g."winnerId", COALESCE(g.ended_at, g.created_at) AS finished_at
+  FROM "Game" g
+  WHERE g.started_at IS NOT NULL
+    AND g.is_finished
+    AND EXISTS (
+      SELECT 1 FROM "GamePlayers" p WHERE p."gameId" = g.id AND p."userId" = ${userId}
+    )
+`;
+
+export type RecentGame = {
+  id: string;
+  /** ISO timestamp, so the DTO crosses the client boundary unchanged. */
+  finishedAt: string;
+  /** null when the game finished without a recorded winner. */
+  won: boolean | null;
+  score: number;
+  place: number;
+  playerCount: number;
+  roundCount: number;
+};
+
+export type WinStreaks = {
+  current: { kind: "win" | "loss"; length: number } | null;
+  bestWin: number;
+};
+
+export type Rival = {
+  playerId: string;
+  kind: "user" | "guest";
+  name: string;
+  avatarUrl: string | null;
+  gamesTogether: number;
+  myWins: number;
+  theirWins: number;
+};
+
+export const RECENT_GAMES_LIMIT = 10;
+export const RIVALS_LIMIT = 3;
+
+/** The user's latest completed games, newest first, with their final placing. */
+export async function getRecentGamesForUser(
+  userId: string,
+  db: Db = prisma,
+  limit = RECENT_GAMES_LIMIT,
+): Promise<RecentGame[]> {
+  type Row = {
+    id: string;
+    finishedAt: Date;
+    winnerId: string | null;
+    score: number | bigint;
+    place: number | bigint;
+    playerCount: number | bigint;
+    roundCount: number | bigint;
+  };
+  const rows = await db.$queryRaw<Row[]>(Prisma.sql`
+    WITH recent AS (
+      ${userFinishedGames(userId)}
+      ORDER BY finished_at DESC, g.id DESC
+      LIMIT ${limit}
+    ),
+    totals AS (
+      SELECT
+        recent.id AS "gameId",
+        COALESCE(p."userId", p."guestId") AS "playerId",
+        COALESCE(SUM(${Prisma.raw(ROUND_SCORE_SQL)}), 0) AS total
+      FROM recent
+      INNER JOIN "GamePlayers" p ON p."gameId" = recent.id
+      LEFT JOIN "Round" r ON r."gameId" = recent.id
+      LEFT JOIN "Score" s ON s."roundId" = r.id
+        AND (s."userId" = p."userId" OR s."guestId" = p."guestId")
+      WHERE COALESCE(p."userId", p."guestId") IS NOT NULL
+      GROUP BY recent.id, COALESCE(p."userId", p."guestId")
+    )
+    SELECT
+      recent.id,
+      recent.finished_at AS "finishedAt",
+      recent."winnerId",
+      me.total AS score,
+      1 + (SELECT COUNT(*) FROM totals t WHERE t."gameId" = recent.id AND t.total > me.total) AS place,
+      (SELECT COUNT(*) FROM totals t WHERE t."gameId" = recent.id) AS "playerCount",
+      (SELECT COUNT(*) FROM "Round" r WHERE r."gameId" = recent.id) AS "roundCount"
+    FROM recent
+    INNER JOIN totals me ON me."gameId" = recent.id AND me."playerId" = ${userId}
+    ORDER BY recent.finished_at DESC, recent.id DESC
+  `);
+  return rows.map((row) => ({
+    id: row.id,
+    finishedAt: new Date(row.finishedAt).toISOString(),
+    won: row.winnerId === null ? null : row.winnerId === userId,
+    score: Number(row.score),
+    place: Number(row.place),
+    playerCount: Number(row.playerCount),
+    roundCount: Number(row.roundCount),
+  }));
+}
+
+/** Current run and best winning run across decided games, as one aggregate row. */
+export async function getWinStreaksForUser(
+  userId: string,
+  db: Db = prisma,
+): Promise<WinStreaks> {
+  type Row = {
+    bestWin: number | bigint | null;
+    currentWon: boolean | null;
+    currentLength: number | bigint | null;
+  };
+  const [row] = await db.$queryRaw<Row[]>(Prisma.sql`
+    WITH ordered AS (
+      SELECT
+        finished."winnerId" = ${userId} AS won,
+        ROW_NUMBER() OVER (ORDER BY finished.finished_at, finished.id) AS rn
+      FROM (${userFinishedGames(userId)}) finished
+      WHERE finished."winnerId" IS NOT NULL
+    ),
+    runs AS (
+      SELECT won, COUNT(*) AS len, MAX(rn) AS last_rn
+      FROM (
+        SELECT won, rn, rn - ROW_NUMBER() OVER (PARTITION BY won ORDER BY rn) AS grp
+        FROM ordered
+      ) grouped
+      GROUP BY won, grp
+    ),
+    latest AS (
+      SELECT won, len FROM runs WHERE last_rn = (SELECT MAX(rn) FROM ordered)
+    )
+    SELECT
+      (SELECT MAX(len) FROM runs WHERE won) AS "bestWin",
+      (SELECT won FROM latest) AS "currentWon",
+      (SELECT len FROM latest) AS "currentLength"
+  `);
+  const currentLength = Number(row?.currentLength ?? 0);
+  return {
+    current:
+      currentLength && row?.currentWon !== null && row?.currentWon !== undefined
+        ? { kind: row.currentWon ? "win" : "loss", length: currentLength }
+        : null,
+    bestWin: Number(row?.bestWin ?? 0),
+  };
+}
+
+/** The people (or guests) the user has finished the most decided games with. */
+export async function getRivalsForUser(
+  userId: string,
+  db: Db = prisma,
+  limit = RIVALS_LIMIT,
+): Promise<Rival[]> {
+  type Row = {
+    playerId: string;
+    kind: string;
+    name: string | null;
+    avatarUrl: string | null;
+    gamesTogether: number | bigint;
+    myWins: number | bigint;
+    theirWins: number | bigint;
+  };
+  const rows = await db.$queryRaw<Row[]>(Prisma.sql`
+    WITH decided AS (
+      SELECT finished.id, finished."winnerId"
+      FROM (${userFinishedGames(userId)}) finished
+      WHERE finished."winnerId" IS NOT NULL
+    )
+    SELECT
+      COALESCE(p."userId", p."guestId") AS "playerId",
+      CASE WHEN p."userId" IS NOT NULL THEN 'user' ELSE 'guest' END AS kind,
+      MAX(COALESCE(u.username, gu.name)) AS name,
+      MAX(u."avatarUrl") AS "avatarUrl",
+      COUNT(*) AS "gamesTogether",
+      COUNT(*) FILTER (WHERE decided."winnerId" = ${userId}) AS "myWins",
+      COUNT(*) FILTER (WHERE decided."winnerId" = COALESCE(p."userId", p."guestId")) AS "theirWins"
+    FROM decided
+    INNER JOIN "GamePlayers" p ON p."gameId" = decided.id
+    LEFT JOIN "User" u ON u.id = p."userId"
+    LEFT JOIN "GuestUser" gu ON gu.id = p."guestId"
+    WHERE COALESCE(p."userId", p."guestId") IS NOT NULL
+      AND (p."userId" IS NULL OR p."userId" != ${userId})
+    GROUP BY COALESCE(p."userId", p."guestId"), CASE WHEN p."userId" IS NOT NULL THEN 'user' ELSE 'guest' END
+    ORDER BY COUNT(*) DESC, COALESCE(p."userId", p."guestId")
+    LIMIT ${limit}
+  `);
+  return rows.map((row) => ({
+    playerId: row.playerId,
+    kind: row.kind === "guest" ? "guest" : "user",
+    name: row.name ?? "Unknown player",
+    avatarUrl: row.avatarUrl,
+    gamesTogether: Number(row.gamesTogether),
+    myWins: Number(row.myWins),
+    theirWins: Number(row.theirWins),
+  }));
+}

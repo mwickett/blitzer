@@ -94,3 +94,9 @@ export const scoreWriteSchema = z.discriminatedUnion("kind", [
     scores: submittedScoresSchema,
   }),
 ]);
+
+// Shape check only; normalizeDashboardLayout drops unknown card ids.
+const dashboardCardIdsSchema = z.array(z.string().max(40)).max(50);
+export const dashboardLayoutSchema = z
+  .object({ order: dashboardCardIdsSchema, hidden: dashboardCardIdsSchema })
+  .nullable();

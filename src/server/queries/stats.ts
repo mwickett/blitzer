@@ -4,7 +4,20 @@ import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
 import { requireAuthContext } from "../mutations/common";
 import { ROUND_SCORE_SQL } from "@/lib/validation/gameRules";
-import { getRoundStatsForUser } from "./playerStats";
+import {
+  getGameStatsForUser,
+  getRecentGamesForUser,
+  getRivalsForUser,
+  getRoundStatsForUser,
+  getWinStreaksForUser,
+  type RecentGame,
+  type Rival,
+  type WinStreaks,
+} from "./playerStats";
+import {
+  normalizeDashboardLayout,
+  type DashboardLayout,
+} from "@/lib/dashboardLayout";
 
 // Canonical single-round score expression — see ROUND_SCORE_SQL
 const scoreExpr = Prisma.raw(ROUND_SCORE_SQL);
@@ -47,6 +60,11 @@ export type DashboardStats = {
   scoreExtremes: ScoreExtremes;
   cumulativeScore: number;
   gameRoundExtremes: GameRoundExtremes;
+  games: Awaited<ReturnType<typeof getGameStatsForUser>>;
+  rounds: Awaited<ReturnType<typeof getRoundStatsForUser>>;
+  recentGames: RecentGame[];
+  streaks: WinStreaks;
+  rivals: Rival[];
 };
 
 // Highest / lowest single-round score, each fetched with ORDER BY + LIMIT 1
@@ -135,11 +153,15 @@ export async function getDashboardStatsForUser(
   userId: string,
   db: Db = prisma
 ): Promise<DashboardStats> {
-  const [roundStats, scoreExtremes, gameRoundExtremes] =
+  const [roundStats, scoreExtremes, gameRoundExtremes, games, recentGames, streaks, rivals] =
     await Promise.all([
       getRoundStatsForUser(userId, db),
       getHighestAndLowestScoreForUser(userId, db),
       getLongestAndShortestGamesByRoundsForUser(userId, db),
+      getGameStatsForUser(userId, db),
+      getRecentGamesForUser(userId, db),
+      getWinStreaksForUser(userId, db),
+      getRivalsForUser(userId, db),
     ]);
 
   return {
@@ -151,10 +173,30 @@ export async function getDashboardStatsForUser(
     scoreExtremes,
     cumulativeScore: roundStats.cumulativeScore,
     gameRoundExtremes,
+    games,
+    rounds: roundStats,
+    recentGames,
+    streaks,
+    rivals,
   };
 }
 
-export async function getDashboardStats() {
+export async function getDashboardLayoutForUser(
+  userId: string,
+  db: Db = prisma,
+): Promise<DashboardLayout> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { dashboardLayout: true },
+  });
+  return normalizeDashboardLayout(user?.dashboardLayout);
+}
+
+export async function getDashboard() {
   const { prismaUserId } = await requireAuthContext("prismaId");
-  return getDashboardStatsForUser(prismaUserId);
+  const [stats, layout] = await Promise.all([
+    getDashboardStatsForUser(prismaUserId),
+    getDashboardLayoutForUser(prismaUserId),
+  ]);
+  return { stats, layout };
 }

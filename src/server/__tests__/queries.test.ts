@@ -4,10 +4,11 @@ import {
   getLegacyGames,
 } from "../queries/games";
 import {
-  getDashboardStats,
+  getDashboard,
   getHighestAndLowestScoreForUser,
   getLongestAndShortestGamesByRoundsForUser,
 } from "../queries/stats";
+import { getWinStreaksForUser } from "../queries/playerStats";
 import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
 
@@ -229,7 +230,7 @@ describe("Queries", () => {
 
     it("should throw error if user not found", async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-      await expect(getDashboardStats()).rejects.toThrow("User not found");
+      await expect(getDashboard()).rejects.toThrow("User not found");
     });
 
     describe("getHighestAndLowestScoreForUser", () => {
@@ -333,8 +334,13 @@ describe("Queries", () => {
       });
     });
 
-    describe("getDashboardStats", () => {
-      it("should fetch dashboard stats through the shared helper", async () => {
+    describe("getDashboard", () => {
+      it("should fetch dashboard stats and the saved layout through the shared helpers", async () => {
+        (prisma.user.findUnique as jest.Mock)
+          .mockResolvedValueOnce({ id: mockUserId })
+          .mockResolvedValueOnce({
+            dashboardLayout: { order: ["rivals", "record", "retired-card"], hidden: ["record"] },
+          });
         (prisma.$queryRaw as jest.Mock)
           .mockResolvedValueOnce([
             { totalRounds: 10, totalBlitzes: 4, cumulativeScore: 60 },
@@ -344,6 +350,43 @@ describe("Queries", () => {
           ])
           .mockResolvedValueOnce([
             { score: 10, totalCardsPlayed: 20, blitzPileRemaining: 5 },
+          ])
+          .mockResolvedValueOnce([
+            { gamesCount: BigInt(3), completedGames: BigInt(3), winCount: BigInt(2), lossCount: BigInt(1) },
+          ])
+          .mockResolvedValueOnce([
+            {
+              id: "game-new",
+              finishedAt: new Date("2026-10-02T12:00:00Z"),
+              winnerId: mockUserId,
+              score: BigInt(81),
+              place: BigInt(1),
+              playerCount: BigInt(3),
+              roundCount: BigInt(6),
+            },
+            {
+              id: "game-old",
+              finishedAt: new Date("2026-10-01T12:00:00Z"),
+              winnerId: null,
+              score: 40,
+              place: 2,
+              playerCount: 2,
+              roundCount: 4,
+            },
+          ])
+          .mockResolvedValueOnce([
+            { bestWin: BigInt(2), currentWon: true, currentLength: BigInt(1) },
+          ])
+          .mockResolvedValueOnce([
+            {
+              playerId: "guest-1",
+              kind: "guest",
+              name: "Grandma",
+              avatarUrl: null,
+              gamesTogether: BigInt(3),
+              myWins: BigInt(2),
+              theirWins: BigInt(1),
+            },
           ]);
         (prisma.round.groupBy as jest.Mock)
           .mockResolvedValueOnce([{ gameId: "game-long", _count: { _all: 9 } }])
@@ -351,31 +394,61 @@ describe("Queries", () => {
             { gameId: "game-short", _count: { _all: 2 } },
           ]);
 
-        const result = await getDashboardStats();
+        const { stats, layout } = await getDashboard();
 
-        expect(result).toEqual({
+        expect(stats).toMatchObject({
           battingAverage: {
             totalHandsPlayed: 10,
             totalHandsWon: 4,
             battingAverage: "0.400",
           },
           scoreExtremes: {
-            highest: {
-              score: 30,
-              totalCardsPlayed: 40,
-              blitzPileRemaining: 5,
-            },
-            lowest: {
-              score: 10,
-              totalCardsPlayed: 20,
-              blitzPileRemaining: 5,
-            },
+            highest: { score: 30, totalCardsPlayed: 40, blitzPileRemaining: 5 },
+            lowest: { score: 10, totalCardsPlayed: 20, blitzPileRemaining: 5 },
           },
           cumulativeScore: 60,
           gameRoundExtremes: {
             longest: { id: "game-long", roundCount: 9 },
             shortest: { id: "game-short", roundCount: 2 },
           },
+          games: { gamesCount: 3, winCount: 2, lossCount: 1, decidedGames: 3 },
+          recentGames: [
+            {
+              id: "game-new",
+              finishedAt: "2026-10-02T12:00:00.000Z",
+              won: true,
+              score: 81,
+              place: 1,
+              playerCount: 3,
+              roundCount: 6,
+            },
+            expect.objectContaining({ id: "game-old", won: null }),
+          ],
+          streaks: { current: { kind: "win", length: 1 }, bestWin: 2 },
+          rivals: [
+            {
+              playerId: "guest-1",
+              kind: "guest",
+              name: "Grandma",
+              avatarUrl: null,
+              gamesTogether: 3,
+              myWins: 2,
+              theirWins: 1,
+            },
+          ],
+        });
+        expect(layout.order.slice(0, 2)).toEqual(["rivals", "record"]);
+        expect(layout.order).not.toContain("retired-card");
+        expect(layout.hidden).toEqual(["record", "averages"]);
+      });
+
+      it("reports no streak for a player without decided games", async () => {
+        (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([
+          { bestWin: null, currentWon: null, currentLength: null },
+        ]);
+        await expect(getWinStreaksForUser(mockUserId)).resolves.toEqual({
+          current: null,
+          bestWin: 0,
         });
       });
     });
