@@ -1,4 +1,5 @@
 import { type PlayerWithScore } from "@/components/scoring/types";
+import { ACCENT_COLORS } from "@/lib/scoring/colors";
 
 /**
  * One demo game, shared by every marketing section so the page reads as a
@@ -12,11 +13,14 @@ import { type PlayerWithScore } from "@/components/scoring/types";
 export const DEMO_WIN_THRESHOLD = 75;
 export const DEMO_ROUNDS_PLAYED = 4;
 
+const accent = (label: (typeof ACCENT_COLORS)[number]["label"]) =>
+  ACCENT_COLORS.find((c) => c.label === label)!.value;
+
 export const DEMO_PLAYERS: PlayerWithScore[] = [
   {
     id: "dana",
     name: "Dana",
-    color: "#eab308",
+    color: accent("Yellow"),
     isGuest: false,
     userId: "dana",
     score: 58,
@@ -24,7 +28,7 @@ export const DEMO_PLAYERS: PlayerWithScore[] = [
   {
     id: "mike",
     name: "Mike",
-    color: "#ef4444",
+    color: accent("Red"),
     isGuest: false,
     userId: "mike",
     score: 54,
@@ -32,7 +36,7 @@ export const DEMO_PLAYERS: PlayerWithScore[] = [
   {
     id: "priya",
     name: "Priya",
-    color: "#22c55e",
+    color: accent("Green"),
     isGuest: false,
     userId: "priya",
     score: 42,
@@ -40,7 +44,7 @@ export const DEMO_PLAYERS: PlayerWithScore[] = [
   {
     id: "tom",
     name: "Tom",
-    color: "#3b82f6",
+    color: accent("Blue"),
     isGuest: true,
     guestId: "tom",
     score: 30,
