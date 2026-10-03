@@ -20,7 +20,7 @@ Open [localhost:3000](http://localhost:3000). `npm ci` generates the Prisma clie
 
 Configure Clerk's webhook endpoint at `/api/webhooks` for `user.created` and `user.updated`, with `CLERK_WEBHOOK_SIGNING_SECRET` from the endpoint settings. Provisioning uses the immutable Clerk user ID. Email collisions are rejected rather than transferring another account's history. Pickup signup also provisions locally so players can join before the webhook arrives. Deleted users remain stored for game history; recreating an account does not automatically recover that identity.
 
-The email module requires `RESEND_API_KEY` at initialization; configure a development key for welcome and game-completion email. Insights additionally requires `OPENAI_API_KEY` and an enabled PostHog `llm-features` flag. Configure `NEXT_PUBLIC_APP_URL` to the correct origin for pickup invitation links. See [.env.example](.env.example) for optional PostHog and seeding settings.
+The email module requires `RESEND_API_KEY` at initialization; configure a development key for welcome and game-completion email. Insights additionally requires `OPENAI_API_KEY` and an enabled PostHog `llm-features` flag. Key-moment photos on the game page appear only when `BLOB_READ_WRITE_TOKEN` (a public Vercel Blob store) is set. Configure `NEXT_PUBLIC_APP_URL` to the correct origin for pickup invitation links. See [.env.example](.env.example) for optional PostHog and seeding settings.
 
 ## Scoring and access
 
