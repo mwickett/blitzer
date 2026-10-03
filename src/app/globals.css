@@ -123,6 +123,12 @@
   }
 }
 
+/* Tailwind v3's two-part drop-shadow-lg; v4's is a single, fainter shadow */
+@utility celebration-shadow {
+  filter: drop-shadow(0 10px 8px rgb(0 0 0 / 0.04))
+    drop-shadow(0 4px 3px rgb(0 0 0 / 0.1));
+}
+
 /*
  * Tailwind generates `.font-display` with the family from `--font-display`.
  * This augments that same class with Fraunces' optical axes: SOFT rounds the
