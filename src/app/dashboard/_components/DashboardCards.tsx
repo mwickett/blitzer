@@ -307,7 +307,40 @@ function AveragesCard({ stats }: { stats: DashboardStats }) {
   );
 }
 
-export const WIDE_CARDS = new Set<DashboardCardId>(["recentScores", "rivals"]);
+function MomentsCard({ stats }: { stats: DashboardStats }) {
+  if (!stats.moments.length) {
+    return <EmptyNote>Play a few more games and the stories will start showing up here.</EmptyNote>;
+  }
+  return (
+    <ul className="grid gap-2 sm:grid-cols-2">
+      {stats.moments.slice(0, 4).map((moment) => {
+        const body = (
+          <>
+            <div className="text-xs font-medium text-textMuted">
+              <span aria-hidden="true" className="mr-1">{moment.emoji}</span>
+              {moment.title}
+            </div>
+            <div className="text-sm font-semibold leading-tight text-brandAccent">{moment.headline}</div>
+            <div className="text-xs text-textBody">{moment.detail}</div>
+          </>
+        );
+        return (
+          <li key={moment.key} className="rounded-lg bg-surfaceSubtle">
+            {moment.gameId ? (
+              <Link href={`/games/${moment.gameId}`} className="block h-full p-2.5 hover:bg-borderWarm/40">
+                {body}
+              </Link>
+            ) : (
+              <div className="p-2.5">{body}</div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export const WIDE_CARDS = new Set<DashboardCardId>(["recentScores", "rivals", "moments"]);
 
 export function DashboardCardBody({
   id,
@@ -333,6 +366,8 @@ export function DashboardCardBody({
       return <CareerCard stats={stats} />;
     case "gameLength":
       return <GameLengthCard stats={stats} />;
+    case "moments":
+      return <MomentsCard stats={stats} />;
     case "averages":
       return <AveragesCard stats={stats} />;
   }

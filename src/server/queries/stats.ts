@@ -14,6 +14,8 @@ import {
   type Rival,
   type WinStreaks,
 } from "./playerStats";
+import { getPlayerHighlightsForUser } from "./playerHighlights";
+import { highlightMoments } from "@/components/insights/PlayerHighlights";
 import {
   normalizeDashboardLayout,
   type DashboardLayout,
@@ -65,7 +67,14 @@ export type DashboardStats = {
   recentGames: RecentGame[];
   streaks: WinStreaks;
   rivals: Rival[];
+  /** Plain-data highlight moments, so they cross to the client unchanged. */
+  moments: DashboardMoment[];
 };
+
+export type DashboardMoment = ReturnType<typeof highlightMoments>[number];
+
+// Streaks and the most-played rival already have their own cards.
+const MOMENTS_COVERED_ELSEWHERE = new Set(["streak", "rival"]);
 
 // Highest / lowest single-round score, each fetched with ORDER BY + LIMIT 1
 // so the database does the aggregation instead of JS reducing every row
@@ -153,7 +162,7 @@ export async function getDashboardStatsForUser(
   userId: string,
   db: Db = prisma
 ): Promise<DashboardStats> {
-  const [roundStats, scoreExtremes, gameRoundExtremes, games, recentGames, streaks, rivals] =
+  const [roundStats, scoreExtremes, gameRoundExtremes, games, recentGames, streaks, rivals, highlights] =
     await Promise.all([
       getRoundStatsForUser(userId, db),
       getHighestAndLowestScoreForUser(userId, db),
@@ -162,6 +171,7 @@ export async function getDashboardStatsForUser(
       getRecentGamesForUser(userId, db),
       getWinStreaksForUser(userId, db),
       getRivalsForUser(userId, db),
+      getPlayerHighlightsForUser(userId, db),
     ]);
 
   return {
@@ -178,6 +188,9 @@ export async function getDashboardStatsForUser(
     recentGames,
     streaks,
     rivals,
+    moments: highlightMoments(highlights).filter(
+      (moment) => !MOMENTS_COVERED_ELSEWHERE.has(moment.key),
+    ),
   };
 }
 
