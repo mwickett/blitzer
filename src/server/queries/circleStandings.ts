@@ -50,6 +50,7 @@ type GameAggRow = {
 type RoundAggRow = {
   playerId: string;
   totalRounds: bigint | number;
+  breakdownRounds?: bigint | number;
   totalBlitzes: bigint | number;
   cumulativeScore: bigint | number | null;
 };
@@ -64,9 +65,10 @@ type H2HRow = {
   bWins: bigint | number;
 };
 
-function battingAverage(totalRounds: number, totalBlitzes: number): string {
-  if (!totalRounds) return "0.000";
-  return (totalBlitzes / totalRounds).toFixed(3);
+// Only rounds entered with a Blitz pile can show a blitz; typed totals can't.
+function battingAverage(breakdownRounds: number, totalBlitzes: number): string {
+  if (!breakdownRounds) return "0.000";
+  return (totalBlitzes / breakdownRounds).toFixed(3);
 }
 
 function sortStandings(a: CircleStandingRow, b: CircleStandingRow): number {
@@ -124,6 +126,7 @@ export async function getCircleStandingsForOrg(
       SELECT
         COALESCE(s."userId", s."guestId") AS "playerId",
         COUNT(*) AS "totalRounds",
+        COUNT(s."blitzPileRemaining") AS "breakdownRounds",
         COUNT(*) FILTER (WHERE s."blitzPileRemaining" = 0) AS "totalBlitzes",
         SUM(${Prisma.raw(ROUND_SCORE_SQL)}) AS "cumulativeScore"
       FROM "Score" s
@@ -192,6 +195,7 @@ export async function getCircleStandingsForOrg(
       row.playerId,
       {
         totalRounds: Number(row.totalRounds ?? 0),
+        breakdownRounds: Number(row.breakdownRounds ?? row.totalRounds ?? 0),
         totalBlitzes: Number(row.totalBlitzes ?? 0),
         cumulativeScore: Number(row.cumulativeScore ?? 0),
       },
@@ -206,6 +210,7 @@ export async function getCircleStandingsForOrg(
       const decidedGames = winCount + lossCount;
       const rounds = roundsByPlayer.get(row.playerId) ?? {
         totalRounds: 0,
+        breakdownRounds: 0,
         totalBlitzes: 0,
         cumulativeScore: 0,
       };
@@ -221,7 +226,10 @@ export async function getCircleStandingsForOrg(
         winRate: decidedGames ? (winCount / decidedGames) * 100 : 0,
         totalRounds: rounds.totalRounds,
         totalBlitzes: rounds.totalBlitzes,
-        battingAverage: battingAverage(rounds.totalRounds, rounds.totalBlitzes),
+        battingAverage: battingAverage(
+          rounds.breakdownRounds,
+          rounds.totalBlitzes,
+        ),
         cumulativeScore: rounds.cumulativeScore,
       };
     })

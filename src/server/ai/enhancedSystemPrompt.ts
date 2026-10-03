@@ -63,6 +63,7 @@ export async function buildEnhancedSystemPrompt(
     - Waiting pickup lobbies (not games played): ${userSummary.waitingLobbies}
     - Expired pickup lobbies (not games played): ${userSummary.expiredLobbies}
     - Total rounds played: ${userStats.totalRounds}
+    - Rounds entered with cards and Blitz pile: ${userStats.breakdownRounds} (the rest were entered as round totals, so blitz and card stats below cover only these)
     - Total blitzes: ${userStats.totalBlitzes}
     - Total cards played: ${userStats.totalCardsPlayed}
     - Average cards played per round: ${userStats.avgCardsPlayed.toFixed(2)}

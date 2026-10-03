@@ -77,6 +77,44 @@ describe("buildPredictionProfiles", () => {
     expect(profiles).not.toHaveProperty("other-user");
   });
 
+  it("uses typed totals for scores but only breakdowns for card mechanics", () => {
+    const typed = {
+      userId: "user-1",
+      guestId: null,
+      totalCardsPlayed: null,
+      blitzPileRemaining: null,
+    };
+    const profiles = buildPredictionProfiles(
+      ["user-1", "guest-1"],
+      [
+        { ...typed, typedScore: 30 },
+        {
+          userId: "user-1",
+          guestId: null,
+          totalCardsPlayed: 10,
+          blitzPileRemaining: 5,
+        },
+        { ...typed, userId: null, guestId: "guest-1", typedScore: 8 },
+      ],
+    );
+
+    expect(profiles["user-1"]).toMatchObject({
+      roundsPlayed: 2,
+      breakdownRounds: 1,
+      meanDelta: 15,
+      blitzRate: 0,
+      meanCardsPlayed: 10,
+      meanBlitzPileRemaining: 5,
+    });
+    expect(profiles["guest-1"]).toMatchObject({
+      roundsPlayed: 1,
+      breakdownRounds: 0,
+      meanDelta: 8,
+      blitzRate: 0,
+      meanCardsPlayed: 0,
+    });
+  });
+
   it("keeps recent deltas capped while retaining aggregate sample counts", () => {
     const samples = Array.from(
       { length: RECENT_DELTA_LIMIT + 5 },
@@ -165,6 +203,7 @@ describe("getPredictionProfilesForGame", () => {
           guestId: true,
           totalCardsPlayed: true,
           blitzPileRemaining: true,
+          typedScore: true,
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: HISTORY_SAMPLE_LIMIT_PER_PLAYER,

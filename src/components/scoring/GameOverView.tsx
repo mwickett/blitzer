@@ -47,7 +47,7 @@ export function GameOverView({
   const [rematchError, setRematchError] = useState<string | null>(null);
   const rematching = useRef(false);
   const sorted = [...players].sort((a, b) => b.score - a.score);
-  const { scoresByRound, deltasByRound, blitzByRound } = useMemo(
+  const { scoresByRound, deltasByRound, blitzByRound, scoredByRound } = useMemo(
     () => buildRoundGraphSeries(players, rounds),
     [players, rounds],
   );
@@ -147,7 +147,7 @@ export function GameOverView({
             <RoundMvpsCard
               players={players}
               deltasByRound={deltasByRound}
-              blitzByRound={blitzByRound}
+              scoredByRound={scoredByRound}
             />
             <BlitzPileCard players={players} blitzByRound={blitzByRound} />
           </GraphCarousel>

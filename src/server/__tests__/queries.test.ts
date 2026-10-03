@@ -343,7 +343,7 @@ describe("Queries", () => {
           });
         (prisma.$queryRaw as jest.Mock)
           .mockResolvedValueOnce([
-            { totalRounds: 10, totalBlitzes: 4, cumulativeScore: 60 },
+            { totalRounds: 10, breakdownRounds: 10, totalBlitzes: 4, cumulativeScore: 60 },
           ])
           .mockResolvedValueOnce([
             { score: 30, totalCardsPlayed: 40, blitzPileRemaining: 5 },

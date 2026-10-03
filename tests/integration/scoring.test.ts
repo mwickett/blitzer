@@ -387,3 +387,59 @@ test("rechecks circle and pickup authorization inside the locked transaction", a
   assert.equal(await db.round.count({ where: { gameId: f.game.id } }), 0);
   assert.ok((await writeRound(db, f.caller, command)).ok);
 });
+
+test("stores typed round totals with an empty breakdown and enforces one form per score", async () => {
+  const f = await fixture(25);
+  const typed = [
+    { userId: f.user.id, typedScore: 26 },
+    { guestId: f.guest.id, typedScore: -8 },
+  ];
+  const result = await writeRound(db, f.caller, {
+    kind: "create",
+    gameId: f.game.id,
+    roundNumber: 1,
+    scores: typed,
+  });
+  assert.equal(result.ok, true);
+  const game = await snapshot(f.game.id);
+  assert.deepEqual(
+    game.rounds[0].scores
+      .map(({ typedScore, totalCardsPlayed, blitzPileRemaining }) => ({
+        typedScore,
+        totalCardsPlayed,
+        blitzPileRemaining,
+      }))
+      .sort((a, b) => b.typedScore! - a.typedScore!),
+    [
+      { typedScore: 26, totalCardsPlayed: null, blitzPileRemaining: null },
+      { typedScore: -8, totalCardsPlayed: null, blitzPileRemaining: null },
+    ],
+  );
+  assert.equal(game.isFinished, true);
+  assert.equal(game.winnerId, f.user.id);
+
+  // Editing back to a breakdown clears the typed totals in the same write.
+  const edit = await writeRound(db, f.caller, {
+    kind: "edit",
+    gameId: f.game.id,
+    roundId: game.rounds[0].id,
+    expectedRevision: 0,
+    scores: f.scores(10, 20, 0, 5),
+  });
+  assert.equal(edit.ok, true);
+  const edited = await snapshot(f.game.id);
+  assert.ok(edited.rounds[0].scores.every((score) => score.typedScore === null));
+  assert.equal(edited.isFinished, false);
+
+  for (const data of [
+    { typedScore: 5, totalCardsPlayed: 5, blitzPileRemaining: 0 },
+    { totalCardsPlayed: 5 },
+    {},
+  ]) {
+    await assert.rejects(
+      db.score.create({
+        data: { roundId: game.rounds[0].id, userId: f.user.id, ...data },
+      }),
+    );
+  }
+});

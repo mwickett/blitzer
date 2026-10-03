@@ -148,7 +148,7 @@ describe("Game Rules", () => {
   describe("Canonical SQL fragment", () => {
     it("embeds the blitz penalty multiplier from GAME_RULES", () => {
       expect(ROUND_SCORE_SQL).toBe(
-        `("totalCardsPlayed" - ("blitzPileRemaining" * ${GAME_RULES.BLITZ_PENALTY_MULTIPLIER}))`
+        `COALESCE("typed_score", "totalCardsPlayed" - ("blitzPileRemaining" * ${GAME_RULES.BLITZ_PENALTY_MULTIPLIER}))`
       );
     });
   });

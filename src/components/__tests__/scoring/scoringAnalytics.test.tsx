@@ -63,6 +63,7 @@ describe("scoring draft analytics", () => {
       round_number: 1,
       player_count: 2,
       entry_duration_ms: 12_500,
+      entry_mode: "cards",
     });
     now.mockRestore();
   });

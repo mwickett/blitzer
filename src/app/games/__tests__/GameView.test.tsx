@@ -8,6 +8,9 @@ jest.mock("@/server/queries/games", () => ({ getGameById: jest.fn() }));
 jest.mock("@/server/queries/predictionProfiles", () => ({
   getPredictionProfilesForGame: jest.fn().mockResolvedValue({}),
 }));
+jest.mock("@/server/queries/preferences", () => ({
+  getScoreEntryMode: jest.fn().mockResolvedValue("cards"),
+}));
 jest.mock("@/featureFlags", () => ({ isLlmFeaturesEnabled: jest.fn().mockResolvedValue(false) }));
 jest.mock("../[id]/GameStory", () => ({
   __esModule: true,

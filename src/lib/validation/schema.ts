@@ -8,3 +8,13 @@ export const scoreValidationSchema = z.object({
 });
 
 export type ScoreValidation = z.infer<typeof scoreValidationSchema>;
+
+/**
+ * A stored round score: a card breakdown, or a total typed directly in
+ * "Do math" mode, where the breakdown is null.
+ */
+export interface RoundScoreValues {
+  blitzPileRemaining?: number | null;
+  totalCardsPlayed?: number | null;
+  typedScore?: number | null;
+}

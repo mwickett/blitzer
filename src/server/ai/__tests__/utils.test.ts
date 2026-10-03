@@ -46,7 +46,10 @@ it("resolves the caller once and starts both bounded aggregates in parallel", as
   expect(finish).toHaveLength(2);
   expect(getPlayerHighlightsForUser).toHaveBeenCalledWith("internal-player");
   finish[0]([{ gamesCount: BigInt(1), completedGames: BigInt(1), winCount: BigInt(1), waitingLobbies: BigInt(1) }]);
-  finish[1]([{ totalRounds: BigInt(2), totalBlitzes: BigInt(1) }]);
+  // One of three rounds was a typed total, so it is outside the blitz rate.
+  finish[1]([
+    { totalRounds: BigInt(3), breakdownRounds: BigInt(2), totalBlitzes: BigInt(1) },
+  ]);
   const result = await pending;
   expect(result.games.winRate).toBe(100);
   expect(result.rounds.blitzPercentage).toBe(50);

@@ -1,6 +1,7 @@
 import { ScoringShell } from "@/components/scoring/ScoringShell";
 import { getGameById } from "@/server/queries/games";
 import { getPredictionProfilesForGame } from "@/server/queries/predictionProfiles";
+import { getScoreEntryMode } from "@/server/queries/preferences";
 import { notFound, redirect } from "next/navigation";
 import transformGameData from "@/lib/gameLogic";
 import {
@@ -84,11 +85,12 @@ export default async function GameView(props: {
     !!userId && !!game.organizationId && game.organizationId === orgId;
   const canEdit = isCircleMember || isPickupPlayer;
   // Stories show to any flagged viewer of a finished game; recaps to players.
-  const [predictionProfiles, llmEnabled] = await Promise.all([
+  const [predictionProfiles, llmEnabled, entryMode] = await Promise.all([
     isCircleMember && !isFinished && game.rounds.length > 0
       ? getPredictionProfilesForGame(game, { userId, orgId })
       : {},
     !!userId && (isFinished || canEdit) && isLlmFeaturesEnabled(),
+    userId && canEdit ? getScoreEntryMode(userId) : ("cards" as const),
   ]);
   const showStory = isFinished && llmEnabled;
 
@@ -111,6 +113,7 @@ export default async function GameView(props: {
         recapEnabled={!isFinished && canEdit && llmEnabled}
         canRematch={game.kind === "CIRCLE"}
         sharedScoring={game.kind === "PICKUP"}
+        entryMode={entryMode}
         predictionProfiles={predictionProfiles}
         rounds={game.rounds.map((r) => ({
           id: r.id,
@@ -120,6 +123,7 @@ export default async function GameView(props: {
             guestId: s.guestId,
             blitzPileRemaining: s.blitzPileRemaining,
             totalCardsPlayed: s.totalCardsPlayed,
+            typedScore: s.typedScore,
           })),
         }))}
       />
