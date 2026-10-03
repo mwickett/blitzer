@@ -1,6 +1,145 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@plugin 'tailwindcss-animate';
+
+@custom-variant dark (&:is(.dark *));
+
+@utility container {
+  margin-inline: auto;
+  padding-inline: 2rem;
+  @media (width >= --theme(--breakpoint-sm)) {
+    max-width: none;
+  }
+  @media (width >= 1400px) {
+    max-width: 1400px;
+  }
+}
+
+/* Inline so the utility resolves next/font's variable, which is set on <body> */
+@theme inline {
+  --font-display: var(--font-fraunces), Georgia, serif;
+}
+
+@theme {
+  /*
+   * Tailwind v4 line heights are unitless ratios, which children with a
+   * smaller arbitrary font size inherit and shrink by. Keep v3's absolute
+   * values so nested text sits exactly as it did.
+   */
+  --text-xs--line-height: 1rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+
+  --color-brand: var(--brand);
+  --color-brandAccent: var(--brand-accent);
+  --color-surfaceRaised: var(--surface-raised);
+  --color-surfaceSubtle: var(--surface-subtle);
+  --color-borderWarm: var(--border-warm);
+  --color-textMuted: var(--text-muted);
+  --color-textBody: var(--text-body);
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--brand-accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+
+  /* Tailwind CSS v3 preflight defaults that v4 changed */
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* Tailwind v3's two-part drop-shadow-lg; v4's is a single, fainter shadow */
+@utility celebration-shadow {
+  filter: drop-shadow(0 10px 8px rgb(0 0 0 / 0.04))
+    drop-shadow(0 4px 3px rgb(0 0 0 / 0.1));
+}
+
+/*
+ * Tailwind generates `.font-display` with the family from `--font-display`.
+ * This augments that same class with Fraunces' optical axes: SOFT rounds the
+ * terminals and WONK enables the alternate italic-ish forms, which is what
+ * makes it rhyme with the logo wordmark rather than read as a stock serif.
+ */
+@utility font-display {
+  font-variation-settings:
+    'SOFT' 40,
+    'WONK' 1;
+}
 
 @layer base {
   :root {
@@ -86,63 +225,118 @@
   }
 }
 
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-@keyframes deltaFlash {
-  0% { opacity: 0; transform: scale(0.8); }
-  15% { opacity: 1; transform: scale(1.05); }
-  25% { transform: scale(1); }
-  70% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-@keyframes celebrationFade {
-  0% { opacity: 0; }
-  8% { opacity: 1; }
-  70% { opacity: 1; }
-  100% { opacity: 0; pointer-events: none; }
-}
-
-@keyframes bgFlash {
-  0% { opacity: 0; }
-  8% { opacity: 0.95; }
-  70% { opacity: 0.95; }
-  100% { opacity: 0; }
-}
-
-@keyframes contentPop {
-  0% { opacity: 0; transform: scale(0.5); }
-  12% { opacity: 1; transform: scale(1.1); }
-  18% { transform: scale(1); }
-  70% { opacity: 1; }
-  100% { opacity: 0; transform: scale(0.95); }
-}
-
-@keyframes trophyBounce {
-  0% { opacity: 0; transform: scale(0) rotate(-20deg); }
-  15% { opacity: 1; transform: scale(1.3) rotate(5deg); }
-  22% { transform: scale(1) rotate(0deg); }
-  70% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-@keyframes confettiFall {
-  0% { opacity: 0; transform: translateY(-20px) rotate(0deg); }
-  10% { opacity: 1; }
-  70% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(600px) rotate(720deg); }
-}
-
-/*
- * Tailwind generates `.font-display` with the family from tailwind.config.ts.
- * This augments that same class with Fraunces' optical axes: SOFT rounds the
- * terminals and WONK enables the alternate italic-ish forms, which is what
- * makes it rhyme with the logo wordmark rather than read as a stock serif.
- */
 @layer utilities {
-  .font-display {
-    font-variation-settings: "SOFT" 40, "WONK" 1;
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
+
+  @keyframes deltaFlash {
+    0% {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    15% {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+    25% {
+      transform: scale(1);
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes celebrationFade {
+    0% {
+      opacity: 0;
+    }
+    8% {
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+
+  @keyframes bgFlash {
+    0% {
+      opacity: 0;
+    }
+    8% {
+      opacity: 0.95;
+    }
+    70% {
+      opacity: 0.95;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes contentPop {
+    0% {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    12% {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+    18% {
+      transform: scale(1);
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+  }
+
+  @keyframes trophyBounce {
+    0% {
+      opacity: 0;
+      transform: scale(0) rotate(-20deg);
+    }
+    15% {
+      opacity: 1;
+      transform: scale(1.3) rotate(5deg);
+    }
+    22% {
+      transform: scale(1) rotate(0deg);
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes confettiFall {
+    0% {
+      opacity: 0;
+      transform: translateY(-20px) rotate(0deg);
+    }
+    10% {
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(600px) rotate(720deg);
+    }
+  }
+
 }

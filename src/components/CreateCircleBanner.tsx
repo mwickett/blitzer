@@ -75,7 +75,7 @@ export default function CreateCircleBanner() {
             game without scanning a code every time.
           </div>
         </div>
-        <div className="flex flex-shrink-0 gap-2">
+        <div className="flex shrink-0 gap-2">
           <Button size="sm" className="bg-[#5a341f] hover:bg-[#3d1a0a]" asChild>
             <Link href="/circles/setup">Create a Circle</Link>
           </Button>

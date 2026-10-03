@@ -103,7 +103,7 @@ export function RoundHistoryTable({
                 <th
                   key={player.id}
                   scope="col"
-                  className="min-w-24 max-w-40 break-words p-2 text-center"
+                  className="min-w-24 max-w-40 wrap-break-word p-2 text-center"
                   style={{ color: player.color }}
                 >
                   {player.name}

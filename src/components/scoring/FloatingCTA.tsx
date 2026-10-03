@@ -25,7 +25,7 @@ export function FloatingCTA({
     : `Enter Round ${state.roundNumber} Scores`;
 
   return (
-    <div className="sticky bottom-0 z-40 p-4 bg-gradient-to-t from-[#fff7ea] via-[#fff7ea] to-transparent pt-8">
+    <div className="sticky bottom-0 z-40 p-4 bg-linear-to-t from-[#fff7ea] via-[#fff7ea] to-transparent pt-8">
       <div className="max-w-[440px] mx-auto">
         <button
           type="button"

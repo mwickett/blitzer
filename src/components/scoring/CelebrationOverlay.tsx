@@ -84,13 +84,13 @@ export function CelebrationOverlay({
         <div className="text-6xl mb-3 animate-[trophyBounce_2.5s_ease-out_forwards]">
           🏆
         </div>
-        <div className="text-3xl font-black text-white drop-shadow-lg">
+        <div className="text-3xl font-black text-white celebration-shadow">
           {winnerName}
         </div>
         <div className="text-base font-semibold text-white/85">
           wins the game!
         </div>
-        <div className="text-5xl font-black text-white mt-2 drop-shadow-lg">
+        <div className="text-5xl font-black text-white mt-2 celebration-shadow">
           {winnerScore}
         </div>
       </div>

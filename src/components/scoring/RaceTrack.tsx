@@ -72,7 +72,7 @@ export function RaceTrack({
                 }}
               >
                 <div
-                  className="w-8 h-8 rounded-full border-[2.5px] border-[#fff7ea] shadow-sm flex items-center justify-center text-sm md:text-xs font-bold text-white"
+                  className="w-8 h-8 rounded-full border-[2.5px] border-[#fff7ea] shadow-xs flex items-center justify-center text-sm md:text-xs font-bold text-white"
                   style={{ backgroundColor: m.color }}
                 >
                   {m.score}
@@ -90,7 +90,7 @@ export function RaceTrack({
                 transform: "translateX(-50%) translateY(-50%)",
               }}
             >
-              <div className="flex h-8 rounded-full border-[2.5px] border-[#fff7ea] shadow-sm overflow-hidden">
+              <div className="flex h-8 rounded-full border-[2.5px] border-[#fff7ea] shadow-xs overflow-hidden">
                 {group.markers.map((m) => (
                   <div
                     key={m.id}

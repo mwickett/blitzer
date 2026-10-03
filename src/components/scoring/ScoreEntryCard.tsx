@@ -48,8 +48,8 @@ export function ScoreEntryCard({
       className="relative bg-white border-[1.5px] border-[#e6d7c3] rounded-xl p-3 flex items-center gap-2.5"
       style={{ borderLeftWidth: "5px", borderLeftColor: color }}
     >
-      <div className="w-20 flex-shrink-0">
-        <div className="break-words text-sm font-semibold text-[#290806]">
+      <div className="w-20 shrink-0">
+        <div className="wrap-break-word text-sm font-semibold text-[#290806]">
           {name}
         </div>
         <div
@@ -83,7 +83,7 @@ export function ScoreEntryCard({
                 (v) => onUpdate("blitzRemaining", v),
               )
             }
-            className="w-full h-11 bg-[#fff7ea] border-[1.5px] border-[#e6d7c3] rounded-lg text-[#290806] text-xl font-semibold text-center focus:border-[#8b5e3c] focus:outline-none transition-colors"
+            className="w-full h-11 bg-[#fff7ea] border-[1.5px] border-[#e6d7c3] rounded-lg text-[#290806] text-xl font-semibold text-center focus:border-[#8b5e3c] focus:outline-hidden transition-colors"
             placeholder="—"
           />
         </div>
@@ -108,7 +108,7 @@ export function ScoreEntryCard({
                 (v) => onUpdate("cardsPlayed", v),
               )
             }
-            className="w-full h-11 bg-[#fff7ea] border-[1.5px] border-[#e6d7c3] rounded-lg text-[#290806] text-xl font-semibold text-center focus:border-[#8b5e3c] focus:outline-none transition-colors"
+            className="w-full h-11 bg-[#fff7ea] border-[1.5px] border-[#e6d7c3] rounded-lg text-[#290806] text-xl font-semibold text-center focus:border-[#8b5e3c] focus:outline-hidden transition-colors"
             placeholder="—"
           />
         </div>

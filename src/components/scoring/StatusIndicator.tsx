@@ -10,7 +10,7 @@ export function StatusIndicator({ status }: { status: EntryStatus }) {
   const config = STATUS_CONFIG[status];
   return (
     <div
-      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${config.bg} ${config.text}`}
+      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${config.bg} ${config.text}`}
     >
       {config.icon}
     </div>

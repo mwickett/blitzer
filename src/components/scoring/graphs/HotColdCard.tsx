@@ -30,7 +30,7 @@ export function HotColdCard({ players, deltasByRound }: HotColdCardProps) {
 
       {/* Round headers */}
       <div className="flex items-center gap-1.5 mb-1.5">
-        <div className="w-14 md:w-10 flex-shrink-0" aria-hidden="true" />
+        <div className="w-14 md:w-10 shrink-0" aria-hidden="true" />
         <div className="flex flex-1 gap-1">
           {Array.from({ length: roundCount }, (_, i) => (
             <div
@@ -50,7 +50,7 @@ export function HotColdCard({ players, deltasByRound }: HotColdCardProps) {
           return (
             <div key={player.id} className="flex items-center gap-1.5">
               <div
-                className="w-14 md:w-10 text-[13px] md:text-[11px] font-semibold text-right flex-shrink-0 truncate leading-tight"
+                className="w-14 md:w-10 text-[13px] md:text-[11px] font-semibold text-right shrink-0 truncate leading-tight"
                 style={{ color: player.color }}
               >
                 {player.name}

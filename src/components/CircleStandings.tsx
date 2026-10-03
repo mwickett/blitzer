@@ -34,7 +34,7 @@ export function CircleStandingsTable({
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full min-w-[40rem] text-left text-sm">
+      <table className="w-full min-w-160 text-left text-sm">
         <thead className="border-b bg-muted/40">
           <tr>
             <th className="px-3 py-3 font-medium">#</th>
