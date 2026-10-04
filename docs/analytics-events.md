@@ -22,6 +22,7 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | `scoring_show_math_toggled` | "Show the math" / "Hide the math" is tapped under the round table | `enabled` |
 | `game_over_rematch` | "New Game with Same Players" is tapped | `player_count` |
 | `game_over_back_to_games` | "Back to Games" is tapped on the finished screen | none |
+| `game_result_shared` | "Share result" on a finished game shares or copies it (closing the share sheet is not counted) | `game_id`, `method` (`image` for the recap picture, `link`, `copy`) |
 | `game_over_guest_invite` | A guest invite is shared or copied from the finished screen (closing the share sheet is not counted) | `method` (`share`, `copy`), `guest_count` |
 
 `entry_duration_ms` runs from the first value typed into the draft to the successful save, so it measures entry effort rather than how long the round took to play. It is `null` when a save happens without any typing (for example, resubmitting an unchanged edit).
