@@ -41,6 +41,7 @@ function user(overrides: Partial<User> = {}): User {
     deactivatedAt: null,
     anonymizedAt: null,
     preferredDeck: null,
+    storyPrompt: null,
     scoreEntryMode: "CARDS",
     ...overrides,
   };

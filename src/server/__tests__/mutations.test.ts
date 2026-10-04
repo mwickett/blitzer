@@ -101,8 +101,10 @@ jest.mock("@/featureFlags", () => ({
   isFeatureEnabledForUser: (...args: unknown[]) => mockFlagFor(...args),
 }));
 const mockTellStory = jest.fn();
+const mockTellPersonal = jest.fn();
 jest.mock("../ai/gameStory", () => ({
   tellGameStory: (...args: unknown[]) => mockTellStory(...args),
+  tellPersonalGameStory: (...args: unknown[]) => mockTellPersonal(...args),
 }));
 const mockGetGameById = jest.fn();
 jest.mock("../queries/games", () => ({
@@ -142,6 +144,7 @@ describe("Game Mutations", () => {
     jest.clearAllMocks();
     mockFlagFor.mockReset().mockResolvedValue(false);
     mockTellStory.mockReset();
+    mockTellPersonal.mockReset();
     mockGetGameById.mockReset();
     (auth as unknown as jest.Mock).mockResolvedValue({
       userId: mockUserId,
@@ -417,6 +420,7 @@ describe("Game Mutations", () => {
         username: "player1",
       });
       expect(mockTellStory).toHaveBeenCalledTimes(1);
+      expect(mockTellPersonal).not.toHaveBeenCalled();
       expect(mockTellStory).toHaveBeenCalledWith(
         { id: mockGameId, isFinished: true, winnerId: "player1" },
         mockUserId,
@@ -427,6 +431,46 @@ describe("Game Mutations", () => {
       );
       expect(sendGameCompleteEmail).toHaveBeenCalledWith(
         expect.objectContaining({ email: "player2@example.com", story: undefined }),
+      );
+    });
+
+    it("writes a personal story for flagged players with a style, falling back to the shared one", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        players: game().players.map((player) => ({
+          ...player,
+          user: {
+            ...player.user,
+            email: `${player.userId}@example.com`,
+            storyPrompt: "As a pirate shanty",
+          },
+        })),
+      });
+      (sendGameCompleteEmail as jest.Mock).mockResolvedValue({ success: true });
+      mockFlagFor.mockResolvedValue(true);
+      const loaded = { id: mockGameId, isFinished: true, winnerId: "player1" };
+      mockGetGameById.mockResolvedValue(loaded);
+      mockTellStory.mockResolvedValue({ story: "Shared story." });
+      mockTellPersonal.mockResolvedValueOnce("Yo ho, player one!").mockResolvedValueOnce(null);
+
+      await createRoundForGame(mockGameId, 1, scores);
+      await flushAfter();
+
+      expect(mockTellPersonal).toHaveBeenCalledWith(
+        loaded,
+        { participantId: "player1", stylePrompt: "As a pirate shanty" },
+        "player1",
+        expect.any(AbortSignal),
+      );
+      // Personal stories are written before any email goes out.
+      expect(mockTellPersonal.mock.invocationCallOrder[1]).toBeLessThan(
+        (sendGameCompleteEmail as jest.Mock).mock.invocationCallOrder[0],
+      );
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "player1@example.com", story: "Yo ho, player one!" }),
+      );
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "player2@example.com", story: "Shared story." }),
       );
     });
 

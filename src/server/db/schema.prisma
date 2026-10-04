@@ -18,6 +18,7 @@ model User {
   accentColor            String?                  @map("accent_color")
   dashboardLayout        Json?                    @map("dashboard_layout")
   preferredDeck          String?                  @map("preferred_deck")
+  storyPrompt            String?                  @map("story_prompt")
   scoreEntryMode         ScoreEntryMode           @default(CARDS) @map("score_entry_mode")
   /// Set when the player leaves (Clerk account deleted). Rows stay so other
   /// players' game history is intact; the player can't sign in or be added.

@@ -67,7 +67,8 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | --- | --- | --- |
 | `email_send_success`, `email_send_failed`, `email_retry_attempt`, `email_rate_limit_hit` | Provider delivery outcomes in `src/server/email.ts` | `emailType`, `recipientCount`, attempt counters, `errorName`, `reason` |
 | `email_batch_completed` | The game-complete email batch finishes | `game_id`, `recipient_count`, `failed_count` |
-| `llm_error` | The Insights chat route fails | `error_type` |
+| `llm_error` | An AI feature fails: chat, game story, emailed or personal story, round recap | `error_type`; `feature` outside chat (`game_story`, `game_email`, `game_email_personal`, `round_recap`) |
+| `story_prompt_saved` / `story_prompt_cleared` | A player saves or clears their personal story style on Insights | none (the style text stays out of analytics) |
 
 LLM generations are traced separately by `@posthog/ai` in privacy mode.
 

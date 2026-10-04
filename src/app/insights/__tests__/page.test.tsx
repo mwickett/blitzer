@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import InsightsPage from "../page";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import { getPlayerHighlightsForClerkUser } from "@/server/queries/playerHighlights";
+import { getStoryPromptForClerkUser } from "@/server/queries/storyPrompt";
 
 jest.mock("server-only", () => ({}));
 jest.mock("@clerk/nextjs/server", () => ({ auth: { protect: jest.fn() } }));
@@ -15,6 +16,12 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/featureFlags", () => ({ isLlmFeaturesEnabled: jest.fn() }));
 jest.mock("@/server/queries/playerHighlights", () => ({
   getPlayerHighlightsForClerkUser: jest.fn(),
+}));
+jest.mock("@/server/queries/storyPrompt", () => ({
+  getStoryPromptForClerkUser: jest.fn(),
+}));
+jest.mock("@/components/insights/StoryPromptForm", () => ({
+  StoryPromptForm: ({ initialPrompt }: { initialPrompt: string | null }) => <div>story style: {initialPrompt}</div>,
 }));
 jest.mock("@/components/insights/PlayerHighlights", () => ({
   __esModule: true,
@@ -28,6 +35,7 @@ jest.mock("../ModernChatUI", () => ({
 const mockProtect = auth.protect as unknown as jest.Mock;
 const mockFlag = isLlmFeaturesEnabled as jest.Mock;
 const mockHighlights = getPlayerHighlightsForClerkUser as jest.Mock;
+const mockStoryPrompt = getStoryPromptForClerkUser as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -51,11 +59,14 @@ describe("InsightsPage", () => {
   it("shows highlights and chat when the llm-features flag is on", async () => {
     mockFlag.mockResolvedValue(true);
     mockHighlights.mockResolvedValue({ recentGames: [] });
+    mockStoryPrompt.mockResolvedValue("Like a nature documentary");
     render(await InsightsPage());
 
     expect(mockHighlights).toHaveBeenCalledWith("user_1");
+    expect(mockStoryPrompt).toHaveBeenCalledWith("user_1");
     expect(screen.getByText("player highlights")).toBeInTheDocument();
     expect(screen.getByText("chat")).toBeInTheDocument();
+    expect(screen.getByText("story style: Like a nature documentary")).toBeInTheDocument();
   });
 
   it("shows the placeholder without querying highlights when the flag is off", async () => {
@@ -63,6 +74,7 @@ describe("InsightsPage", () => {
     render(await InsightsPage());
 
     expect(mockHighlights).not.toHaveBeenCalled();
+    expect(mockStoryPrompt).not.toHaveBeenCalled();
     expect(screen.getByText("Coming Soon")).toBeInTheDocument();
     expect(screen.queryByText("chat")).not.toBeInTheDocument();
   });

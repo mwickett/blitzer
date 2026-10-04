@@ -8,9 +8,11 @@ import { assertAccountActive, requireAuthContext } from "./common";
 import { writeRound } from "../scoring/writeRound";
 import { sendGameCompleteEmail, EMAIL_INTER_SEND_DELAY_MS } from "../email";
 import { isFeatureEnabledForUser } from "@/featureFlags";
-import { tellGameStory } from "../ai/gameStory";
+import { tellGameStory, tellPersonalGameStory } from "../ai/gameStory";
 import { getGameById } from "../queries/games";
 import type { SubmittedScore } from "@/lib/validation/submissions";
+
+const PERSONAL_STORY_TIMEOUT_MS = 15_000;
 
 async function submit(input: unknown) {
   const { userId, user, posthog } = await requireAuthContext("user");
@@ -61,15 +63,33 @@ async function submit(input: unknown) {
         ),
       );
       let story: string | undefined;
+      let game: Awaited<ReturnType<typeof getGameById>> = null;
       if (wantsStory.some(Boolean)) {
-        const game = await getGameById(transition.gameId).catch(() => null);
+        const loaded = await getGameById(transition.gameId).catch(() => null);
         // A correction may land before this runs; skip the story unless the
         // game still has the winner this email announces.
-        story =
-          game?.isFinished && game.winnerId === transition.winnerId
-            ? (await tellGameStory(game, userId, "game_email"))?.story
-            : undefined;
+        if (loaded?.isFinished && loaded.winnerId === transition.winnerId) {
+          game = loaded;
+          story = (await tellGameStory(game, userId, "game_email"))?.story;
+        }
       }
+      // Players with their own style get a personal version, written in
+      // parallel and time-boxed so slow generations can't hold up delivery.
+      // Any failure falls back to the shared story.
+      const storyGame = game;
+      const timeout = AbortSignal.timeout(PERSONAL_STORY_TIMEOUT_MS);
+      const personalStories = await Promise.all(
+        recipients.map((recipient, index) =>
+          storyGame && wantsStory[index] && recipient.storyPrompt
+            ? tellPersonalGameStory(
+                storyGame,
+                { participantId: recipient.id, stylePrompt: recipient.storyPrompt },
+                recipient.clerk_user_id,
+                timeout,
+              )
+            : null,
+        ),
+      );
       // Re-read just before sending: a player who deleted their account since
       // the score was saved (flag checks and the story take a while) gets no mail.
       const stillActive = new Set(
@@ -87,6 +107,7 @@ async function submit(input: unknown) {
       for (const [index, recipient] of recipients.entries()) {
         if (!stillActive.has(recipient.id)) continue;
         try {
+          const personal = personalStories[index];
           const sent = await sendGameCompleteEmail({
             email: recipient.email,
             username: recipient.username,
@@ -94,7 +115,7 @@ async function submit(input: unknown) {
             isWinner: recipient.id === transition.winnerId,
             gameId: transition.gameId,
             userId: recipient.clerk_user_id,
-            story: wantsStory[index] ? story : undefined,
+            story: wantsStory[index] ? (personal ?? story) : undefined,
             guestNames,
           });
           if (!sent.success) failed++;
