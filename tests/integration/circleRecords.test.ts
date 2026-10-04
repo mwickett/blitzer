@@ -4,7 +4,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../src/generated/prisma/client";
 import { getCircleRecordsForOrg } from "../../src/server/queries/circleRecords";
 
-assert.equal(process.env.BLITZER_INTEGRATION_TEST, "1", "Use npm run test:integration");
+assert.equal(
+  process.env.BLITZER_INTEGRATION_TEST,
+  "1",
+  "Use npm run test:integration",
+);
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
 });
@@ -17,10 +21,7 @@ async function createGame(
   kind: "CIRCLE" | "PICKUP",
   players: { userId?: string; guestId?: string }[],
   rounds: Line[][],
-  {
-    winnerId,
-    endedAt,
-  }: { winnerId?: string; endedAt?: Date } = {},
+  { winnerId, endedAt }: { winnerId?: string; endedAt?: Date } = {},
 ) {
   // Rounds are spaced an hour apart, ending when the game ended.
   const end = (endedAt ?? new Date("2026-06-01T00:00:00Z")).getTime();
@@ -76,9 +77,21 @@ test("circle records find each all-time best, first setter keeps ties", async ()
     "CIRCLE",
     seats,
     [
-      [[30, 0], [0, 0], [5, 3]],
-      [[0, 10], [25, 0], [4, 2]],
-      [[2, 0], [40, 0], [3, 3]],
+      [
+        [30, 0],
+        [0, 0],
+        [5, 3],
+      ],
+      [
+        [0, 10],
+        [25, 0],
+        [4, 2],
+      ],
+      [
+        [2, 0],
+        [40, 0],
+        [3, 3],
+      ],
     ],
     { winnerId: ben.id, endedAt: new Date("2026-02-01T00:00:00Z") },
   );
@@ -89,20 +102,48 @@ test("circle records find each all-time best, first setter keeps ties", async ()
     "CIRCLE",
     seats.slice(0, 2),
     [
-      [[30, 0], [5, 1]],
-      [[20, 0], [6, 2]],
+      [
+        [30, 0],
+        [5, 1],
+      ],
+      [
+        [20, 0],
+        [6, 2],
+      ],
     ],
     { winnerId: ana.id, endedAt: new Date("2026-03-01T00:00:00Z") },
   );
-  // Pickup games and other Circles never count.
-  await createGame(orgId, "PICKUP", seats.slice(0, 2), [[[60, 0], [0, 10]]], {
-    winnerId: ana.id,
-  });
+  // Games in progress, pickup games and other Circles never count.
+  await createGame(orgId, "CIRCLE", seats.slice(0, 2), [
+    [
+      [55, 0],
+      [0, 15],
+    ],
+  ]);
+  await createGame(
+    orgId,
+    "PICKUP",
+    seats.slice(0, 2),
+    [
+      [
+        [60, 0],
+        [0, 10],
+      ],
+    ],
+    {
+      winnerId: ana.id,
+    },
+  );
   await createGame(
     "org_records_other",
     "CIRCLE",
     seats.slice(0, 2),
-    [[[70, 0], [0, 10]]],
+    [
+      [
+        [70, 0],
+        [0, 10],
+      ],
+    ],
     { winnerId: ana.id },
   );
 
@@ -141,7 +182,16 @@ test("circle records find each all-time best, first setter keeps ties", async ()
     orgId,
     "CIRCLE",
     seats.slice(0, 2),
-    [[[40, 0], [1, 1]], [[40, 0], [1, 1]]],
+    [
+      [
+        [40, 0],
+        [1, 1],
+      ],
+      [
+        [40, 0],
+        [1, 1],
+      ],
+    ],
     { winnerId: ana.id, endedAt: new Date("2026-04-01T00:00:00Z") },
   );
   const after = await getCircleRecordsForOrg(orgId);

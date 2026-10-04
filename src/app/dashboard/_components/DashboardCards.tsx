@@ -19,6 +19,7 @@ import { BigNumber, EmptyNote, StatRow } from "./StatCard";
 import { cn } from "@/lib/utils";
 import { DeckIcon } from "@/components/scoring/DeckIcon";
 import { deckLabel } from "@/lib/scoring/decks";
+import { BadgeShelf } from "@/components/BadgeShelf";
 
 const WIN = "#2a6517";
 const LOSS = "#b91c1c";
@@ -566,7 +567,7 @@ function LeadChangesCard({ stats }: { stats: DashboardStats }) {
   );
 }
 
-export const WIDE_CARDS = new Set<DashboardCardId>(["recentScores", "rivals", "moments", "namedMoments"]);
+export const WIDE_CARDS = new Set<DashboardCardId>(["recentScores", "rivals", "moments", "namedMoments", "badges"]);
 
 export function DashboardCardBody({
   id,
@@ -600,6 +601,8 @@ export function DashboardCardBody({
       return <WidestCard stats={stats} />;
     case "namedMoments":
       return <NamedMomentsCard stats={stats} />;
+    case "badges":
+      return <BadgeShelf badges={stats.badges} />;
     case "leadChanges":
       return <LeadChangesCard stats={stats} />;
     case "averages":

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Share2 } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 
@@ -33,12 +33,19 @@ export default function ShareResult({
   const [state, setState] = useState<"idle" | "shared" | "copied" | "failed">(
     "idle",
   );
-  // Start drawing the picture on press so the share sheet still opens
-  // inside the tap's user activation.
-  const image = useRef<Promise<File | null> | null>(null);
-  const prepare = () => {
-    image.current ??= loadImage(gameId);
-  };
+  // The share sheet only opens within a moment of the tap, too soon to wait
+  // for the picture to be drawn, so it loads with the page. Until it is
+  // ready the button shares the link, whose preview is the same picture.
+  const image = useRef<File | null>(null);
+  useEffect(() => {
+    let active = true;
+    loadImage(gameId).then((file) => {
+      if (active) image.current = file;
+    });
+    return () => {
+      active = false;
+    };
+  }, [gameId]);
 
   const share = async () => {
     const url = window.location.href;
@@ -46,8 +53,7 @@ export default function ShareResult({
     let method: Method;
     try {
       if (typeof navigator.share === "function") {
-        prepare();
-        const file = await image.current;
+        const file = image.current;
         if (file && navigator.canShare?.({ files: [file] })) {
           method = "image";
           await navigator.share({ title, url, files: [file] });
@@ -77,7 +83,6 @@ export default function ShareResult({
     <div className="mx-auto mt-6 flex max-w-2xl flex-col items-center gap-1">
       <button
         type="button"
-        onPointerDown={prepare}
         onClick={share}
         className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#290806] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#3d1a0a]"
       >

@@ -7,6 +7,22 @@ import { buildRecapCard, type RecapCard } from "@/lib/scoring/recapCard";
 export const alt = "Final scores from a game of Dutch Blitz on Blitzer";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+// Scores change until the game ends and can be edited after, so the picture
+// is drawn per request rather than cached at first view.
+export const dynamic = "force-dynamic";
+
+/** Long names shrink, then end in an ellipsis, so they stay in their column. */
+const clip = {
+  overflow: "hidden",
+  whiteSpace: "nowrap",
+  textOverflow: "ellipsis",
+} as const;
+
+function winnerSize(name: string): number {
+  if (name.length <= 10) return 88;
+  if (name.length <= 16) return 64;
+  return 48;
+}
 
 const INK = "#290806";
 const CREAM = "#fff7ea";
@@ -90,9 +106,12 @@ function Recap({ card }: { card: RecapCard }) {
           </div>
           <div
             style={{
-              fontSize: card.winnerName.length > 12 ? 64 : 88,
+              ...clip,
+              display: "block",
+              maxWidth: 500,
+              fontSize: winnerSize(card.winnerName),
               fontWeight: 700,
-              lineHeight: 1,
+              lineHeight: 1.1,
               marginTop: 8,
             }}
           >
@@ -139,8 +158,8 @@ function Recap({ card }: { card: RecapCard }) {
                 fontWeight: player.isWinner ? 700 : 400,
               }}
             >
-              <span>{player.name}</span>
-              <span>{player.score}</span>
+              <span style={{ ...clip, maxWidth: 420 }}>{player.name}</span>
+              <span style={{ marginLeft: 16 }}>{player.score}</span>
             </div>
             <div
               style={{
