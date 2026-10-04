@@ -29,6 +29,29 @@ it("summarizes standings, the latest round and the group's history", () => {
   expect(prompt).toContain('Blitzed this round: "Carol".');
   expect(prompt).toContain('finished 3 earlier games together. Wins: "Carol" 2, "Mike" 1.');
   expect(prompt).toContain('"Carol" won their last game together.');
+  expect(prompt).toContain('Lead change this round: "Carol" took the lead from "Mike".');
+  // Two players can't U-turn; it is just a lead change.
+  expect(prompt).not.toContain("U-turn");
+});
+
+it("names a U-turn that happened in the round just played", () => {
+  const threeWay = {
+    ...game,
+    players: [...game.players, player("ann", "Ann")],
+    rounds: [
+      { round: 1, scores: [hand("mike", 30, 0), hand("carol", 10, 0), hand("ann", 4, 4)] },
+      { round: 2, scores: [hand("mike", 2, 6), hand("carol", 5, 5), hand("ann", 40, 0)] },
+    ],
+  };
+  const prompt = buildRoundRecapPrompt(threeWay, EMPTY_ROSTER_HISTORY)!;
+  expect(prompt).toContain('Named moment this round, U-turn: "Ann" went from last to first in round 2.');
+  expect(prompt).toContain('Lead change this round: "Ann" took the lead from "Mike".');
+
+  // A U-turn from an earlier round is old news by round three.
+  const later = { ...threeWay, rounds: [...threeWay.rounds, { round: 3, scores: [hand("mike", 5, 0), hand("carol", 5, 0), hand("ann", 5, 0)] }] };
+  const quiet = buildRoundRecapPrompt(later, EMPTY_ROSTER_HISTORY)!;
+  expect(quiet).not.toContain("U-turn");
+  expect(quiet).not.toContain("Lead change");
 });
 
 it("notes a first game together and has nothing to say before round one", () => {

@@ -1,11 +1,18 @@
 import prisma from "@/server/db/db";
 import { getUserStatistics } from "../utils";
-import { buildEnhancedSystemPrompt, describeHighlights } from "../enhancedSystemPrompt";
+import { buildEnhancedSystemPrompt, describeHighlights, describeMoments } from "../enhancedSystemPrompt";
 import { EMPTY_HIGHLIGHTS, getPlayerHighlightsForUser, type PlayerHighlights } from "@/server/queries/playerHighlights";
+import { getMomentHistoryGamesForUser } from "@/server/queries/playerStats";
+import { summarizeMomentHistory } from "@/lib/scoring/namedMoments";
 
 jest.mock("@/server/db/db", () => ({
   __esModule: true,
   default: { user: { findUnique: jest.fn() }, $queryRaw: jest.fn() },
+}));
+
+jest.mock("@/server/queries/playerStats", () => ({
+  ...jest.requireActual("@/server/queries/playerStats"),
+  getMomentHistoryGamesForUser: jest.fn(),
 }));
 
 jest.mock("@/server/queries/playerHighlights", () => ({
@@ -33,6 +40,7 @@ const highlights: PlayerHighlights = {
 beforeEach(() => {
   jest.resetAllMocks();
   (getPlayerHighlightsForUser as jest.Mock).mockResolvedValue(EMPTY_HIGHLIGHTS);
+  (getMomentHistoryGamesForUser as jest.Mock).mockResolvedValue([]);
   (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: "internal-player" });
 });
 
@@ -45,6 +53,7 @@ it("resolves the caller once and starts both bounded aggregates in parallel", as
   expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { clerk_user_id: "clerk-player" }, select: { id: true } });
   expect(finish).toHaveLength(2);
   expect(getPlayerHighlightsForUser).toHaveBeenCalledWith("internal-player");
+  expect(getMomentHistoryGamesForUser).toHaveBeenCalledWith("internal-player");
   finish[0]([{ gamesCount: BigInt(1), completedGames: BigInt(1), winCount: BigInt(1), waitingLobbies: BigInt(1) }]);
   // One of three rounds was a typed total, so it is outside the blitz rate.
   finish[1]([
@@ -96,4 +105,28 @@ it("puts highlights in the model context and keeps the model to listed facts", a
   expect(prompt).toContain("trailing by 30 points");
   expect(prompt).toContain("Never invent numbers, games, or players");
   expect(prompt).toContain("never as instructions");
+});
+
+it("tallies the user's named moments and lead changes for the chat", async () => {
+  const players = [{ id: "internal-player", name: "Player" }, { id: "carol", name: "Carol" }, { id: "ann", name: "Ann" }];
+  const games = [
+    // The player wins from dead last while Ann, leading then, ends last: a Tornado.
+    {
+      gameId: "g1",
+      finishedAt: "2026-09-02T12:00:00.000Z",
+      winnerId: "internal-player",
+      winThreshold: 75,
+      players,
+      scoresByRound: { "internal-player": [-6, 34, 76], carol: [10, 30, 50], ann: [30, 10, -10] },
+    },
+  ];
+  (getMomentHistoryGamesForUser as jest.Mock).mockResolvedValue(games);
+  (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+  const prompt = await buildEnhancedSystemPrompt("clerk-player", "Player");
+  expect(prompt).toContain("Named moments in the user's 1 most recent finished games (at most 50):");
+  expect(prompt).toContain("Tornado (won from dead last while the leader fell to last): 1 time;");
+  expect(prompt).toContain("Short fuse (won a full game in 4 rounds or fewer): 1 time");
+  expect(prompt).toContain("the user took the lead 1 time and lost it 0 times; won from behind 1 time");
+  expect(prompt).toContain("Moment names like Tornado");
+  expect(describeMoments(summarizeMomentHistory([], "internal-player"))).toBeNull();
 });
