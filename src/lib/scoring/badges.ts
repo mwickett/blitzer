@@ -1,5 +1,8 @@
 import {
   findGameHighlights,
+  MIN_BLITZ_STREAK,
+  PHOTO_FINISH_MAX_MARGIN,
+  soleLeader,
   type HighlightPlayer,
 } from "@/lib/scoring/gameHighlights";
 import { findNamedMoments } from "@/lib/scoring/namedMoments";
@@ -139,55 +142,117 @@ const MILESTONES: {
   { id: "blitzes_100", stat: "blitzes", at: 100 },
 ];
 
-/** Moment badges the player starred in during one game. */
+/** The sole player in last after a round, or null when it is shared. */
+function soleLast(game: BadgeGame, round: number): string | null {
+  let worst = Infinity;
+  let last: string | null = null;
+  for (const p of game.players) {
+    const score = game.scoresByRound[p.id]?.[round] ?? 0;
+    if (score < worst) {
+      worst = score;
+      last = p.id;
+    } else if (score === worst) {
+      last = null;
+    }
+  }
+  return last;
+}
+
+/**
+ * Moment badges the player earned in one game. The game page lists one
+ * example of each moment, so moments several players can share (Snipe,
+ * Triple blitz, U-turn, Shortcoming, Heartbreaker) are checked for this
+ * player directly; the winner-only ones come from the shared detectors.
+ */
 export function gameMomentBadges(game: BadgeGame, playerId: string): BadgeId[] {
   const { winnerId } = game;
-  if (!winnerId || !game.scoresByRound[playerId]?.length) return [];
+  const totals = game.scoresByRound[playerId];
+  if (!winnerId || !totals?.length) return [];
   const earned = new Set<BadgeId>();
   const series = {
     players: game.players,
     winnerId,
     scoresByRound: game.scoresByRound,
   };
-  for (const moment of findNamedMoments({
-    ...series,
-    winThreshold: game.winThreshold,
-  })) {
-    if (moment.playerId === playerId) earned.add(moment.kind);
+  const roundCount = totals.length;
+  const finalRound = roundCount - 1;
+
+  if (playerId === winnerId) {
+    for (const moment of findNamedMoments({
+      ...series,
+      winThreshold: game.winThreshold,
+    })) {
+      if (moment.kind === "tornado" || moment.kind === "short_fuse") {
+        earned.add(moment.kind);
+      }
+    }
+    for (const highlight of findGameHighlights({
+      ...series,
+      deltasByRound: game.deltasByRound,
+      blitzByRound: game.blitzByRound,
+    })) {
+      if (
+        highlight.kind === "comeback" ||
+        highlight.kind === "wire_to_wire" ||
+        highlight.kind === "photo_finish"
+      ) {
+        earned.add(highlight.kind);
+      }
+    }
   }
-  for (const highlight of findGameHighlights({
-    ...series,
-    deltasByRound: game.deltasByRound,
-    blitzByRound: game.blitzByRound,
-  })) {
-    switch (highlight.kind) {
-      case "lone_survivor":
-        if (highlight.playerId === playerId) earned.add("snipe");
-        break;
-      case "blitz_streak":
-        if (highlight.playerId === playerId) earned.add("triple_blitz");
-        break;
-      case "comeback":
-      case "wire_to_wire":
-        if (highlight.playerId === playerId) earned.add(highlight.kind);
-        break;
-      case "photo_finish": {
-        if (highlight.playerId === playerId) {
-          earned.add("photo_finish");
-          break;
-        }
-        // Runner-up: nobody else finished between them and the winner.
-        const last: number = game.scoresByRound[winnerId].length - 1;
-        const mine: number = game.scoresByRound[playerId][last];
-        const ahead: HighlightPlayer[] = game.players.filter(
-          (p) => (game.scoresByRound[p.id]?.[last] ?? 0) > mine,
-        );
-        if (ahead.length === 1 && ahead[0].id === winnerId)
-          earned.add("heartbreaker");
+
+  // Snipe: the only one to score in a round while everyone else went negative.
+  if (game.players.length >= 3) {
+    for (let r = 0; r < roundCount; r++) {
+      const mine = game.deltasByRound[playerId]?.[r] ?? 0;
+      const othersNegative = game.players.every(
+        (p) => p.id === playerId || (game.deltasByRound[p.id]?.[r] ?? 0) < 0,
+      );
+      if (mine > 0 && othersNegative) {
+        earned.add("snipe");
         break;
       }
     }
   }
+
+  let run = 0;
+  for (const left of game.blitzByRound[playerId] ?? []) {
+    run = left === 0 ? run + 1 : 0;
+    if (run >= MIN_BLITZ_STREAK) earned.add("triple_blitz");
+  }
+
+  // U-turn: alone in last before a round, alone in first after it.
+  if (game.players.length >= 3) {
+    for (let r = 1; r < roundCount; r++) {
+      if (
+        soleLast(game, r - 1) === playerId &&
+        soleLeader(game.players, game.scoresByRound, r) === playerId
+      ) {
+        earned.add("u_turn");
+        break;
+      }
+    }
+  }
+
+  if (totals[finalRound] < 0) earned.add("shortcoming");
+
+  // Heartbreaker: the best non-winner, within a photo finish of the winner.
+  // A points tie broken on the Blitz pile counts, at a margin of zero.
+  if (playerId !== winnerId) {
+    const bestOther = Math.max(
+      ...game.players
+        .filter((p) => p.id !== winnerId)
+        .map((p) => game.scoresByRound[p.id]?.[finalRound] ?? 0),
+    );
+    const winnerFinal = game.scoresByRound[winnerId]?.[finalRound] ?? 0;
+    if (
+      totals[finalRound] === bestOther &&
+      winnerFinal - bestOther <= PHOTO_FINISH_MAX_MARGIN
+    ) {
+      earned.add("heartbreaker");
+    }
+  }
+
   return BADGES.map((b) => b.id).filter((id) => earned.has(id));
 }
 

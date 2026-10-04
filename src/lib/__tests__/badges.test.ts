@@ -77,6 +77,51 @@ describe("gameMomentBadges", () => {
     expect(gameMomentBadges(g, "c")).not.toContain("heartbreaker");
   });
 
+  it("credits shared moments to every player who earned them", () => {
+    // Round 1: only Alice scores. Round 2: only Bob scores. Bob and Cara
+    // both blitz three rounds running, and Cara finishes below zero.
+    const g = game(
+      {
+        a: [[10, 0], [0, 2], [40, 0], [40, 0], [0, 0]],
+        b: [[0, 2], [10, 0], [0, 0], [0, 0], [0, 0]],
+        c: [[0, 1], [0, 1], [0, 0], [0, 0], [0, 0]],
+      },
+      "a",
+    );
+    expect(gameMomentBadges(g, "a")).toContain("snipe");
+    expect(gameMomentBadges(g, "b")).toContain("snipe");
+    expect(gameMomentBadges(g, "b")).toContain("triple_blitz");
+    expect(gameMomentBadges(g, "c")).toContain("triple_blitz");
+    expect(gameMomentBadges(g, "c")).toContain("shortcoming");
+  });
+
+  it("finds a U-turn by any player, not just the first", () => {
+    // Bob goes last to first in round 2; Cara does the same in round 3.
+    const g = game(
+      {
+        a: [[20, 0], [20, 0], [0, 0], [40, 0]],
+        b: [[0, 1], [45, 0], [0, 0], [10, 0]],
+        c: [[10, 0], [0, 5], [70, 0], [0, 5]],
+      },
+      "a",
+    );
+    expect(gameMomentBadges(g, "b")).toContain("u_turn");
+    expect(gameMomentBadges(g, "c")).toContain("u_turn");
+  });
+
+  it("gives Heartbreaker after a points tie broken on the Blitz pile", () => {
+    const g = game(
+      {
+        a: [[40, 0], [35, 0]],
+        b: [[40, 0], [35, 0]],
+        c: [[10, 0], [10, 0]],
+      },
+      "a",
+    );
+    expect(gameMomentBadges(g, "b")).toContain("heartbreaker");
+    expect(gameMomentBadges(g, "c")).not.toContain("heartbreaker");
+  });
+
   it("finds nothing in a game without a winner", () => {
     expect(gameMomentBadges(game({ a: [[30, 0]], b: [[0, 10]] }, null), "a")).toEqual([]);
   });
