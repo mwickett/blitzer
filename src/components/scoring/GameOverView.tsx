@@ -14,6 +14,7 @@ import { buildRoundGraphSeries } from "./roundGraphSeries";
 import { GameHighlights } from "./GameHighlights";
 import { GuestInvites } from "./GuestInvites";
 import { findGameHighlights } from "@/lib/scoring/gameHighlights";
+import { findNamedMoments } from "@/lib/scoring/namedMoments";
 import { usePostHog } from "posthog-js/react";
 
 interface GameOverViewProps {
@@ -66,6 +67,16 @@ export function GameOverView({
         blitzByRound,
       }),
     [players, winner.id, scoresByRound, deltasByRound, blitzByRound],
+  );
+  const namedMoments = useMemo(
+    () =>
+      findNamedMoments({
+        players,
+        winnerId: winner.id,
+        scoresByRound,
+        winThreshold,
+      }),
+    [players, winner.id, scoresByRound, winThreshold],
   );
   const handleRematch = async () => {
     if (rematching.current) return;
@@ -126,7 +137,11 @@ export function GameOverView({
         </div>
       </div>
 
-      <GameHighlights highlights={highlights} players={players} />
+      <GameHighlights
+        highlights={highlights}
+        namedMoments={namedMoments}
+        players={players}
+      />
 
       {/* Final race position + retrospective graphs (kept from between-rounds) */}
       {rounds.length > 0 && (

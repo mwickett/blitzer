@@ -476,7 +476,97 @@ function WidestCard({ stats }: { stats: DashboardStats }) {
   );
 }
 
-export const WIDE_CARDS = new Set<DashboardCardId>(["recentScores", "rivals", "moments"]);
+function NamedMomentsCard({ stats }: { stats: DashboardStats }) {
+  const { feed, mine, tornadoesSuffered } = stats.momentHistory;
+  const tallies = [
+    { label: "Tornadoes", value: mine.tornado },
+    { label: "U-turns", value: mine.u_turn },
+    { label: "Short fuses", value: mine.short_fuse },
+    { label: "Bounce backs", value: mine.bounce_back },
+  ];
+  if (!feed.length && tallies.every((tally) => !tally.value)) {
+    return (
+      <EmptyNote>
+        No tornadoes or U-turns yet. Keep playing and the wild games will land here.
+      </EmptyNote>
+    );
+  }
+  return (
+    <>
+      {feed.length ? (
+        <ul className="grid gap-2 sm:grid-cols-2" aria-label="Latest named moments">
+          {feed.map((item) => (
+            <li key={item.key} className="rounded-lg bg-surfaceSubtle">
+              <Link href={`/games/${item.gameId}`} className="block h-full p-2.5 hover:bg-borderWarm/40">
+                <div className="flex items-center justify-between gap-2 text-xs font-medium text-textMuted">
+                  <span>
+                    <span aria-hidden="true" className="mr-1">{item.icon}</span>
+                    {item.title}
+                    {item.starring ? <span className="ml-1 font-semibold text-brandAccent">· you</span> : null}
+                  </span>
+                  <GameDate iso={item.finishedAt} />
+                </div>
+                <div className="text-sm text-textBody">{item.detail}</div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <dl className="mt-auto grid grid-cols-2 gap-x-4 pt-3 sm:grid-cols-4">
+        {tallies.map((tally) => (
+          <div key={tally.label}>
+            <dt className="text-xs text-textMuted">{tally.label}</dt>
+            <dd className="font-display text-2xl font-bold text-brandAccent">{integer.format(tally.value)}</dd>
+          </div>
+        ))}
+      </dl>
+      {tornadoesSuffered ? (
+        <p className="pt-1 text-xs text-textMuted">
+          Caught in {plural(tornadoesSuffered, "tornado", "tornadoes")}: you led, then finished last.
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function LeadChangesCard({ stats }: { stats: DashboardStats }) {
+  const {
+    gamesAnalyzed,
+    gamesWithLeadChanges,
+    totalLeadChanges,
+    leadsTaken,
+    leadsLost,
+    winsFromBehind,
+    mostLeadChanges,
+  } = stats.momentHistory.leadChanges;
+  if (!gamesAnalyzed) return <EmptyNote>{NO_GAMES}</EmptyNote>;
+  return (
+    <>
+      <BigNumber
+        value={`${Math.round((gamesWithLeadChanges / gamesAnalyzed) * 100)}%`}
+        caption={`of your last ${plural(gamesAnalyzed, "game")} saw the lead change hands`}
+      />
+      <div className="mt-auto pt-3">
+        <StatRow label="Changes per game" value={oneDecimal.format(totalLeadChanges / gamesAnalyzed)} />
+        <StatRow label="Times you took the lead" value={integer.format(leadsTaken)} />
+        <StatRow label="Times you lost it" value={integer.format(leadsLost)} />
+        <StatRow label="Wins from behind" value={integer.format(winsFromBehind)} />
+        {mostLeadChanges ? (
+          <StatRow
+            label={
+              <Link href={`/games/${mostLeadChanges.gameId}`} className="hover:underline">
+                Wildest game, <GameDate iso={mostLeadChanges.finishedAt} />
+              </Link>
+            }
+            value={plural(mostLeadChanges.count, "change")}
+          />
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+export const WIDE_CARDS = new Set<DashboardCardId>(["recentScores", "rivals", "moments", "namedMoments"]);
 
 export function DashboardCardBody({
   id,
@@ -508,6 +598,10 @@ export function DashboardCardBody({
       return <DecksCard stats={stats} />;
     case "widest":
       return <WidestCard stats={stats} />;
+    case "namedMoments":
+      return <NamedMomentsCard stats={stats} />;
+    case "leadChanges":
+      return <LeadChangesCard stats={stats} />;
     case "averages":
       return <AveragesCard stats={stats} />;
   }

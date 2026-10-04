@@ -189,5 +189,12 @@ describe("describeHighlight", () => {
     expect(
       describeHighlight({ kind: "lead_changes", count: 3 }, () => "").detail,
     ).toBe("The lead changed hands 3 times.");
+    // Named in #95.
+    expect(
+      describeHighlight({ kind: "lone_survivor", playerId: "a", roundNumber: 2 }, () => "").title,
+    ).toBe("Snipe");
+    expect(
+      describeHighlight({ kind: "blitz_streak", playerId: "a", length: 3 }, () => "").title,
+    ).toBe("Triple blitz");
   });
 });

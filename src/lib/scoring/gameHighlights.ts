@@ -27,7 +27,7 @@ export const MIN_BLITZ_STREAK = 3;
 export const WIRE_TO_WIRE_MIN_ROUNDS = 3;
 
 /** Sole leader after a round, or null when the lead is shared. */
-function soleLeader(
+export function soleLeader(
   players: HighlightPlayer[],
   scoresByRound: Record<string, number[]>,
   round: number,
@@ -44,6 +44,35 @@ function soleLeader(
     }
   }
   return leader;
+}
+
+export interface LeadChange {
+  /** 1-based round after which the new leader went ahead. */
+  roundNumber: number;
+  playerId: string;
+  previousLeaderId: string;
+}
+
+/**
+ * Every time the sole lead passed to a different player. A tied round keeps
+ * the previous leader, so passing through a tie back to them is no change.
+ */
+export function findLeadChanges(
+  players: HighlightPlayer[],
+  scoresByRound: Record<string, number[]>,
+): LeadChange[] {
+  const roundCount = Math.max(0, ...players.map((p) => scoresByRound[p.id]?.length ?? 0));
+  const changes: LeadChange[] = [];
+  let previous: string | null = null;
+  for (let r = 0; r < roundCount; r++) {
+    const leader = soleLeader(players, scoresByRound, r);
+    if (leader === null) continue;
+    if (previous !== null && leader !== previous) {
+      changes.push({ roundNumber: r + 1, playerId: leader, previousLeaderId: previous });
+    }
+    previous = leader;
+  }
+  return changes;
 }
 
 export function findGameHighlights({
@@ -67,13 +96,7 @@ export function findGameHighlights({
   const leaders = Array.from({ length: roundCount }, (_, r) =>
     soleLeader(players, scoresByRound, r),
   );
-  let leadChanges = 0;
-  let previous: string | null = null;
-  for (const leader of leaders) {
-    if (leader === null) continue;
-    if (previous !== null && leader !== previous) leadChanges++;
-    previous = leader;
-  }
+  const leadChanges = findLeadChanges(players, scoresByRound).length;
 
   if (
     roundCount >= WIRE_TO_WIRE_MIN_ROUNDS &&
@@ -148,22 +171,25 @@ export function findGameHighlights({
   return highlights;
 }
 
-/**
- * Highlights for a finished game loaded as a ScoredGame (or GameDetail).
- * Player ids are the userId or guestId, matching scoring and gameLogic.
- * Returns no highlights until the game has a winner.
- */
-export function findScoredGameHighlights(game: ScoredGame): {
+export interface ScoredGameSeries {
   players: HighlightPlayer[];
   winnerId: string | null;
-  highlights: GameHighlight[];
-} {
+  scoresByRound: Record<string, number[]>;
+  deltasByRound: Record<string, number[]>;
+  blitzByRound: Record<string, (number | null)[]>;
+}
+
+/**
+ * Per-player round series for a stored game (ScoredGame or GameDetail), in
+ * round order. Player ids are the userId or guestId, matching scoring and
+ * gameLogic.
+ */
+export function buildScoredGameSeries(game: ScoredGame): ScoredGameSeries {
   const players = game.players.map((p) => ({
     id: p.userId ?? p.guestId ?? p.id,
     name: p.user?.username ?? p.guestUser?.name ?? "Unknown Player",
   }));
   const { winnerId } = getGameCompletion(game);
-  if (!winnerId) return { players, winnerId, highlights: [] };
 
   const rounds = [...game.rounds].sort((a, b) => a.round - b.round);
   const scoresByRound: Record<string, number[]> = {};
@@ -185,17 +211,24 @@ export function findScoredGameHighlights(game: ScoredGame): {
       blitzByRound[player.id].push(score ? score.blitzPileRemaining : null);
     }
   }
+  return { players, winnerId, scoresByRound, deltasByRound, blitzByRound };
+}
 
+/**
+ * Highlights for a finished game loaded as a ScoredGame (or GameDetail).
+ * Returns no highlights until the game has a winner.
+ */
+export function findScoredGameHighlights(game: ScoredGame): {
+  players: HighlightPlayer[];
+  winnerId: string | null;
+  highlights: GameHighlight[];
+} {
+  const { players, winnerId, ...series } = buildScoredGameSeries(game);
+  if (!winnerId) return { players, winnerId, highlights: [] };
   return {
     players,
     winnerId,
-    highlights: findGameHighlights({
-      players,
-      winnerId,
-      scoresByRound,
-      deltasByRound,
-      blitzByRound,
-    }),
+    highlights: findGameHighlights({ players, winnerId, ...series }),
   };
 }
 
@@ -234,14 +267,14 @@ export function describeHighlight(
       };
     case "lone_survivor":
       return {
-        icon: "🛟",
-        title: "Lone survivor",
+        icon: "🎯",
+        title: "Snipe",
         detail: `In round ${highlight.roundNumber}, ${name(highlight.playerId)} was the only one to score. Everyone else went negative.`,
       };
     case "blitz_streak":
       return {
         icon: "⚡",
-        title: "On fire",
+        title: highlight.length === 3 ? "Triple blitz" : "On fire",
         detail: `${name(highlight.playerId)} blitzed ${highlight.length} rounds in a row.`,
       };
   }
