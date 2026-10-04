@@ -54,6 +54,20 @@ it("fingerprints rounds so score corrections invalidate a story", () => {
   expect(storySourceKey(edited)).not.toBe(storySourceKey(game));
 });
 
+it("invalidates a story once one of its players is anonymized", () => {
+  const players = (anonymizedAt: Date | null) => [
+    { user: { id: "u1", anonymizedAt } },
+    { user: null },
+  ];
+  // No former players: the key is unchanged, so existing stories stay valid.
+  expect(storySourceKey({ rounds: game.rounds, players: players(null) })).toBe(
+    storySourceKey({ rounds: game.rounds }),
+  );
+  expect(storySourceKey({ rounds: game.rounds, players: players(new Date()) })).not.toBe(
+    storySourceKey({ rounds: game.rounds }),
+  );
+});
+
 it("describes standings, running totals and detected moments with quoted names", () => {
   const prompt = buildGameStoryPrompt(game)!;
   expect(prompt).toContain("Game to 75 points, 3 rounds.");

@@ -7,8 +7,10 @@ import {
   updateRoundScores,
 } from "@/server/mutations/rounds";
 import { submittedScoresSchema } from "@/lib/validation/submissions";
+import { calculateRoundScore } from "@/lib/validation/gameRules";
 import { findPlayerScore } from "./utils";
 import {
+  type EntryMode,
   type PlayerEntry,
   type PlayerWithScore,
   type RoundData,
@@ -18,6 +20,7 @@ export interface ScoringDraft {
   roundNumber: number;
   players: PlayerWithScore[];
   entries: Record<string, PlayerEntry>;
+  mode: EntryMode;
   /** Absent for a new round; edits retain the snapshot they were opened from. */
   round?: RoundData;
 }
@@ -25,14 +28,16 @@ export interface ScoringDraft {
 export function newRoundDraft(
   players: PlayerWithScore[],
   roundNumber: number,
+  mode: EntryMode = "cards",
 ): ScoringDraft {
   return {
     players,
     roundNumber,
+    mode,
     entries: Object.fromEntries(
       players.map((player) => [
         player.id,
-        { blitzRemaining: null, cardsPlayed: null },
+        { blitzRemaining: null, cardsPlayed: null, total: null },
       ]),
     ),
   };
@@ -70,6 +75,8 @@ export function useScoringDraft(
     setHasConflict(false);
     firstEntryAt.current = null;
   };
+  // A saved round reopens the way it was entered; switching modes keeps the
+  // total filled in, but a typed round has no breakdown to show.
   const edit = (
     players: PlayerWithScore[],
     round: RoundData,
@@ -79,6 +86,9 @@ export function useScoringDraft(
       players,
       round,
       roundNumber,
+      mode: round.scores.some((score) => score.typedScore != null)
+        ? "total"
+        : "cards",
       entries: Object.fromEntries(
         players.map((player) => {
           const score = findPlayerScore(player, round.scores);
@@ -87,6 +97,7 @@ export function useScoringDraft(
             {
               blitzRemaining: score?.blitzPileRemaining ?? null,
               cardsPlayed: score?.totalCardsPlayed ?? null,
+              total: score ? calculateRoundScore(score) : null,
             },
           ];
         }),
@@ -111,6 +122,11 @@ export function useScoringDraft(
     );
     if (!hasConflict) setError(null);
   };
+  const setMode = (mode: EntryMode) => {
+    if (saving.current) return;
+    setDraft((current) => current && { ...current, mode });
+    if (!hasConflict) setError(null);
+  };
   const cancel = () => {
     if (saving.current) return;
     if (draft?.round) {
@@ -133,13 +149,20 @@ export function useScoringDraft(
   };
   const submit = async () => {
     if (!draft || saving.current || hasConflict) return;
-    const scores = draft.players.map((player) => ({
-      ...(player.isGuest
-        ? { guestId: player.guestId }
-        : { userId: player.userId }),
-      blitzPileRemaining: draft.entries[player.id].blitzRemaining,
-      totalCardsPlayed: draft.entries[player.id].cardsPlayed,
-    }));
+    const scores = draft.players.map((player) => {
+      const entry = draft.entries[player.id];
+      return {
+        ...(player.isGuest
+          ? { guestId: player.guestId }
+          : { userId: player.userId }),
+        ...(draft.mode === "total"
+          ? { typedScore: entry.total }
+          : {
+              blitzPileRemaining: entry.blitzRemaining,
+              totalCardsPlayed: entry.cardsPlayed,
+            }),
+      };
+    });
     const parsed = submittedScoresSchema.safeParse(scores);
     if (!parsed.success) {
       setError(parsed.error.issues[0].message);
@@ -182,6 +205,7 @@ export function useScoringDraft(
         round_number: draft.roundNumber,
         player_count: draft.players.length,
         entry_duration_ms: entryDurationMs,
+        entry_mode: draft.mode,
       });
     } catch (cause) {
       setError(
@@ -203,6 +227,7 @@ export function useScoringDraft(
     open,
     edit,
     update,
+    setMode,
     cancel,
     reconcile,
     submit,

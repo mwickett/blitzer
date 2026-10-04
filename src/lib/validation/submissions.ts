@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { validateGameRules, ValidationError, GAME_RULES } from "./gameRules";
+import {
+  GAME_RULES,
+  hasBreakdown,
+  validateGameRules,
+  ValidationError,
+} from "./gameRules";
 import { scoreValidationSchema } from "./schema";
 import { DECK_IDS } from "@/lib/scoring/decks";
 
@@ -14,14 +19,38 @@ export const pickupGameSchema = z.object({
     .default([]),
 });
 
-const participantScoreSchema = scoreValidationSchema
-  .extend({
+const breakdownSchema = scoreValidationSchema.shape;
+const typedScoreSchema = z
+  .number()
+  .int()
+  .min(GAME_RULES.MIN_ROUND_SCORE)
+  .max(GAME_RULES.MAX_ROUND_SCORE);
+
+// A score is a card breakdown or, in "Do math" mode, a typed round total.
+const participantScoreSchema = z
+  .object({
     userId: z.string().min(1).optional(),
     guestId: z.string().min(1).optional(),
+    blitzPileRemaining: breakdownSchema.blitzPileRemaining.nullish(),
+    totalCardsPlayed: breakdownSchema.totalCardsPlayed.nullish(),
+    typedScore: typedScoreSchema.nullish(),
   })
   .refine((score) => Boolean(score.userId) !== Boolean(score.guestId), {
     message: "Each score must identify exactly one player or guest.",
-  });
+  })
+  .refine(
+    (score) => {
+      const hasBlitz = score.blitzPileRemaining != null;
+      const hasCards = score.totalCardsPlayed != null;
+      return score.typedScore != null
+        ? !hasCards && !hasBlitz
+        : hasCards && hasBlitz;
+    },
+    {
+      message:
+        "Each score needs Blitz left and cards played, or a round total.",
+    },
+  );
 
 export type SubmittedScore = z.infer<typeof participantScoreSchema>;
 export const submittedScoresSchema = z
@@ -38,8 +67,18 @@ export const submittedScoresSchema = z
         message: "Each player must have exactly one score.",
       });
     }
+    const breakdowns = scores.filter(hasBreakdown);
+    // Typed totals carry no Blitz pile, so the blitz rules cannot apply.
+    if (breakdowns.length === 0) return;
+    if (breakdowns.length !== scores.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enter every player's round the same way.",
+      });
+      return;
+    }
     try {
-      validateGameRules(scores);
+      validateGameRules(breakdowns);
     } catch (error) {
       if (!(error instanceof ValidationError)) throw error;
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: error.message });
@@ -113,3 +152,27 @@ export const storyPromptSchema = z
   .trim()
   .max(STORY_PROMPT_MAX_LENGTH)
   .transform((prompt) => prompt || null);
+
+export const scoreEntryModeSchema = z.enum(["CARDS", "TOTAL"]);
+
+export const GAME_NOTE_MAX_LENGTH = 280;
+// Blank notes clear the stored note.
+export const gameNoteSchema = z
+  .string()
+  .trim()
+  .max(
+    GAME_NOTE_MAX_LENGTH,
+    `Keep the note to ${GAME_NOTE_MAX_LENGTH} characters.`,
+  )
+  .transform((note) => note || null);
+
+export const GAME_TAG_MAX_LENGTH = 24;
+// Blank tags clear the stored tag.
+export const gameTagSchema = z
+  .string()
+  .trim()
+  .max(
+    GAME_TAG_MAX_LENGTH,
+    `Keep the tag to ${GAME_TAG_MAX_LENGTH} characters.`,
+  )
+  .transform((tag) => tag.replace(/\s+/g, " ") || null);

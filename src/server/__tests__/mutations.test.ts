@@ -10,6 +10,8 @@ jest.mock("resend", () => ({
 import {
   createGame,
   cloneGame,
+  saveGameNote,
+  saveGameTag,
   saveUserAccentColor,
   saveUserPreferredDeck,
 } from "../mutations/games";
@@ -33,6 +35,7 @@ jest.mock("../db/db", () => {
       create: jest.fn(),
       findFirst: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
     },
     score: {
       create: jest.fn(),
@@ -153,6 +156,14 @@ describe("Game Mutations", () => {
   });
 
   describe("score actions", () => {
+    // Recipients are re-read just before sending; by default all are active.
+    beforeEach(() => {
+      (prisma.user.findMany as jest.Mock).mockImplementation(
+        async ({ where }: { where: { id: { in: string[] } } }) =>
+          where.id.in.map((id) => ({ id })),
+      );
+    });
+
     const scores = [
       { userId: "player1", totalCardsPlayed: 30, blitzPileRemaining: 0 },
       { userId: "player2", totalCardsPlayed: 20, blitzPileRemaining: 5 },
@@ -270,6 +281,63 @@ describe("Game Mutations", () => {
         "write failed",
       );
       expect(after).not.toHaveBeenCalled();
+    });
+
+    it("does not email a player who deleted their account", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        players: game().players.map((player, index) => ({
+          ...player,
+          user: {
+            ...player.user,
+            email: `${player.userId}@example.com`,
+            deactivatedAt: index === 1 ? new Date() : null,
+          },
+        })),
+      });
+      (sendGameCompleteEmail as jest.Mock).mockResolvedValue({ success: true });
+
+      await createRoundForGame(mockGameId, 1, scores);
+      await flushAfter();
+
+      expect(sendGameCompleteEmail).toHaveBeenCalledTimes(1);
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "player1@example.com" }),
+      );
+    });
+
+    it("refuses scores from an account that was deleted but is still signed in", async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+        deactivatedAt: new Date(),
+      });
+      await expect(createRoundForGame(mockGameId, 1, scores)).rejects.toThrow(
+        "This account has been deleted.",
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("does not email a player who deleted their account after the score saved", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        players: game().players.map((player) => ({
+          ...player,
+          user: { ...player.user, email: `${player.userId}@example.com` },
+        })),
+      });
+      (sendGameCompleteEmail as jest.Mock).mockResolvedValue({ success: true });
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([{ id: "player1" }]);
+
+      await createRoundForGame(mockGameId, 1, scores);
+      await flushAfter();
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ["player1", "player2"] }, deactivatedAt: null },
+        select: { id: true },
+      });
+      expect(sendGameCompleteEmail).toHaveBeenCalledTimes(1);
+      expect(sendGameCompleteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "player1@example.com" }),
+      );
     });
 
     it("emails every registered player once the scheduled callback runs", async () => {
@@ -517,6 +585,97 @@ describe("Game Mutations", () => {
       expect(after).not.toHaveBeenCalled();
     });
 
+    it("stores a typed round total with an empty breakdown", async () => {
+      const typed = [
+        { userId: "player1", typedScore: 30 },
+        { userId: "player2", typedScore: -6 },
+      ];
+      (prisma.round.create as jest.Mock).mockResolvedValue({
+        ...stored(),
+        scores: typed.map((score) => ({
+          ...score,
+          guestId: null,
+          totalCardsPlayed: null,
+          blitzPileRemaining: null,
+        })),
+      });
+      expect(await createRoundForGame(mockGameId, 1, typed)).toMatchObject({
+        ok: true,
+      });
+      const { data } = (prisma.round.create as jest.Mock).mock.calls[0][0];
+      expect(data.scores.create).toEqual([
+        expect.objectContaining({
+          userId: "player1",
+          typedScore: 30,
+          totalCardsPlayed: null,
+          blitzPileRemaining: null,
+        }),
+        expect.objectContaining({
+          userId: "player2",
+          typedScore: -6,
+          totalCardsPlayed: null,
+          blitzPileRemaining: null,
+        }),
+      ]);
+      // 30 reaches the 25-point threshold, so the typed total completes the game.
+      expect(prisma.game.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ winnerId: "player1" }),
+        }),
+      );
+    });
+
+    it("rejects typed totals mixed with breakdowns, out of range, or with both forms", async () => {
+      for (const invalid of [
+        [{ userId: "player1", typedScore: 30 }, scores[1]],
+        [
+          { userId: "player1", typedScore: 41 },
+          { userId: "player2", typedScore: 0 },
+        ],
+        [
+          { userId: "player1", typedScore: -21 },
+          { userId: "player2", typedScore: 0 },
+        ],
+        [
+          { ...scores[0], typedScore: 30 },
+          { userId: "player2", typedScore: 0 },
+        ],
+      ]) {
+        expect(await createRoundForGame(mockGameId, 1, invalid)).toMatchObject({
+          ok: false,
+          reason: "invalid_input",
+        });
+      }
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("clears the breakdown when an edit switches a round to typed totals", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        ...game(),
+        rounds: [stored()],
+      });
+      (prisma.round.update as jest.Mock).mockResolvedValue(stored(1));
+      await updateRoundScores(
+        mockGameId,
+        "round-1",
+        [
+          { userId: "player1", typedScore: 12 },
+          { userId: "player2", typedScore: 4 },
+        ],
+        0,
+      );
+      const { data } = (prisma.round.update as jest.Mock).mock.calls[0][0];
+      expect(data.scores.updateMany[0]).toEqual({
+        where: { userId: "player1" },
+        data: {
+          typedScore: 12,
+          totalCardsPlayed: null,
+          blitzPileRemaining: null,
+          updatedAt: expect.any(Date),
+        },
+      });
+    });
+
     it("rejects unauthenticated and wrong-circle callers", async () => {
       (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
       await expect(createRoundForGame(mockGameId, 1, scores)).rejects.toThrow(
@@ -595,6 +754,15 @@ describe("Game Mutations", () => {
         await createGame([{ id: "missing-one" }, { id: "missing-two" }]),
       ).toMatchObject({ ok: false, reason: "invalid_input" });
       expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("only seats registered players who have not deleted their account", async () => {
+      await createGame([{ id: "player1" }, { id: "player2" }]);
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ["player1", "player2"] }, deactivatedAt: null },
+        }),
+      );
     });
 
     it("seats a full table of the maximum number of players", async () => {
@@ -827,6 +995,51 @@ describe("Game Mutations", () => {
       });
     });
 
+    it("leaves players who deleted their account out of the rematch", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(
+        original({
+          players: [
+            { userId: "player1", guestId: null, accentColor: null, user: { deactivatedAt: null } },
+            { userId: "player2", guestId: null, accentColor: null, user: { deactivatedAt: new Date() } },
+            { userId: null, guestId: "guest-1", accentColor: null, user: null },
+          ],
+        }),
+      );
+
+      await cloneGame("original-game");
+      expect(prisma.game.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          players: { create: [{ userId: "player1" }, { guestId: "guest-1" }] },
+        }),
+      });
+    });
+
+    it("refuses a rematch from an account that was deleted but is still signed in", async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+        deactivatedAt: new Date(),
+      });
+      await expect(cloneGame("original-game")).rejects.toThrow(
+        "This account has been deleted.",
+      );
+      expect(prisma.game.create).not.toHaveBeenCalled();
+    });
+
+    it("refuses a rematch with fewer than two remaining players", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(
+        original({
+          players: [
+            { userId: "player1", guestId: null, accentColor: null, user: { deactivatedAt: null } },
+            { userId: "player2", guestId: null, accentColor: null, user: { deactivatedAt: new Date() } },
+          ],
+        }),
+      );
+
+      await expect(cloneGame("original-game")).rejects.toThrow(
+        "A rematch needs at least 2 players",
+      );
+      expect(prisma.game.create).not.toHaveBeenCalled();
+    });
+
     it("carries a custom win threshold into the rematch", async () => {
       (prisma.game.findUnique as jest.Mock).mockResolvedValue(
         original({ winThreshold: 100 }),
@@ -863,6 +1076,102 @@ describe("Game Mutations", () => {
         "No active circle",
       );
       expect(prisma.game.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("saveGameNote", () => {
+    const circleGame = {
+      kind: "CIRCLE",
+      organizationId: mockOrgId,
+      startedAt: new Date(),
+      players: [],
+    };
+
+    it("stores a trimmed note and clears it when blank", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue(circleGame);
+      (prisma.game.update as jest.Mock).mockResolvedValue({});
+
+      expect(await saveGameNote(mockGameId, "  Gran blitzed twice  ")).toEqual({
+        ok: true,
+        note: "Gran blitzed twice",
+      });
+      expect(prisma.game.update).toHaveBeenLastCalledWith({
+        where: { id: mockGameId },
+        data: { note: "Gran blitzed twice" },
+      });
+
+      expect(await saveGameNote(mockGameId, "   ")).toEqual({
+        ok: true,
+        note: null,
+      });
+      expect(prisma.game.update).toHaveBeenLastCalledWith({
+        where: { id: mockGameId },
+        data: { note: null },
+      });
+    });
+
+    it("rejects long or non-text notes before loading the game", async () => {
+      for (const note of ["x".repeat(281), 42]) {
+        expect(await saveGameNote(mockGameId, note)).toMatchObject({
+          ok: false,
+        });
+      }
+      expect(prisma.game.findUnique).not.toHaveBeenCalled();
+      expect(prisma.game.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses games the caller cannot score", async () => {
+      for (const game of [
+        { ...circleGame, organizationId: "another-circle" },
+        { ...circleGame, kind: "LEGACY" },
+        {
+          ...circleGame,
+          kind: "PICKUP",
+          players: [{ user: { clerk_user_id: "someone-else" } }],
+        },
+        null,
+      ]) {
+        (prisma.game.findUnique as jest.Mock).mockResolvedValue(game);
+        await expect(saveGameNote(mockGameId, "hi")).rejects.toThrow();
+      }
+      expect(prisma.game.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("saveGameTag", () => {
+    it("stores a tidied tag, clears blanks, and refuses overlong tags", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        kind: "CIRCLE",
+        organizationId: mockOrgId,
+        startedAt: new Date(),
+        players: [],
+      });
+      (prisma.game.update as jest.Mock).mockResolvedValue({});
+
+      expect(await saveGameTag(mockGameId, "  late   night ")).toEqual({
+        ok: true,
+        tag: "late night",
+      });
+      expect(prisma.game.update).toHaveBeenLastCalledWith({
+        where: { id: mockGameId },
+        data: { tag: "late night" },
+      });
+      expect(await saveGameTag(mockGameId, "")).toEqual({ ok: true, tag: null });
+      expect(await saveGameTag(mockGameId, "x".repeat(25))).toMatchObject({
+        ok: false,
+      });
+      expect(prisma.game.update).toHaveBeenCalledTimes(2);
+    });
+
+    it("refuses games from another circle", async () => {
+      (prisma.game.findUnique as jest.Mock).mockResolvedValue({
+        kind: "CIRCLE",
+        organizationId: "another-circle",
+        startedAt: new Date(),
+        players: [],
+      });
+      await expect(saveGameTag(mockGameId, "sober")).rejects.toThrow();
+      expect(prisma.game.update).not.toHaveBeenCalled();
     });
   });
 

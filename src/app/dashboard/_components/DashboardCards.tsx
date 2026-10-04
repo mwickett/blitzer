@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import type { DashboardCardId } from "@/lib/dashboardLayout";
 import type { DashboardStats } from "@/server/queries/stats";
-import type { RecentGame } from "@/server/queries/playerStats";
+import type { RecentGame, SpreadGame } from "@/server/queries/playerStats";
 import { BigNumber, EmptyNote, StatRow } from "./StatCard";
 import { cn } from "@/lib/utils";
 import { DeckIcon } from "@/components/scoring/DeckIcon";
@@ -39,6 +39,18 @@ function plural(n: number, word: string, many = `${word}s`) {
 }
 
 const NO_GAMES = "Finish a game to see this.";
+// Rounds typed as totals have no cards or Blitz pile to count.
+const NO_BREAKDOWN = "Enter a round with cards and Blitz pile to see this.";
+
+function describeExtreme(round: {
+  totalCardsPlayed: number | null;
+  blitzPileRemaining: number | null;
+}) {
+  if (round.totalCardsPlayed === null || round.blitzPileRemaining === null) {
+    return "Entered as a round total";
+  }
+  return `${round.totalCardsPlayed} cards, ${round.blitzPileRemaining} left in Blitz`;
+}
 
 function RecordCard({ stats }: { stats: DashboardStats }) {
   const { winCount, lossCount, decidedGames, winRate, gamesCount, inProgressGames } = stats.games;
@@ -113,7 +125,12 @@ function FormCard({ stats }: { stats: DashboardStats }) {
 
 function BlitzRateCard({ stats }: { stats: DashboardStats }) {
   const { battingAverage, totalHandsWon, totalHandsPlayed } = stats.battingAverage;
-  if (!totalHandsPlayed) return <EmptyNote>Play a round to see this.</EmptyNote>;
+  if (!totalHandsPlayed)
+    return (
+      <EmptyNote>
+        {stats.rounds.totalRounds ? NO_BREAKDOWN : "Play a round to see this."}
+      </EmptyNote>
+    );
   return (
     <>
       <BigNumber
@@ -239,7 +256,7 @@ function BestHandCard({ stats }: { stats: DashboardStats }) {
         <div className="text-xs font-medium text-textMuted">Best</div>
         <div className="font-display text-4xl font-bold text-[#2a6517]">{highest.score}</div>
         <div className="text-xs text-textBody">
-          {highest.totalCardsPlayed} cards, {highest.blitzPileRemaining} left in Blitz
+          {describeExtreme(highest)}
         </div>
       </div>
       <div>
@@ -249,7 +266,7 @@ function BestHandCard({ stats }: { stats: DashboardStats }) {
         </div>
         {lowest ? (
           <div className="text-xs text-textBody">
-            {lowest.totalCardsPlayed} cards, {lowest.blitzPileRemaining} left in Blitz
+            {describeExtreme(lowest)}
           </div>
         ) : null}
       </div>
@@ -293,6 +310,7 @@ function GameLengthCard({ stats }: { stats: DashboardStats }) {
 
 function AveragesCard({ stats }: { stats: DashboardStats }) {
   if (!stats.rounds.totalRounds) return <EmptyNote>Play a round to see this.</EmptyNote>;
+  if (!stats.rounds.breakdownRounds) return <EmptyNote>{NO_BREAKDOWN}</EmptyNote>;
   return (
     <>
       <BigNumber
@@ -394,6 +412,70 @@ function DecksCard({ stats }: { stats: DashboardStats }) {
   );
 }
 
+const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+
+// Rendered in the viewer's time zone, which can differ from the server's.
+function GameDate({ iso }: { iso: string }) {
+  return (
+    <time dateTime={iso} suppressHydrationWarning>
+      {shortDate.format(new Date(iso))}
+    </time>
+  );
+}
+
+function spreadPoints(entry: SpreadGame) {
+  return `+${oneDecimal.format(entry.spread)}`;
+}
+
+function WidestCard({ stats }: { stats: DashboardStats }) {
+  const { games, round } = stats.widest;
+  const [top, ...rest] = games;
+  if (!top) return <EmptyNote>{NO_GAMES}</EmptyNote>;
+  const leader = (entry: SpreadGame) => (entry.leaderIsMe ? "You" : entry.leaderName);
+  return (
+    <>
+      <Link href={`/games/${top.gameId}`} className="group">
+        <BigNumber
+          value={spreadPoints(top)}
+          caption={
+            <span className="group-hover:underline">
+              {leader(top)} finished this far ahead of the table&apos;s average on{" "}
+              <GameDate iso={top.finishedAt} />
+            </span>
+          }
+        />
+      </Link>
+      <ul className="mt-auto pt-3">
+        {rest.map((game) => (
+          <li key={game.gameId}>
+            <StatRow
+              label={
+                <Link href={`/games/${game.gameId}`} className="hover:underline">
+                  <GameDate iso={game.finishedAt} />, {leader(game)} led
+                </Link>
+              }
+              value={spreadPoints(game)}
+            />
+          </li>
+        ))}
+        {round ? (
+          <li>
+            <StatRow
+              label={
+                <Link href={`/games/${round.gameId}`} className="hover:underline">
+                  Widest round: {leader(round)} in round {round.roundNumber},{" "}
+                  <GameDate iso={round.finishedAt} />
+                </Link>
+              }
+              value={spreadPoints(round)}
+            />
+          </li>
+        ) : null}
+      </ul>
+    </>
+  );
+}
+
 export const WIDE_CARDS = new Set<DashboardCardId>(["recentScores", "rivals", "moments"]);
 
 export function DashboardCardBody({
@@ -424,6 +506,8 @@ export function DashboardCardBody({
       return <MomentsCard stats={stats} />;
     case "decks":
       return <DecksCard stats={stats} />;
+    case "widest":
+      return <WidestCard stats={stats} />;
     case "averages":
       return <AveragesCard stats={stats} />;
   }

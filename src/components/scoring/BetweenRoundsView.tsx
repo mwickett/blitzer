@@ -62,8 +62,13 @@ export function BetweenRoundsView({
   // Any new or corrected round makes an earlier recap stale.
   const recapKey = rounds.map((round) => `${round.id}:${round.revision}`).join(",");
 
-  const { scoresByRound, deltasByRound, roundSamplesByPlayer, blitzByRound } =
-    useMemo(() => buildRoundGraphSeries(players, rounds), [players, rounds]);
+  const {
+    scoresByRound,
+    deltasByRound,
+    roundSamplesByPlayer,
+    blitzByRound,
+    scoredByRound,
+  } = useMemo(() => buildRoundGraphSeries(players, rounds), [players, rounds]);
 
   return (
     <>
@@ -92,7 +97,7 @@ export function BetweenRoundsView({
         <RoundMvpsCard
           players={players}
           deltasByRound={deltasByRound}
-          blitzByRound={blitzByRound}
+          scoredByRound={scoredByRound}
         />
         <BlitzPileCard players={players} blitzByRound={blitzByRound} />
         <WinProbabilityCard

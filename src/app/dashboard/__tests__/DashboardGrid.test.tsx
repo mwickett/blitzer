@@ -26,7 +26,7 @@ const stats: DashboardStats = {
     shortest: { id: "short", roundCount: 3 },
   },
   games: { ...EMPTY_GAME_STATS, gamesCount: 4, completedGames: 4, winCount: 3, lossCount: 1, decidedGames: 4, winRate: 75 },
-  rounds: { ...EMPTY_ROUND_STATS, totalRounds: 20, totalBlitzes: 5, totalCardsPlayed: 300, avgCardsPlayed: 15, avgBlitzRemaining: 2.5 },
+  rounds: { ...EMPTY_ROUND_STATS, totalRounds: 20, breakdownRounds: 20, totalBlitzes: 5, totalCardsPlayed: 300, avgCardsPlayed: 15, avgBlitzRemaining: 2.5 },
   recentGames: [
     { id: "g4", finishedAt: "2026-10-03T00:00:00.000Z", won: true, score: 80, place: 1, playerCount: 3, roundCount: 5 },
     { id: "g3", finishedAt: "2026-10-02T00:00:00.000Z", won: true, score: 77, place: 1, playerCount: 3, roundCount: 6 },
@@ -46,6 +46,13 @@ const stats: DashboardStats = {
     { deck: "carriage", games: 3, wins: 3, winRate: 100 },
     { deck: "bucket", games: 1, wins: 1, winRate: 100 },
   ],
+  widest: {
+    games: [
+      { gameId: "g5", finishedAt: "2026-10-02T15:00:00Z", spread: 42.5, leaderName: "me", leaderIsMe: true },
+      { gameId: "g6", finishedAt: "2026-09-28T15:00:00Z", spread: 30, leaderName: "Dad", leaderIsMe: false },
+    ],
+    round: { gameId: "g6", finishedAt: "2026-09-28T15:00:00Z", spread: 21.3, leaderName: "Dad", leaderIsMe: false, roundNumber: 4 },
+  },
 };
 
 const cardTitles = () =>
@@ -65,7 +72,7 @@ describe("DashboardGrid", () => {
 
     expect(cardTitles()).toEqual([
       "Win rate", "Recent form", "Batting average", "Recent scores", "Best and worst hand",
-      "Rivals", "Career totals", "Memorable moments", "Lucky deck", "Game length",
+      "Rivals", "Career totals", "Memorable moments", "Lucky deck", "Widest games", "Game length",
     ]);
     expect(screen.getByText("75%")).toBeInTheDocument();
     expect(screen.getByText("3 wins, 1 loss")).toBeInTheDocument();
@@ -80,6 +87,12 @@ describe("DashboardGrid", () => {
     expect(within(decks).getByText("100% wins with this deck")).toBeInTheDocument();
     expect(within(decks).getAllByText("Carriage")).toHaveLength(2);
     expect(within(decks).getByText("40% of 5 games")).toBeInTheDocument();
+    const widest = screen.getByRole("region", { name: "Widest games" });
+    expect(within(widest).getByText("+42.5")).toBeInTheDocument();
+    expect(within(widest).getByRole("link", { name: /You finished this far ahead/ })).toHaveAttribute("href", "/games/g5");
+    expect(within(widest).getByRole("link", { name: /Dad led/ })).toHaveAttribute("href", "/games/g6");
+    expect(within(widest).getByRole("link", { name: /Widest round: Dad in round 4/ })).toBeInTheDocument();
+    expect(within(widest).getByText("+21.3")).toBeInTheDocument();
     // Results are not conveyed by bar colour alone.
     expect(
       screen.getByRole("img", { name: /^Final scores, oldest to newest: 41 \(loss\), 76 \(win\)/ }),
@@ -143,6 +156,7 @@ describe("DashboardGrid", () => {
       rivals: [],
       moments: [],
       decks: [],
+      widest: { games: [], round: null },
     };
     render(<DashboardGrid stats={empty} initialLayout={defaultDashboardLayout()} />);
 

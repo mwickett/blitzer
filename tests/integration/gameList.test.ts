@@ -328,3 +328,39 @@ test("bounded player options search all visible games and filters require every 
   );
   assert.equal(tooMany.totalMatches, 0);
 });
+
+test("the tag filter matches case-insensitively within the viewer's games", async () => {
+  const viewer = await prisma.user.create({
+    data: {
+      clerk_user_id: "tag-viewer",
+      username: "tag-viewer",
+      email: "tag-viewer@example.invalid",
+    },
+  });
+  const game = (tag: string | null, organizationId = "tag-circle") =>
+    prisma.game.create({
+      data: {
+        kind: "CIRCLE",
+        organizationId,
+        tag,
+        players: { create: [{ userId: viewer.id }] },
+      },
+    });
+  const [tagged] = await Promise.all([
+    game("Stoned"),
+    game("sober"),
+    game(null),
+    game("stoned", "another-circle"),
+  ]);
+  const page = await getGameListPageForViewer(
+    { userId: "tag-viewer", orgId: "tag-circle" },
+    { tag: "STONED" },
+    "current",
+    prisma,
+  );
+  assert.deepEqual(
+    page.games.map((item) => [item.id, item.tag]),
+    [[tagged.id, "Stoned"]],
+  );
+  assert.equal(page.filters.tag, "STONED");
+});

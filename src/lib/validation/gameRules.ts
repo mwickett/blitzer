@@ -1,4 +1,4 @@
-import { type ScoreValidation } from "./schema";
+import { type RoundScoreValues, type ScoreValidation } from "./schema";
 
 // Game constants
 export const GAME_RULES = {
@@ -7,6 +7,10 @@ export const GAME_RULES = {
   BLITZ_PENALTY_MULTIPLIER: 2,
   MAX_BLITZ_PILE: 10,
   MAX_CARDS_PLAYED: 40,
+  // Bounds for a round total typed in "Do math" mode, derived from the
+  // breakdown limits: a full Blitz pile and no cards played, or 40 cards.
+  MIN_ROUND_SCORE: -20,
+  MAX_ROUND_SCORE: 40,
   // Dutch Blitz expansion packs seat eight. Past six the accent palette
   // repeats (see assignColorsToPlayers), which is accepted rather than a
   // reason to cap lower. Applies to every game, pickup or Circle.
@@ -48,11 +52,19 @@ export function validateGameRules(scores: ScoreValidation[]) {
   return true;
 }
 
-// Calculate score for a round
-export function calculateRoundScore(score: ScoreValidation): number {
+/** True when the round was entered as cards played plus Blitz pile left. */
+export function hasBreakdown<T extends RoundScoreValues>(
+  score: T,
+): score is T & ScoreValidation {
+  return score.blitzPileRemaining != null && score.totalCardsPlayed != null;
+}
+
+// Calculate score for a round: the typed total, or the breakdown formula.
+export function calculateRoundScore(score: RoundScoreValues): number {
+  if (score.typedScore != null) return score.typedScore;
   return (
-    -(score.blitzPileRemaining * GAME_RULES.BLITZ_PENALTY_MULTIPLIER) +
-    score.totalCardsPlayed
+    -((score.blitzPileRemaining ?? 0) * GAME_RULES.BLITZ_PENALTY_MULTIPLIER) +
+    (score.totalCardsPlayed ?? 0)
   );
 }
 
@@ -60,7 +72,10 @@ export function calculateRoundScore(score: ScoreValidation): number {
 // interpolate this with Prisma.raw() instead of re-inlining the formula;
 // it is derived from GAME_RULES so the SQL and TS forms cannot drift.
 // (Plain string on purpose — this module is also imported client-side.)
-export const ROUND_SCORE_SQL = `("totalCardsPlayed" - ("blitzPileRemaining" * ${GAME_RULES.BLITZ_PENALTY_MULTIPLIER}))`;
+// Typed totals ("Do math" mode) have a null breakdown, so COALESCE prefers
+// them. Breakdown-only stats (blitzes, cards played) skip those rows because
+// SQL comparisons and aggregates ignore nulls.
+export const ROUND_SCORE_SQL = `COALESCE("typed_score", "totalCardsPlayed" - ("blitzPileRemaining" * ${GAME_RULES.BLITZ_PENALTY_MULTIPLIER}))`;
 
 // Check if score meets winning threshold
 export function isWinningScore(total: number, threshold: number = GAME_RULES.POINTS_TO_WIN): boolean {

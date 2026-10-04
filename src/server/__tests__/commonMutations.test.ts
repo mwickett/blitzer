@@ -1,6 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "../db/db";
-import { ensureCurrentPrismaUser } from "../mutations/common";
+import { ensureCurrentPrismaUser, requireAuthContext } from "../mutations/common";
 
 jest.mock("@clerk/nextjs/server", () => ({
   auth: jest.fn(),
@@ -103,5 +103,40 @@ describe("shared mutation authorization", () => {
     expect(prisma.user.create).toHaveBeenCalledTimes(2);
     // The retry cannot reuse the name that just collided.
     expect(created.username).not.toBe("current");
+  });
+
+  it("turns away a deactivated account joining a pickup game", async () => {
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: "user-id",
+      clerk_user_id: "clerk-current",
+      deactivatedAt: new Date("2026-10-01"),
+    });
+
+    await expect(ensureCurrentPrismaUser()).rejects.toThrow(
+      "This account has been deleted.",
+    );
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a deactivated account that needs its local id", async () => {
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: "user-id",
+      deactivatedAt: new Date("2026-10-01"),
+    });
+
+    await expect(requireAuthContext("prismaId")).rejects.toThrow(
+      "This account has been deleted.",
+    );
+  });
+
+  it("returns the local id for an active account", async () => {
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: "user-id",
+      deactivatedAt: null,
+    });
+
+    await expect(requireAuthContext("prismaId")).resolves.toMatchObject({
+      prismaUserId: "user-id",
+    });
   });
 });

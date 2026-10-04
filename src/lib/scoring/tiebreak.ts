@@ -6,7 +6,8 @@ interface TieBreakCandidate {
 /**
  * Break a tie among players with equal scores.
  * The player with the fewest blitz cards remaining wins.
- * If still tied, first in the array wins (stable).
+ * If still tied, first in the array wins (stable). Callers pass 10 when the
+ * final round was a typed total, so typed rounds fall through to that order.
  */
 export function breakTie(candidates: TieBreakCandidate[]): string {
   if (candidates.length === 0) {

@@ -2,7 +2,10 @@ import { type PlayerWithScore } from "../types";
 
 interface BlitzPileCardProps {
   players: PlayerWithScore[];
-  /** playerId -> Blitz pile left per round; null when no score was saved. */
+  /**
+   * playerId -> Blitz pile left per round; null when no score was saved or
+   * the round total was typed without a breakdown.
+   */
   blitzByRound: Record<string, (number | null)[]>;
 }
 
@@ -65,7 +68,7 @@ export function BlitzPileCard({ players, blitzByRound }: BlitzPileCardProps) {
                     role="img"
                     aria-label={
                       left === null
-                        ? `${player.name}, round ${ri + 1}: no score`
+                        ? `${player.name}, round ${ri + 1}: not recorded`
                         : blitzed
                           ? `${player.name}, round ${ri + 1}: blitzed`
                           : `${player.name}, round ${ri + 1}: ${left} left`

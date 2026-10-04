@@ -76,7 +76,7 @@ erDiagram
   GuestUser ||--o{ Score : scores
 ```
 
-A `Game` is `CIRCLE`, `PICKUP` or `LEGACY`. A round score is `totalCardsPlayed − 2 × blitzPileRemaining`; the formula lives once in `lib/validation/gameRules.ts` and is shared with SQL aggregates.
+A `Game` is `CIRCLE`, `PICKUP` or `LEGACY`. A round score is `totalCardsPlayed − 2 × blitzPileRemaining`; the formula lives once in `lib/validation/gameRules.ts` and is shared with SQL aggregates. Players who prefer "Do math" mode (`User.scoreEntryMode = TOTAL`) type the round total instead: it is stored in `Score.typedScore` with a null breakdown, and stats that need cards or Blitz piles (blitz rates, the Blitz Pile graph, forecast mechanics) count only rounds that have a breakdown.
 
 ## Observability
 

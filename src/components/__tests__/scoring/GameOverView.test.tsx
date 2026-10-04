@@ -53,6 +53,8 @@ const stats: GameStats = {
   biggestRound: { delta: 30, playerName: "Alice", roundNumber: 2 },
   worstRound: { delta: -12, playerName: "Bob", roundNumber: 1 },
   totalBlitzes: 2,
+  widestRound: { range: 22.5, playerName: "Alice", roundNumber: 2 },
+  finalSpread: 15,
 };
 
 const rounds = [
@@ -85,6 +87,14 @@ describe("GameOverView spectator mode", () => {
     expect(screen.getByTestId("graph-carousel")).toBeInTheDocument();
     expect(screen.getByTestId("score-progression")).toBeInTheDocument();
     expect(screen.getByTestId("hot-cold")).toBeInTheDocument();
+  });
+
+  it("shows the widest round and final spread", () => {
+    render(<GameOverView {...baseProps} />);
+    expect(screen.getByText("+22.5")).toBeInTheDocument();
+    expect(screen.getByText("Widest Round")).toBeInTheDocument();
+    expect(screen.getByText("+15")).toBeInTheDocument();
+    expect(screen.getByText("Final Spread")).toBeInTheDocument();
   });
 
   it("hides graphs when there are no rounds to plot", () => {

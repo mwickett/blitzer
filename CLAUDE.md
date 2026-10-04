@@ -38,7 +38,7 @@ Use the Node versions declared in `package.json`. Copy `.env.example` to `.env` 
 
 Circle membership and invitations are managed by Clerk, with paginated membership reads in `server/clerkOrgs.ts`. Score mutations require a matching active Circle or membership in a started pickup game. Public game detail links are spectator views; write authorization must be enforced on the server. Unstarted pickup lobbies have a separate participant view. Legacy games are read-only.
 
-The `OrganizationMembership` table and old guest invitation fields remain in the schema but have no active synchronization or application use. Dropping them requires a separate migration review. Deleted Clerk users remain stored to preserve game history; account retention remains a separate policy decision.
+The `OrganizationMembership` table and old guest invitation fields remain in the schema but have no active synchronization or application use. Dropping them requires a separate migration review. Deleted Clerk users are deactivated, not removed (`server/users/deactivate.ts`): `deactivatedAt` hides them from new games, rematches, and emails and releases their email; `anonymizedAt` marks the opt-in "Former player" rename. Never resync a deactivated profile from Clerk.
 
 Clerk webhooks verify `CLERK_WEBHOOK_SIGNING_SECRET` using the SDK. Circle setup uses Clerk organizations; the legacy contact-import/invitation flow is retired. Do not restore contact exports, old guest-email invitation actions, or historical data migration prompts.
 

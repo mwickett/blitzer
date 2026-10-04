@@ -22,7 +22,10 @@ export default function GameList({
   const basePath = legacy ? "/games/legacy" : "/games";
   const { games, filters, playerOptions } = page;
   const hasFilters =
-    filters.status !== "all" || filters.players.length > 0 || !!filters.search;
+    filters.status !== "all" ||
+    filters.players.length > 0 ||
+    !!filters.search ||
+    !!filters.tag;
   const firstPage = gameListHref(basePath, filters);
 
   return (
@@ -79,6 +82,18 @@ export default function GameList({
                   </option>
                 ))}
             </select>
+          </label>
+          <label className="grid gap-1 text-sm font-medium" htmlFor="game-tag">
+            Tag
+            <input
+              id="game-tag"
+              name="tag"
+              type="search"
+              defaultValue={filters.tag}
+              maxLength={24}
+              placeholder="Any tag"
+              className="h-10 w-36 rounded-md border bg-background px-3 font-normal"
+            />
           </label>
           <Button type="submit">Apply filters</Button>
           {hasFilters && (
@@ -184,6 +199,13 @@ export default function GameList({
                 {game.kind === "PICKUP" && game.startedAt && (
                   <Badge variant="outline">Pickup</Badge>
                 )}
+                {game.tag && (
+                  <Badge variant="outline" className="max-w-full">
+                    <span aria-hidden="true">🏷️&nbsp;</span>
+                    <span className="sr-only">Tag: </span>
+                    <span className="wrap-break-word">{game.tag}</span>
+                  </Badge>
+                )}
               </div>
               <div className="min-w-0 space-y-2">
                 <div className="flex flex-wrap gap-1" aria-label="Players">
@@ -200,6 +222,13 @@ export default function GameList({
                 {game.winnerName && (
                   <p className="text-sm">
                     Winner: <strong>{game.winnerName}</strong>
+                  </p>
+                )}
+                {game.note && (
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                    <span aria-hidden="true">📝 </span>
+                    <span className="sr-only">Note: </span>
+                    {game.note}
                   </p>
                 )}
               </div>
