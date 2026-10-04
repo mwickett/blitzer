@@ -18,6 +18,7 @@ import { isLlmFeaturesEnabled } from "@/featureFlags";
 import GameStory, { GameStorySkeleton } from "./GameStory";
 import GameNote from "./GameNote";
 import GameTag from "./GameTag";
+import ShareResult from "./ShareResult";
 import KeyMoments from "./KeyMoments";
 import { isKeyMomentStorageConfigured } from "@/server/keyMoments";
 
@@ -138,6 +139,12 @@ export default async function GameView(props: {
           })),
         }))}
       />
+      {isFinished ? (
+        <ShareResult
+          gameId={game.id}
+          winnerName={displayScores.find((s) => s.isWinner)?.username ?? ""}
+        />
+      ) : null}
       <GameRecordsHeld
         records={records.filter((record) => record.gameId === game.id)}
       />
