@@ -3,6 +3,7 @@ import GameView from "../[id]/page";
 import { getGameById } from "@/server/queries/games";
 import { getPredictionProfilesForGame } from "@/server/queries/predictionProfiles";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
+import { getCircleRecordsForOrg } from "@/server/queries/circleRecords";
 
 jest.mock("@/server/queries/games", () => ({ getGameById: jest.fn() }));
 jest.mock("@/server/queries/predictionProfiles", () => ({
@@ -10,6 +11,9 @@ jest.mock("@/server/queries/predictionProfiles", () => ({
 }));
 jest.mock("@/server/queries/preferences", () => ({
   getScoreEntryMode: jest.fn().mockResolvedValue("cards"),
+}));
+jest.mock("@/server/queries/circleRecords", () => ({
+  getCircleRecordsForOrg: jest.fn().mockResolvedValue([]),
 }));
 jest.mock("@/featureFlags", () => ({ isLlmFeaturesEnabled: jest.fn().mockResolvedValue(false) }));
 jest.mock("../[id]/GameStory", () => ({
@@ -192,4 +196,55 @@ it("shows key-moment photos only once Blob storage is configured", async () => {
   process.env.BLOB_READ_WRITE_TOKEN = "test-only";
   render(await GameView({ params: Promise.resolve({ id: "game" }) }));
   expect(await screen.findByTestId("key-moments")).toHaveAttribute("data-upload", "true");
+});
+
+describe("Circle records", () => {
+  const finishedGame = {
+    id: "game",
+    kind: "CIRCLE",
+    organizationId: "circle",
+    isFinished: true,
+    winnerId: "a",
+    endedAt: new Date(),
+    winThreshold: 25,
+    players: ["a", "b"].map((id) => ({
+      id,
+      userId: id,
+      user: { username: id, clerk_user_id: `clerk-${id}` },
+    })),
+    rounds: [
+      {
+        id: "r1",
+        revision: 0,
+        round: 1,
+        scores: [
+          { userId: "a", totalCardsPlayed: 30, blitzPileRemaining: 0 },
+          { userId: "b", totalCardsPlayed: 4, blitzPileRemaining: 0 },
+        ],
+      },
+    ],
+  };
+  const at = new Date("2026-10-01T00:00:00Z");
+
+  it("stamps the records this finished game holds for members", async () => {
+    (getGameById as jest.Mock).mockResolvedValue(finishedGame);
+    (getCircleRecordsForOrg as jest.Mock).mockResolvedValue([
+      { kind: "highestRound", value: 30, gameId: "game", playerName: "a", roundNumber: 1, at },
+      { kind: "longestGame", value: 14, gameId: "older", playerName: null, roundNumber: null, at },
+    ]);
+    render(await GameView({ params: Promise.resolve({ id: "game" }) }));
+    expect(getCircleRecordsForOrg).toHaveBeenCalledWith("circle");
+    expect(screen.getByText("Circle record")).toBeInTheDocument();
+    expect(screen.getByText("Highest round:")).toBeInTheDocument();
+    expect(screen.queryByText("Longest game:")).not.toBeInTheDocument();
+  });
+
+  it("skips the records lookup for spectators", async () => {
+    const { auth } = jest.requireMock("@clerk/nextjs/server");
+    (auth as jest.Mock).mockResolvedValueOnce({ userId: "clerk-z", orgId: "elsewhere" });
+    (getGameById as jest.Mock).mockResolvedValue(finishedGame);
+    render(await GameView({ params: Promise.resolve({ id: "game" }) }));
+    expect(getCircleRecordsForOrg).not.toHaveBeenCalled();
+    expect(screen.queryByText("Circle record")).not.toBeInTheDocument();
+  });
 });

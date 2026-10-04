@@ -3,6 +3,8 @@ import { getGameById } from "@/server/queries/games";
 import { getPredictionProfilesForGame } from "@/server/queries/predictionProfiles";
 import { getScoreEntryMode } from "@/server/queries/preferences";
 import { getTagSuggestions } from "@/server/queries/gameTags";
+import { getCircleRecordsForOrg } from "@/server/queries/circleRecords";
+import { GameRecordsHeld } from "@/components/CircleRecords";
 import { notFound, redirect } from "next/navigation";
 import transformGameData from "@/lib/gameLogic";
 import {
@@ -88,7 +90,10 @@ export default async function GameView(props: {
     !!userId && !!game.organizationId && game.organizationId === orgId;
   const canEdit = isCircleMember || isPickupPlayer;
   // Stories show to any flagged viewer of a finished game; recaps to players.
-  const [predictionProfiles, llmEnabled, entryMode, tagSuggestions] =
+  // Members see which Circle records this game set.
+  const showRecords =
+    isFinished && isCircleMember && game.kind === "CIRCLE" && !!orgId;
+  const [predictionProfiles, llmEnabled, entryMode, tagSuggestions, records] =
     await Promise.all([
       isCircleMember && !isFinished && game.rounds.length > 0
         ? getPredictionProfilesForGame(game, { userId, orgId })
@@ -96,6 +101,7 @@ export default async function GameView(props: {
       !!userId && (isFinished || canEdit) && isLlmFeaturesEnabled(),
       userId && canEdit ? getScoreEntryMode(userId) : ("cards" as const),
       userId && canEdit ? getTagSuggestions(userId, game.organizationId) : [],
+      showRecords ? getCircleRecordsForOrg(orgId) : [],
     ]);
   const showStory = isFinished && llmEnabled;
 
@@ -131,6 +137,9 @@ export default async function GameView(props: {
             typedScore: s.typedScore,
           })),
         }))}
+      />
+      <GameRecordsHeld
+        records={records.filter((record) => record.gameId === game.id)}
       />
       {showStory && userId ? (
         <Suspense fallback={<GameStorySkeleton />}>
