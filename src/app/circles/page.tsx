@@ -1,4 +1,6 @@
 import { getCircleStandings } from "@/server/queries/circleStandings";
+import { getCircleRecords } from "@/server/queries/circleRecords";
+import { CircleRecordBook } from "@/components/CircleRecords";
 import {
   CircleHeadToHeadList,
   CircleStandingsTable,
@@ -9,7 +11,10 @@ import { requireCircle } from "@/server/pageAuth";
 
 export default async function CircleStandingsPage() {
   await requireCircle();
-  const { standings, headToHead } = await getCircleStandings();
+  const [{ standings, headToHead }, records] = await Promise.all([
+    getCircleStandings(),
+    getCircleRecords(),
+  ]);
 
   return (
     <main className="container mx-auto px-4 py-8">
@@ -28,6 +33,7 @@ export default async function CircleStandingsPage() {
 
       <div className="space-y-8">
         <CircleStandingsTable standings={standings} />
+        <CircleRecordBook records={records} />
         <CircleHeadToHeadList pairs={headToHead} />
       </div>
     </main>

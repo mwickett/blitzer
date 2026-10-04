@@ -14,6 +14,7 @@ const mockDataLoad = jest.fn();
 jest.mock("@/server/db/db", () => ({ __esModule: true, default: {} }));
 jest.mock("@/server/queries/games", () => ({ getGames: mockDataLoad, getLegacyGames: mockDataLoad }));
 jest.mock("@/server/queries/circleStandings", () => ({ getCircleStandings: mockDataLoad }));
+jest.mock("@/server/queries/circleRecords", () => ({ getCircleRecords: mockDataLoad }));
 jest.mock("@/server/queries/stats", () => ({ getDashboard: mockDataLoad }));
 jest.mock("@/server/queries/lobbies", () => ({ getPickupLobbyForParticipant: mockDataLoad }));
 jest.mock("@/server/queries/playerHighlights", () => ({ getPlayerHighlightsForClerkUser: mockDataLoad }));
