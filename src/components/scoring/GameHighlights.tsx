@@ -3,16 +3,36 @@ import {
   type GameHighlight,
   type HighlightPlayer,
 } from "@/lib/scoring/gameHighlights";
+import {
+  describeNamedMoment,
+  type NamedMoment,
+} from "@/lib/scoring/namedMoments";
 
 interface GameHighlightsProps {
   highlights: GameHighlight[];
+  namedMoments?: NamedMoment[];
   players: (HighlightPlayer & { color: string })[];
 }
 
-export function GameHighlights({ highlights, players }: GameHighlightsProps) {
-  if (highlights.length === 0) return null;
+export function GameHighlights({
+  highlights,
+  namedMoments = [],
+  players,
+}: GameHighlightsProps) {
+  if (highlights.length === 0 && namedMoments.length === 0) return null;
   const byId = new Map(players.map((p) => [p.id, p]));
   const name = (id: string) => byId.get(id)?.name ?? "Someone";
+  // Named moments lead: they are the game's turning points.
+  const items = [
+    ...namedMoments.map((moment) => ({
+      key: moment.kind,
+      ...describeNamedMoment(moment, name),
+    })),
+    ...highlights.map((highlight) => ({
+      key: highlight.kind,
+      ...describeHighlight(highlight, name),
+    })),
+  ];
 
   return (
     <section aria-labelledby="game-highlights" className="mx-4 mb-3">
@@ -23,11 +43,10 @@ export function GameHighlights({ highlights, players }: GameHighlightsProps) {
         Highlights
       </h3>
       <ul className="space-y-1.5">
-        {highlights.map((highlight) => {
-          const { icon, title, detail } = describeHighlight(highlight, name);
+        {items.map(({ key, icon, title, detail }) => {
           return (
             <li
-              key={highlight.kind}
+              key={key}
               className="flex items-start gap-2.5 bg-white border-[1.5px] border-[#e6d7c3] rounded-lg px-3 py-2.5"
             >
               <span aria-hidden="true" className="text-lg leading-none mt-0.5">

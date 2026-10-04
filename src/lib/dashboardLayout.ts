@@ -14,6 +14,8 @@ export const DASHBOARD_CARDS = [
   { id: "moments", title: "Memorable moments", description: "Comebacks, photo finishes, and your nemesis", defaultVisible: true },
   { id: "decks", title: "Lucky deck", description: "Your win rate with each deck you tag", defaultVisible: true },
   { id: "widest", title: "Widest games", description: "Where the leader ran furthest ahead of the table", defaultVisible: true },
+  { id: "namedMoments", title: "Named moments", description: "Tornadoes, U-turns, short fuses, and bounce backs", defaultVisible: true },
+  { id: "leadChanges", title: "Lead changes", description: "How often the lead swaps hands in your games", defaultVisible: true },
   { id: "gameLength", title: "Game length", description: "Your longest and shortest finished games", defaultVisible: true },
   { id: "averages", title: "Per-round averages", description: "Cards played and Blitz cards left per round", defaultVisible: false },
 ] as const;

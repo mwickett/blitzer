@@ -3,7 +3,7 @@ import { after, test } from "node:test";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../src/generated/prisma/client";
 import { spread } from "../../src/lib/scoring/gameStats";
-import { EMPTY_GAME_STATS, EMPTY_ROUND_STATS, getDeckStatsForUser, getGameStatsForUser, getRoundStatsForUser, getWidestGamesForUser } from "../../src/server/queries/playerStats";
+import { EMPTY_GAME_STATS, EMPTY_ROUND_STATS, getDeckStatsForUser, getGameStatsForUser, getMomentHistoryGamesForUser, getRoundStatsForUser, getWidestGamesForUser } from "../../src/server/queries/playerStats";
 
 assert.equal(process.env.BLITZER_INTEGRATION_TEST, "1", "Use npm run test:integration");
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
@@ -148,4 +148,42 @@ test("widest games and round compare the leader with the rest of the table", asy
     round: { gameId: wide.id, finishedAt: "2026-09-05T12:00:00.000Z", spread: 25, leaderName: "stats-spread", leaderIsMe: true, roundNumber: 1 },
   });
   assert.deepEqual(await getWidestGamesForUser("missing-player", prisma), { games: [], round: null });
+});
+
+test("moment history loads cumulative totals per seat for recent finished games", async () => {
+  const player = await prisma.user.create({ data: {
+    clerk_user_id: "stats-moments", email: "stats-moments@example.invalid", username: "stats-moments",
+  } });
+  const guest = await prisma.guestUser.create({ data: { name: "Moment Guest", createdById: player.id } });
+  const startedAt = new Date("2026-09-05T11:00:00Z");
+  const game = await prisma.game.create({ data: {
+    kind: "PICKUP", startedAt, isFinished: true, winnerId: player.id, winThreshold: 75,
+    endedAt: new Date("2026-09-05T12:00:00Z"),
+    players: { create: [{ userId: player.id }, { guestId: guest.id }] },
+  } });
+  await prisma.round.create({ data: { gameId: game.id, round: 1, scores: { create: [
+    { userId: player.id, totalCardsPlayed: 4, blitzPileRemaining: 5 },
+    { guestId: guest.id, totalCardsPlayed: 20, blitzPileRemaining: 0 },
+  ] } } });
+  // The guest has no score in round 2, so their total carries over.
+  await prisma.round.create({ data: { gameId: game.id, round: 2, scores: { create: [
+    { userId: player.id, typedScore: 90 },
+  ] } } });
+  // Unfinished games are left out.
+  await prisma.game.create({ data: {
+    kind: "PICKUP", startedAt, players: { create: [{ userId: player.id }] },
+  } });
+
+  const games = await getMomentHistoryGamesForUser(player.id, prisma);
+  assert.deepEqual(games, [{
+    gameId: game.id,
+    finishedAt: "2026-09-05T12:00:00.000Z",
+    winnerId: player.id,
+    winThreshold: 75,
+    players: [player.id, guest.id]
+      .sort()
+      .map((id) => ({ id, name: id === player.id ? "stats-moments" : "Moment Guest" })),
+    scoresByRound: { [player.id]: [-6, 84], [guest.id]: [20, 20] },
+  }]);
+  assert.deepEqual(await getMomentHistoryGamesForUser("missing-player", prisma), []);
 });

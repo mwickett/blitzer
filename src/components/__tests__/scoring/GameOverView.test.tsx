@@ -81,6 +81,12 @@ const baseProps = {
 describe("GameOverView spectator mode", () => {
   beforeEach(() => mockCapture.mockReset());
 
+  it("lists named moments with the game's highlights", () => {
+    render(<GameOverView {...baseProps} />);
+    expect(screen.getByText("Short fuse")).toBeInTheDocument();
+    expect(screen.getByText("Alice won in just 1 round.")).toBeInTheDocument();
+  });
+
   it("keeps race track and retrospective graphs on the finished screen", () => {
     render(<GameOverView {...baseProps} />);
     expect(screen.getByTestId("race-track")).toHaveTextContent("track@75");

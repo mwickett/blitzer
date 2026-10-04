@@ -53,6 +53,17 @@ const stats: DashboardStats = {
     ],
     round: { gameId: "g6", finishedAt: "2026-09-28T15:00:00Z", spread: 21.3, leaderName: "Dad", leaderIsMe: false, roundNumber: 4 },
   },
+  momentHistory: {
+    leadChanges: {
+      gamesAnalyzed: 5, gamesWithLeadChanges: 2, totalLeadChanges: 7, leadsTaken: 4, leadsLost: 2,
+      winsFromBehind: 1, mostLeadChanges: { gameId: "g7", finishedAt: "2026-09-27T15:00:00Z", count: 5 },
+    },
+    mine: { tornado: 1, u_turn: 0, short_fuse: 2, shortcoming: 0, bounce_back: 3 },
+    tornadoesSuffered: 1,
+    feed: [
+      { key: "g7:tornado", gameId: "g7", finishedAt: "2026-09-27T15:00:00Z", icon: "🌪️", title: "Tornado", detail: "You climbed from dead last after round 2 to the win, while Dad, leading then, finished last.", starring: true },
+    ],
+  },
 };
 
 const cardTitles = () =>
@@ -72,7 +83,7 @@ describe("DashboardGrid", () => {
 
     expect(cardTitles()).toEqual([
       "Win rate", "Recent form", "Batting average", "Recent scores", "Best and worst hand",
-      "Rivals", "Career totals", "Memorable moments", "Lucky deck", "Widest games", "Game length",
+      "Rivals", "Career totals", "Memorable moments", "Lucky deck", "Widest games", "Named moments", "Lead changes", "Game length",
     ]);
     expect(screen.getByText("75%")).toBeInTheDocument();
     expect(screen.getByText("3 wins, 1 loss")).toBeInTheDocument();
@@ -93,6 +104,15 @@ describe("DashboardGrid", () => {
     expect(within(widest).getByRole("link", { name: /Dad led/ })).toHaveAttribute("href", "/games/g6");
     expect(within(widest).getByRole("link", { name: /Widest round: Dad in round 4/ })).toBeInTheDocument();
     expect(within(widest).getByText("+21.3")).toBeInTheDocument();
+    const named = screen.getByRole("region", { name: "Named moments" });
+    expect(within(named).getByRole("link", { name: /Tornado.*You climbed from dead last/ })).toHaveAttribute("href", "/games/g7");
+    expect(within(named).getByText("Bounce backs").nextSibling).toHaveTextContent("3");
+    expect(within(named).getByText(/Caught in 1 tornado/)).toBeInTheDocument();
+    const lead = screen.getByRole("region", { name: "Lead changes" });
+    expect(within(lead).getByText("40%")).toBeInTheDocument();
+    expect(within(lead).getByText("1.4")).toBeInTheDocument();
+    expect(within(lead).getByRole("link", { name: /Wildest game/ })).toHaveAttribute("href", "/games/g7");
+    expect(within(lead).getByText("5 changes")).toBeInTheDocument();
     // Results are not conveyed by bar colour alone.
     expect(
       screen.getByRole("img", { name: /^Final scores, oldest to newest: 41 \(loss\), 76 \(win\)/ }),
@@ -157,6 +177,15 @@ describe("DashboardGrid", () => {
       moments: [],
       decks: [],
       widest: { games: [], round: null },
+      momentHistory: {
+        leadChanges: {
+          gamesAnalyzed: 0, gamesWithLeadChanges: 0, totalLeadChanges: 0, leadsTaken: 0, leadsLost: 0,
+          winsFromBehind: 0, mostLeadChanges: null,
+        },
+        mine: { tornado: 0, u_turn: 0, short_fuse: 0, shortcoming: 0, bounce_back: 0 },
+        tornadoesSuffered: 0,
+        feed: [],
+      },
     };
     render(<DashboardGrid stats={empty} initialLayout={defaultDashboardLayout()} />);
 
@@ -165,6 +194,9 @@ describe("DashboardGrid", () => {
     expect(screen.getByText(/start a rivalry/)).toBeInTheDocument();
     expect(screen.getByText(/stories will start showing up/)).toBeInTheDocument();
     expect(screen.getByText(/Tag your deck when you set up a game/)).toBeInTheDocument();
+    expect(screen.getByText(/No tornadoes or U-turns yet/)).toBeInTheDocument();
+    const lead = screen.getByRole("region", { name: "Lead changes" });
+    expect(within(lead).getByText("Finish a game to see this.")).toBeInTheDocument();
   });
 });
 

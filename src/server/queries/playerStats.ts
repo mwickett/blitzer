@@ -3,6 +3,7 @@ import prisma from "@/server/db/db";
 import { LOBBY_MAX_AGE_MS } from "@/lib/lobbies";
 import { ROUND_SCORE_SQL } from "@/lib/validation/gameRules";
 import { isDeckId, type DeckId } from "@/lib/scoring/decks";
+import type { MomentHistoryGame } from "@/lib/scoring/namedMoments";
 
 type Db = Pick<PrismaClient, "$queryRaw">;
 
@@ -444,4 +445,87 @@ export async function getWidestGamesForUser(
     games: gameRows.map(toGame),
     round: round ? { ...toGame(round), roundNumber: Number(round.roundNumber) } : null,
   };
+}
+
+/** Named moments and lead changes are read from the user's latest finished games. */
+export const MOMENT_GAMES_WINDOW = 50;
+
+/**
+ * Round-by-round cumulative totals for the user's latest finished games, the
+ * input to summarizeMomentHistory. A seat with no score in a round adds 0.
+ */
+export async function getMomentHistoryGamesForUser(
+  userId: string,
+  db: Db = prisma,
+  window = MOMENT_GAMES_WINDOW,
+): Promise<MomentHistoryGame[]> {
+  type Row = {
+    gameId: string;
+    finishedAt: Date;
+    winnerId: string | null;
+    winThreshold: number;
+    playerId: string;
+    playerName: string | null;
+    roundNumber: number | null;
+    total: number | bigint | null;
+  };
+  const rows = await db.$queryRaw<Row[]>(Prisma.sql`
+    WITH recent AS (
+      ${userFinishedGames(userId)}
+      ORDER BY finished_at DESC, g.id DESC
+      LIMIT ${window}
+    ),
+    seats AS (
+      SELECT
+        recent.id AS "gameId",
+        COALESCE(p."userId", p."guestId") AS "playerId",
+        COALESCE(u.username, gu.name) AS "playerName"
+      FROM recent
+      INNER JOIN "GamePlayers" p ON p."gameId" = recent.id
+      LEFT JOIN "User" u ON u.id = p."userId"
+      LEFT JOIN "GuestUser" gu ON gu.id = p."guestId"
+      WHERE COALESCE(p."userId", p."guestId") IS NOT NULL
+    )
+    SELECT
+      seats."gameId",
+      recent.finished_at AS "finishedAt",
+      recent."winnerId",
+      g.win_threshold AS "winThreshold",
+      seats."playerId",
+      seats."playerName",
+      r.round AS "roundNumber",
+      SUM(COALESCE(${Prisma.raw(ROUND_SCORE_SQL)}, 0)) OVER (
+        PARTITION BY seats."gameId", seats."playerId" ORDER BY r.round
+      ) AS total
+    FROM seats
+    INNER JOIN recent ON recent.id = seats."gameId"
+    INNER JOIN "Game" g ON g.id = seats."gameId"
+    LEFT JOIN "Round" r ON r."gameId" = seats."gameId"
+    LEFT JOIN "Score" s ON s."roundId" = r.id
+      AND (s."userId" = seats."playerId" OR s."guestId" = seats."playerId")
+    ORDER BY recent.finished_at DESC, seats."gameId", seats."playerId", r.round
+  `);
+
+  const games = new Map<string, MomentHistoryGame>();
+  for (const row of rows) {
+    let game = games.get(row.gameId);
+    if (!game) {
+      game = {
+        gameId: row.gameId,
+        finishedAt: new Date(row.finishedAt).toISOString(),
+        winnerId: row.winnerId,
+        winThreshold: Number(row.winThreshold),
+        players: [],
+        scoresByRound: {},
+      };
+      games.set(row.gameId, game);
+    }
+    if (!game.scoresByRound[row.playerId]) {
+      game.players.push({ id: row.playerId, name: row.playerName ?? "Unknown player" });
+      game.scoresByRound[row.playerId] = [];
+    }
+    // A game without rounds still yields one row per seat, with no round.
+    if (row.roundNumber !== null) game.scoresByRound[row.playerId].push(Number(row.total ?? 0));
+  }
+  return [...games.values()];
 }

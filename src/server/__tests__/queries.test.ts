@@ -406,6 +406,13 @@ describe("Queries", () => {
           ])
           .mockResolvedValueOnce([
             { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), roundNumber: 3, leaderId: "guest-1", leaderName: null, spread: "18.0" },
+          ])
+          // Named moment history: round totals per seat, a 2-round game.
+          .mockResolvedValueOnce([
+            { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: mockUserId, playerName: "me", roundNumber: 1, total: BigInt(-5) },
+            { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: mockUserId, playerName: "me", roundNumber: 2, total: BigInt(80) },
+            { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: "guest-1", playerName: "Grandma", roundNumber: 1, total: BigInt(10) },
+            { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: "guest-1", playerName: "Grandma", roundNumber: 2, total: BigInt(-3) },
           ]);
         (prisma.round.groupBy as jest.Mock)
           .mockResolvedValueOnce([{ gameId: "game-long", _count: { _all: 9 } }])
@@ -462,6 +469,11 @@ describe("Queries", () => {
           games: [{ gameId: "game-new", finishedAt: "2026-10-02T12:00:00.000Z", spread: 42.5, leaderName: "me", leaderIsMe: true }],
           round: { gameId: "game-new", finishedAt: "2026-10-02T12:00:00.000Z", spread: 18, leaderName: "Unknown player", leaderIsMe: false, roundNumber: 3 },
         });
+        expect(stats.momentHistory.leadChanges).toMatchObject({
+          gamesAnalyzed: 1, gamesWithLeadChanges: 1, leadsTaken: 1, winsFromBehind: 1,
+        });
+        expect(stats.momentHistory.mine.short_fuse).toBe(1);
+        expect(stats.momentHistory.feed.map((item) => item.title)).toEqual(["Short fuse", "Shortcoming"]);
         expect(stats.decks).toEqual([
           { deck: "pump", games: 4, wins: 1, winRate: 25 },
         ]);
