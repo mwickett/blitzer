@@ -22,6 +22,8 @@ import {
 import { getPlayerHighlightsForUser } from "./playerHighlights";
 import { highlightMoments } from "@/components/insights/PlayerHighlights";
 import { summarizeMomentHistory, type MomentHistory } from "@/lib/scoring/namedMoments";
+import { getBadgesForUser } from "./badges";
+import type { BadgeProgress } from "@/lib/scoring/badges";
 import {
   normalizeDashboardLayout,
   type DashboardLayout,
@@ -80,6 +82,8 @@ export type DashboardStats = {
   widest: WidestGames;
   /** Lead changes and named moments across recent finished games. */
   momentHistory: MomentHistory;
+  /** Every badge, earned or locked, in catalog order. */
+  badges: BadgeProgress[];
 };
 
 export type DashboardMoment = ReturnType<typeof highlightMoments>[number];
@@ -173,7 +177,7 @@ export async function getDashboardStatsForUser(
   userId: string,
   db: Db = prisma
 ): Promise<DashboardStats> {
-  const [roundStats, scoreExtremes, gameRoundExtremes, games, recentGames, streaks, rivals, highlights, decks, widest, momentGames] =
+  const [roundStats, scoreExtremes, gameRoundExtremes, games, recentGames, streaks, rivals, highlights, decks, widest, momentGames, badges] =
     await Promise.all([
       getRoundStatsForUser(userId, db),
       getHighestAndLowestScoreForUser(userId, db),
@@ -186,6 +190,7 @@ export async function getDashboardStatsForUser(
       getDeckStatsForUser(userId, db),
       getWidestGamesForUser(userId, db),
       getMomentHistoryGamesForUser(userId, db),
+      getBadgesForUser(userId, db),
     ]);
 
   return {
@@ -209,6 +214,7 @@ export async function getDashboardStatsForUser(
     decks,
     widest,
     momentHistory: summarizeMomentHistory(momentGames, userId),
+    badges,
   };
 }
 

@@ -5,6 +5,8 @@ import { getScoreEntryMode } from "@/server/queries/preferences";
 import { getTagSuggestions } from "@/server/queries/gameTags";
 import { getCircleRecordsForOrg } from "@/server/queries/circleRecords";
 import { GameRecordsHeld } from "@/components/CircleRecords";
+import { getBadgesForUser } from "@/server/queries/badges";
+import { GameBadgesEarned } from "@/components/BadgeShelf";
 import { notFound, redirect } from "next/navigation";
 import transformGameData from "@/lib/gameLogic";
 import {
@@ -94,16 +96,28 @@ export default async function GameView(props: {
   // Members see which Circle records this game set.
   const showRecords =
     isFinished && isCircleMember && game.kind === "CIRCLE" && !!orgId;
-  const [predictionProfiles, llmEnabled, entryMode, tagSuggestions, records] =
-    await Promise.all([
-      isCircleMember && !isFinished && game.rounds.length > 0
-        ? getPredictionProfilesForGame(game, { userId, orgId })
-        : {},
-      !!userId && (isFinished || canEdit) && isLlmFeaturesEnabled(),
-      userId && canEdit ? getScoreEntryMode(userId) : ("cards" as const),
-      userId && canEdit ? getTagSuggestions(userId, game.organizationId) : [],
-      showRecords ? getCircleRecordsForOrg(orgId) : [],
-    ]);
+  // Players see the badges this game earned them for the first time.
+  const viewerPlayerId = isFinished
+    ? game.players.find((p) => !!userId && p.user?.clerk_user_id === userId)
+        ?.userId
+    : undefined;
+  const [
+    predictionProfiles,
+    llmEnabled,
+    entryMode,
+    tagSuggestions,
+    records,
+    badges,
+  ] = await Promise.all([
+    isCircleMember && !isFinished && game.rounds.length > 0
+      ? getPredictionProfilesForGame(game, { userId, orgId })
+      : {},
+    !!userId && (isFinished || canEdit) && isLlmFeaturesEnabled(),
+    userId && canEdit ? getScoreEntryMode(userId) : ("cards" as const),
+    userId && canEdit ? getTagSuggestions(userId, game.organizationId) : [],
+    showRecords ? getCircleRecordsForOrg(orgId) : [],
+    viewerPlayerId ? getBadgesForUser(viewerPlayerId) : [],
+  ]);
   const showStory = isFinished && llmEnabled;
 
   return (
@@ -147,6 +161,9 @@ export default async function GameView(props: {
       ) : null}
       <GameRecordsHeld
         records={records.filter((record) => record.gameId === game.id)}
+      />
+      <GameBadgesEarned
+        badges={badges.filter((badge) => badge.firstGameId === game.id)}
       />
       {showStory && userId ? (
         <Suspense fallback={<GameStorySkeleton />}>

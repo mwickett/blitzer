@@ -413,6 +413,13 @@ describe("Queries", () => {
             { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: mockUserId, playerName: "me", roundNumber: 2, total: BigInt(80) },
             { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: "guest-1", playerName: "Grandma", roundNumber: 1, total: BigInt(10) },
             { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: "guest-1", playerName: "Grandma", roundNumber: 2, total: BigInt(-3) },
+          ])
+          // Badge history: each round's score and Blitz pile per seat.
+          .mockResolvedValueOnce([
+            { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: mockUserId, playerName: "me", roundNumber: 1, delta: BigInt(-5), blitzPile: 5 },
+            { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: mockUserId, playerName: "me", roundNumber: 2, delta: BigInt(85), blitzPile: 0 },
+            { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: "guest-1", playerName: "Grandma", roundNumber: 1, delta: BigInt(10), blitzPile: 1 },
+            { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), winnerId: mockUserId, winThreshold: 75, playerId: "guest-1", playerName: "Grandma", roundNumber: 2, delta: BigInt(-13), blitzPile: 8 },
           ]);
         (prisma.round.groupBy as jest.Mock)
           .mockResolvedValueOnce([{ gameId: "game-long", _count: { _all: 9 } }])
@@ -474,6 +481,9 @@ describe("Queries", () => {
         });
         expect(stats.momentHistory.mine.short_fuse).toBe(1);
         expect(stats.momentHistory.feed.map((item) => item.title)).toEqual(["Short fuse", "Shortcoming"]);
+        const earned = stats.badges.filter((b) => b.count > 0).map((b) => b.badge.id);
+        // Down 15 after round 1, then the win in two rounds.
+        expect(earned).toEqual(["first_win", "short_fuse", "comeback", "first_blitz"]);
         expect(stats.decks).toEqual([
           { deck: "pump", games: 4, wins: 1, winRate: 25 },
         ]);

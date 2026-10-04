@@ -4,6 +4,8 @@ import { getGameById } from "@/server/queries/games";
 import { getPredictionProfilesForGame } from "@/server/queries/predictionProfiles";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import { getCircleRecordsForOrg } from "@/server/queries/circleRecords";
+import { getBadgesForUser } from "@/server/queries/badges";
+import { BADGES } from "@/lib/scoring/badges";
 
 jest.mock("@/server/queries/games", () => ({ getGameById: jest.fn() }));
 jest.mock("@/server/queries/predictionProfiles", () => ({
@@ -14,6 +16,9 @@ jest.mock("@/server/queries/preferences", () => ({
 }));
 jest.mock("@/server/queries/circleRecords", () => ({
   getCircleRecordsForOrg: jest.fn().mockResolvedValue([]),
+}));
+jest.mock("@/server/queries/badges", () => ({
+  getBadgesForUser: jest.fn().mockResolvedValue([]),
 }));
 jest.mock("@/featureFlags", () => ({ isLlmFeaturesEnabled: jest.fn().mockResolvedValue(false) }));
 jest.mock("../[id]/GameStory", () => ({
@@ -246,5 +251,63 @@ describe("Circle records", () => {
     render(await GameView({ params: Promise.resolve({ id: "game" }) }));
     expect(getCircleRecordsForOrg).not.toHaveBeenCalled();
     expect(screen.queryByText("Circle record")).not.toBeInTheDocument();
+  });
+});
+
+describe("new badges", () => {
+  const game = (isFinished: boolean) => ({
+    id: "game",
+    kind: "PICKUP",
+    organizationId: null,
+    startedAt: new Date(),
+    isFinished,
+    winnerId: isFinished ? "a" : null,
+    endedAt: null,
+    winThreshold: 25,
+    players: ["a", "b"].map((id) => ({
+      id,
+      userId: id,
+      user: { username: id, clerk_user_id: `clerk-${id}` },
+    })),
+    rounds: [
+      {
+        id: "r1",
+        revision: 0,
+        round: 1,
+        scores: [
+          { userId: "a", totalCardsPlayed: isFinished ? 30 : 10, blitzPileRemaining: 0 },
+          { userId: "b", totalCardsPlayed: 4, blitzPileRemaining: 0 },
+        ],
+      },
+    ],
+  });
+  const progress = (id: string, firstGameId: string) => ({
+    badge: BADGES.find((b) => b.id === id)!,
+    count: 1,
+    firstGameId,
+    firstAt: "2026-10-01T00:00:00.000Z",
+  });
+
+  it("shows the viewer the badges this game earned them first", async () => {
+    (getGameById as jest.Mock).mockResolvedValue(game(true));
+    (getBadgesForUser as jest.Mock).mockResolvedValue([
+      progress("first_win", "game"),
+      progress("first_blitz", "older"),
+    ]);
+    render(await GameView({ params: Promise.resolve({ id: "game" }) }));
+    expect(getBadgesForUser).toHaveBeenCalledWith("a");
+    expect(screen.getByRole("heading", { name: "New badge" })).toBeInTheDocument();
+    expect(screen.getByText("First win")).toBeInTheDocument();
+    expect(screen.queryByText("First blitz")).not.toBeInTheDocument();
+  });
+
+  it("skips badges for unfinished games and for viewers who didn't play", async () => {
+    (getGameById as jest.Mock).mockResolvedValue(game(false));
+    render(await GameView({ params: Promise.resolve({ id: "game" }) }));
+    const { auth } = jest.requireMock("@clerk/nextjs/server");
+    (auth as jest.Mock).mockResolvedValueOnce({ userId: "clerk-z", orgId: null });
+    (getGameById as jest.Mock).mockResolvedValue(game(true));
+    render(await GameView({ params: Promise.resolve({ id: "game" }) }));
+    expect(getBadgesForUser).not.toHaveBeenCalled();
   });
 });

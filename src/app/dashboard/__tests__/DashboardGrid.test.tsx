@@ -5,6 +5,7 @@ import { saveDashboardLayout } from "@/server/mutations/dashboard";
 import { defaultDashboardLayout } from "@/lib/dashboardLayout";
 import { EMPTY_GAME_STATS, EMPTY_ROUND_STATS } from "@/server/queries/playerStats";
 import type { DashboardStats } from "@/server/queries/stats";
+import { BADGES } from "@/lib/scoring/badges";
 
 jest.mock("@/server/mutations/dashboard", () => ({
   saveDashboardLayout: jest.fn(),
@@ -64,6 +65,12 @@ const stats: DashboardStats = {
       { key: "g7:tornado", gameId: "g7", finishedAt: "2026-09-27T15:00:00Z", icon: "🌪️", title: "Tornado", detail: "You climbed from dead last after round 2 to the win, while Dad, leading then, finished last.", starring: true },
     ],
   },
+  badges: BADGES.map((badge) => ({
+    badge,
+    count: badge.id === "first_win" ? 1 : badge.id === "tornado" ? 2 : 0,
+    firstGameId: badge.id === "first_win" ? "g1" : badge.id === "tornado" ? "g7" : null,
+    firstAt: badge.id === "first_win" || badge.id === "tornado" ? "2026-09-27T15:00:00Z" : null,
+  })),
 };
 
 const cardTitles = () =>
@@ -83,7 +90,7 @@ describe("DashboardGrid", () => {
 
     expect(cardTitles()).toEqual([
       "Win rate", "Recent form", "Batting average", "Recent scores", "Best and worst hand",
-      "Rivals", "Career totals", "Memorable moments", "Lucky deck", "Widest games", "Named moments", "Lead changes", "Game length",
+      "Rivals", "Career totals", "Memorable moments", "Lucky deck", "Widest games", "Named moments", "Badges", "Lead changes", "Game length",
     ]);
     expect(screen.getByText("75%")).toBeInTheDocument();
     expect(screen.getByText("3 wins, 1 loss")).toBeInTheDocument();
@@ -108,6 +115,11 @@ describe("DashboardGrid", () => {
     expect(within(named).getByRole("link", { name: /Tornado.*You climbed from dead last/ })).toHaveAttribute("href", "/games/g7");
     expect(within(named).getByText("Bounce backs").nextSibling).toHaveTextContent("3");
     expect(within(named).getByText(/Caught in 1 tornado/)).toBeInTheDocument();
+    const badges = screen.getByRole("region", { name: "Badges" });
+    expect(within(badges).getByText(`2 of ${BADGES.length} earned`)).toBeInTheDocument();
+    expect(within(badges).getByRole("link", { name: /Tornado.*× 2/ })).toHaveAttribute("href", "/games/g7");
+    expect(within(badges).getByRole("link", { name: /First win/ })).toHaveAttribute("href", "/games/g1");
+    expect(within(within(badges).getByRole("list", { name: "Badges to earn" })).getAllByRole("listitem")).toHaveLength(3);
     const lead = screen.getByRole("region", { name: "Lead changes" });
     expect(within(lead).getByText("40%")).toBeInTheDocument();
     expect(within(lead).getByText("1.4")).toBeInTheDocument();
@@ -186,6 +198,7 @@ describe("DashboardGrid", () => {
         tornadoesSuffered: 0,
         feed: [],
       },
+      badges: BADGES.map((badge) => ({ badge, count: 0, firstGameId: null, firstAt: null })),
     };
     render(<DashboardGrid stats={empty} initialLayout={defaultDashboardLayout()} />);
 
@@ -195,6 +208,7 @@ describe("DashboardGrid", () => {
     expect(screen.getByText(/stories will start showing up/)).toBeInTheDocument();
     expect(screen.getByText(/Tag your deck when you set up a game/)).toBeInTheDocument();
     expect(screen.getByText(/No tornadoes or U-turns yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No badges yet/)).toBeInTheDocument();
     const lead = screen.getByRole("region", { name: "Lead changes" });
     expect(within(lead).getByText("Finish a game to see this.")).toBeInTheDocument();
   });
