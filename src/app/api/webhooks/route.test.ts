@@ -38,6 +38,8 @@ function user(overrides: Partial<User> = {}): User {
     updatedAt: new Date("2026-01-01"),
     accentColor: null,
     dashboardLayout: null,
+    deactivatedAt: null,
+    anonymizedAt: null,
     preferredDeck: null,
     scoreEntryMode: "CARDS",
     ...overrides,
@@ -113,15 +115,86 @@ it("rejects an unverified webhook before reading or changing accounts", async ()
   expect(sendWelcomeEmail).not.toHaveBeenCalled();
 });
 
-it("does not transfer a retained deleted account to a recreated Clerk identity", async () => {
-  rows.push(user({ clerk_user_id: "clerk-deleted" }));
+it("deactivates a deleted account and gives a recreated identity a fresh row", async () => {
+  rows.push(user({ clerk_user_id: "clerk-deleted", username: "aunt-carol" }));
   (verifyWebhook as jest.Mock).mockResolvedValueOnce(event("user.deleted", { id: "clerk-deleted" }));
   expect((await POST(request)).status).toBe(200);
-  expect((await POST(request)).status).toBe(409);
+
+  expect(rows[0]).toMatchObject({
+    clerk_user_id: "clerk-deleted",
+    username: "aunt-carol",
+    email: "former-player-local-current@deactivated.invalid",
+  });
+  expect(rows[0].deactivatedAt).toBeInstanceOf(Date);
+
+  // The same email signing up again is a new identity, never the old row.
+  expect((await POST(request)).status).toBe(200);
+  expect(rows).toHaveLength(2);
+  expect(rows[1]).toMatchObject({
+    clerk_user_id: "clerk-current",
+    email: "player@example.test",
+    deactivatedAt: null,
+  });
   expect(rows[0].clerk_user_id).toBe("clerk-deleted");
+});
+
+it("keeps a repeated user.deleted idempotent", async () => {
+  rows.push(user());
+  (verifyWebhook as jest.Mock).mockResolvedValue(event("user.deleted"));
+
+  expect((await POST(request)).status).toBe(200);
+  const deactivatedAt = rows[0].deactivatedAt;
+  expect((await POST(request)).status).toBe(200);
+  expect(rows[0].deactivatedAt).toBe(deactivatedAt);
+  expect(prisma.user.update).toHaveBeenCalledTimes(1);
+});
+
+it("does not let a late user.updated rewrite a deactivated profile", async () => {
+  rows.push(
+    user({
+      username: "Former player 1",
+      email: "former-player-local-current@deactivated.invalid",
+      avatarUrl: null,
+      deactivatedAt: new Date("2026-10-01"),
+      anonymizedAt: new Date("2026-10-01"),
+    }),
+  );
+  (verifyWebhook as jest.Mock).mockResolvedValue(event("user.updated", { username: "carol" }));
+
+  expect((await POST(request)).status).toBe(200);
   expect(prisma.user.update).not.toHaveBeenCalled();
-  expect(prisma.user.create).not.toHaveBeenCalled();
-  expect(sendWelcomeEmail).not.toHaveBeenCalled();
+  expect(rows[0].username).toBe("Former player 1");
+});
+
+it("does not restore a profile when deletion wins the race with user.updated", async () => {
+  const stale = user();
+  rows.push(
+    user({
+      username: "Former player 1",
+      email: "former-player-local-current@deactivated.invalid",
+      avatarUrl: null,
+      deactivatedAt: new Date("2026-10-01"),
+      anonymizedAt: new Date("2026-10-01"),
+    }),
+  );
+  // The sync read the row just before deletion deactivated it.
+  (prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(stale);
+  (verifyWebhook as jest.Mock).mockResolvedValue(event("user.updated", { username: "carol" }));
+
+  expect((await POST(request)).status).toBe(200);
+  expect(rows[0]).toMatchObject({
+    username: "Former player 1",
+    email: "former-player-local-current@deactivated.invalid",
+    avatarUrl: null,
+  });
+});
+
+it("asks Clerk to retry when deactivation fails", async () => {
+  rows.push(user());
+  (verifyWebhook as jest.Mock).mockResolvedValue(event("user.deleted"));
+  (prisma.user.update as jest.Mock).mockRejectedValueOnce(new Error("db down"));
+
+  expect((await POST(request)).status).toBe(500);
 });
 
 it("preserves the same generated username across duplicate created and updated events", async () => {
@@ -158,7 +231,7 @@ it("syncs a real username change while retaining the immutable account identity"
   expect((await POST(request)).status).toBe(200);
   expect(rows[0]).toMatchObject({ id: "local-current", clerk_user_id: "clerk-current", username: "chosen-name" });
   expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
-    where: { clerk_user_id: "clerk-current" },
+    where: { clerk_user_id: "clerk-current", deactivatedAt: null },
     data: expect.not.objectContaining({ clerk_user_id: expect.anything() }),
   }));
 });
@@ -254,7 +327,7 @@ it("sends the welcome email only for created accounts", async () => {
   expect(sendWelcomeEmail).not.toHaveBeenCalled();
 });
 
-it.each(["user.deleted", "session.created", "organization.created"])(
+it.each(["session.created", "organization.created"])(
   "acknowledges %s without touching accounts",
   async (type) => {
     rows.push(user());

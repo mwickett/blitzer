@@ -26,6 +26,24 @@ export function isUniqueConstraintError(error: unknown) {
   );
 }
 
+function isRecordNotFoundError(error: unknown) {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "P2025"
+  );
+}
+
+/** The row as it stands after a deactivation won the race with a sync. */
+async function frozenRow(existing: User) {
+  const current = await prisma.user.findUnique({
+    where: { clerk_user_id: existing.clerk_user_id },
+  });
+  if (!current) throw new Error("User not found");
+  return current;
+}
+
 function isUsernameConflict(error: unknown) {
   const meta =
     error && typeof error === "object" && "meta" in error
@@ -71,10 +89,13 @@ async function updateProfile(existing: User, profile: ClerkProfile) {
     return existing;
   }
 
-  const where = { clerk_user_id: existing.clerk_user_id };
+  // Only an active row may be synchronized: deletion can deactivate it
+  // between our read and this write, and must not be undone by it.
+  const where = { clerk_user_id: existing.clerk_user_id, deactivatedAt: null };
   try {
     return await prisma.user.update({ where, data });
   } catch (error) {
+    if (isRecordNotFoundError(error)) return frozenRow(existing);
     if (!isUniqueConstraintError(error)) throw error;
     await findEmailMatch(existing.clerk_user_id, profile.email);
     if (!isUsernameConflict(error)) throw error;
@@ -86,6 +107,7 @@ async function updateProfile(existing: User, profile: ClerkProfile) {
         data: { email: profile.email, avatarUrl: profile.avatarUrl },
       });
     } catch (retryError) {
+      if (isRecordNotFoundError(retryError)) return frozenRow(existing);
       if (isUniqueConstraintError(retryError)) {
         await findEmailMatch(existing.clerk_user_id, profile.email);
       }
@@ -108,7 +130,11 @@ export async function resolveClerkUser(
   const existing = await prisma.user.findUnique({
     where: { clerk_user_id: clerkUserId },
   });
-  if (existing && mode === "provision") return existing;
+  // A deactivated account is frozen: a late user.updated must not restore an
+  // anonymized name or a released email. Callers decide whether to reject it.
+  if (existing && (mode === "provision" || existing.deactivatedAt)) {
+    return existing;
+  }
 
   const profile = await loadProfile();
   if (!profile.email) throw new Error("Your account needs an email address");

@@ -19,6 +19,12 @@ model User {
   dashboardLayout        Json?                    @map("dashboard_layout")
   preferredDeck          String?                  @map("preferred_deck")
   scoreEntryMode         ScoreEntryMode           @default(CARDS) @map("score_entry_mode")
+  /// Set when the player leaves (Clerk account deleted). Rows stay so other
+  /// players' game history is intact; the player can't sign in or be added.
+  deactivatedAt          DateTime?                @map("deactivated_at")
+  /// Set when a deactivated player also asked for their name and avatar to
+  /// be removed. Their scores remain under a numbered "Former player" name.
+  anonymizedAt           DateTime?                @map("anonymized_at")
   games                  GamePlayers[]
   scores                 Score[]
   createdGuests          GuestUser[]              @relation("CreatedGuests")

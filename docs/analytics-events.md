@@ -55,6 +55,12 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | `key_moment_uploaded` | A player saves a photo to a game | `game_id`, `has_caption`, `has_round`, `size_kb` |
 | `key_moment_deleted` | The uploader removes their photo | `game_id` |
 
+## Account (server)
+
+| Event | Fires when | Properties |
+| --- | --- | --- |
+| `delete_account` | A player deletes their account from the Delete account page | `anonymized` |
+
 ## Email and LLM (server)
 
 | Event | Fires when | Properties |

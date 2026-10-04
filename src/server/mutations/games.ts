@@ -4,7 +4,7 @@ import { captureServerEvent } from "@/server/telemetry";
 
 import prisma from "@/server/db/db";
 import { Prisma } from "@/generated/prisma/client";
-import { requireAuthContext } from "./common";
+import { assertAccountActive, requireAuthContext } from "./common";
 import { assertGameInCircle, assertGameScoringAccess } from "../scoring/access";
 import { getOrgMemberClerkIds } from "../clerkOrgs";
 import {
@@ -50,7 +50,7 @@ export async function createGame(
   const regularPlayers =
     regularPlayerIds.length > 0
       ? await prisma.user.findMany({
-          where: { id: { in: regularPlayerIds } },
+          where: { id: { in: regularPlayerIds }, deactivatedAt: null },
           select: { id: true, clerk_user_id: true, accentColor: true, preferredDeck: true },
         })
       : [];
@@ -278,6 +278,7 @@ export async function saveGameTag(gameId: string, tag: unknown) {
 // Clone an existing game
 export async function cloneGame(originalGameId: string) {
   const { user, posthog, orgId } = await requireAuthContext("org");
+  await assertAccountActive(user.userId);
 
   // Fetch the original game with its players
   const originalGame = await prisma.game.findUnique({
@@ -295,10 +296,18 @@ export async function cloneGame(originalGameId: string) {
   if (!originalGame) throw new Error("Original game not found");
   assertGameInCircle(originalGame, orgId);
 
+  const rematchPlayers = originalGame.players.filter(
+    (player) => !player.user?.deactivatedAt,
+  );
+  if (rematchPlayers.length < 2) {
+    throw new Error("A rematch needs at least 2 players who are still here.");
+  }
+
   // Start a transaction to ensure consistency
   const newGameId = await prisma.$transaction(async (tx) => {
-    // Create a new game with the same players
-    const playerCreateInputs = originalGame.players.map((player) => {
+    // Create a new game with the same players, minus anyone who has since
+    // deleted their account
+    const playerCreateInputs = rematchPlayers.map((player) => {
       if (player.userId) {
         return {
           userId: player.userId,

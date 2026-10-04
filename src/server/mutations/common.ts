@@ -2,6 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import prisma from "@/server/db/db";
 import posthogClient from "@/app/posthog";
 import { resolveClerkUser } from "@/server/users/provision";
+import { AccountDeactivatedError } from "@/server/users/deactivate";
 
 // One auth seam for all server actions. Declare what the action needs and
 // destructure a context guaranteed to satisfy it — instead of picking the
@@ -37,6 +38,8 @@ export type AuthedOrgPrismaIdContext = AuthedOrgContext & AuthedPrismaIdContext;
  * @throws {Error} "Unauthorized" if not signed in
  * @throws {Error} "No active circle" if an org is required but none is active
  * @throws {Error} "User not found" if a Prisma id is required but missing
+ * @throws {AccountDeactivatedError} if a Prisma id is required but the
+ *   account was deleted (its Clerk login normally goes with it)
  */
 export async function requireAuthContext(
   requires: "user",
@@ -72,13 +75,28 @@ export async function requireAuthContext(
   if (requires === "prismaId" || requires === "orgWithPrismaId") {
     const prismaUser = await prisma.user.findUnique({
       where: { clerk_user_id: userId },
-      select: { id: true },
+      select: { id: true, deactivatedAt: true },
     });
     if (!prismaUser) throw new Error("User not found");
+    if (prismaUser.deactivatedAt) throw new AccountDeactivatedError();
     context.prismaUserId = prismaUser.id;
   }
 
   return context;
+}
+
+/**
+ * For write actions that only need the Clerk session: refuse an account that
+ * was deactivated but whose Clerk login has not been removed yet (deletion
+ * deactivates first, and a failed Clerk call leaves the login until retried).
+ * @throws {AccountDeactivatedError}
+ */
+export async function assertAccountActive(clerkUserId: string) {
+  const account = await prisma.user.findUnique({
+    where: { clerk_user_id: clerkUserId },
+    select: { deactivatedAt: true },
+  });
+  if (account?.deactivatedAt) throw new AccountDeactivatedError();
 }
 
 /**
@@ -88,7 +106,7 @@ export async function requireAuthContext(
  */
 export async function ensureCurrentPrismaUser() {
   const { userId } = await requireAuthContext("user");
-  return resolveClerkUser(userId, async () => {
+  const user = await resolveClerkUser(userId, async () => {
     const clerkUser = await currentUser();
     if (!clerkUser) throw new Error("Unable to load your account");
     return {
@@ -97,4 +115,6 @@ export async function ensureCurrentPrismaUser() {
       avatarUrl: clerkUser.imageUrl,
     };
   });
+  if (user.deactivatedAt) throw new AccountDeactivatedError();
+  return user;
 }

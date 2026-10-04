@@ -6,6 +6,7 @@ import {
   AccountEmailConflictError,
   resolveClerkUser,
 } from "@/server/users/provision";
+import { deactivateUser } from "@/server/users/deactivate";
 
 export async function POST(req: NextRequest) {
   let evt: WebhookEvent;
@@ -54,8 +55,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Retain deleted users to preserve game history. A recreated Clerk account
-  // is a distinct identity; account retention policy remains tracked in #70.
+  // Deleting the Clerk account (in Blitzer or from Clerk's own profile page)
+  // deactivates the local row rather than removing it, so other players' game
+  // history stays intact. A recreated Clerk account is a distinct identity.
+  if (evt.type === "user.deleted" && evt.data.id) {
+    try {
+      await deactivateUser(evt.data.id, { anonymize: false });
+    } catch {
+      console.error("Failed to deactivate deleted Clerk user", {
+        userId: evt.data.id,
+      });
+      return new Response("Failed to deactivate user", { status: 500 });
+    }
+  }
+
   return new Response("", { status: 200 });
 }
 

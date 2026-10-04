@@ -47,6 +47,7 @@ export default async function NewGamePage({
   const users = await prisma.user.findMany({
     where: {
       clerk_user_id: { in: clerkUserIds },
+      deactivatedAt: null,
     },
     select: {
       id: true,

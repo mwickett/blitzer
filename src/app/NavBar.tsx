@@ -9,7 +9,7 @@ import {
 } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, UserX } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -152,7 +152,15 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
               <Button asChild className="hidden md:inline-flex">
                 <Link href="/games/new">New game</Link>
               </Button>
-              <UserButton />
+              <UserButton>
+                <UserButton.MenuItems>
+                  <UserButton.Link
+                    label="Delete account"
+                    labelIcon={<UserX className="h-4 w-4" />}
+                    href="/account"
+                  />
+                </UserButton.MenuItems>
+              </UserButton>
             </Show>
             <Show when="signed-out">
               <SignInButton>Sign In</SignInButton>
