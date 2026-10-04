@@ -18,6 +18,7 @@ model User {
   accentColor            String?                  @map("accent_color")
   dashboardLayout        Json?                    @map("dashboard_layout")
   preferredDeck          String?                  @map("preferred_deck")
+  scoreEntryMode         ScoreEntryMode           @default(CARDS) @map("score_entry_mode")
   /// Set when the player leaves (Clerk account deleted). Rows stay so other
   /// players' game history is intact; the player can't sign in or be added.
   deactivatedAt          DateTime?                @map("deactivated_at")
@@ -29,6 +30,12 @@ model User {
   createdGuests          GuestUser[]              @relation("CreatedGuests")
   OrganizationMembership OrganizationMembership[]
   hostedGames            Game[]                   @relation("GameHost")
+  keyMoments             KeyMoment[]
+}
+
+enum ScoreEntryMode {
+  CARDS
+  TOTAL
 }
 
 enum GameKind {
@@ -67,10 +74,15 @@ model Game {
   hostUserId     String?       @map("host_user_id")
   joinToken      String?       @unique @map("join_token")
   joinCode       String?       @unique @map("join_code")
+  // Free-text note about a noteworthy moment; players can edit it any time.
+  note           String?
+  // Optional short label (e.g. "stoned"); the games list filters on it.
+  tag            String?
   host           User?         @relation("GameHost", fields: [hostUserId], references: [id])
   players        GamePlayers[]
   rounds         Round[]
   story          GameStory?
+  keyMoments     KeyMoment[]
 
   @@index([organizationId])
   @@index([hostUserId])
@@ -89,14 +101,35 @@ model GameStory {
   game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
 }
 
+// A captioned photo of a memorable moment, stored in Vercel Blob. The blob is
+// public by URL; pathname is kept so the file can be removed with the row.
+model KeyMoment {
+  id         String   @id @default(uuid())
+  gameId     String   @map("game_id")
+  roundId    String?  @map("round_id")
+  uploaderId String?  @map("uploader_id")
+  url        String
+  pathname   String
+  caption    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  round      Round?   @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  uploader   User?    @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
+
+  @@index([gameId, createdAt])
+  @@index([roundId])
+  @@index([uploaderId])
+}
+
 model Round {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now()) @map("created_at")
-  gameId    String
-  round     Int
-  revision  Int      @default(0)
-  game      Game     @relation(fields: [gameId], references: [id])
-  scores    Score[]
+  id         String      @id @default(uuid())
+  createdAt  DateTime    @default(now()) @map("created_at")
+  gameId     String
+  round      Int
+  revision   Int         @default(0)
+  game       Game        @relation(fields: [gameId], references: [id])
+  scores     Score[]
+  keyMoments KeyMoment[]
 
   @@unique([gameId, round])
   @@index([gameId])
@@ -106,8 +139,11 @@ model Score {
   id                 String     @id @default(uuid())
   userId             String?
   guestId            String?
-  totalCardsPlayed   Int
-  blitzPileRemaining Int
+  // Cards played and Blitz pile left are null when the round's total was
+  // typed directly ("Do math" entry); typedScore is set only in that case.
+  totalCardsPlayed   Int?
+  blitzPileRemaining Int?
+  typedScore         Int?       @map("typed_score")
   createdAt          DateTime   @default(now()) @map("created_at")
   roundId            String
   updatedAt          DateTime   @default(now()) @map("updated_at")

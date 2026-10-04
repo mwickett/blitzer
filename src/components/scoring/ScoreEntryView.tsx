@@ -5,7 +5,8 @@ import { ScoreEntryCard } from "./ScoreEntryCard";
 import { FloatingCTA } from "./FloatingCTA";
 import { RoundHeader } from "./RoundHeader";
 import { RaceTrack } from "./RaceTrack";
-import { getEntryStatus, type PlayerEntry } from "./types";
+import { EntryModeToggle } from "./EntryModeToggle";
+import { getEntryStatus, type EntryMode, type PlayerEntry } from "./types";
 import { type ScoringDraft } from "./useScoringDraft";
 
 interface ScoreEntryViewProps {
@@ -18,6 +19,7 @@ interface ScoreEntryViewProps {
     field: keyof PlayerEntry,
     value: number | null,
   ) => void;
+  onModeChange: (mode: EntryMode) => void;
   onSubmit: () => void;
   onCancel?: () => void;
 }
@@ -28,6 +30,7 @@ export function ScoreEntryView({
   isSaving,
   blocked,
   onUpdate,
+  onModeChange,
   onSubmit,
   onCancel,
 }: ScoreEntryViewProps) {
@@ -36,7 +39,7 @@ export function ScoreEntryView({
     form.current?.querySelector<HTMLInputElement>("input")?.focus();
   }, []);
   const remainingCount = Object.values(draft.entries).filter(
-    (entry) => getEntryStatus(entry) !== "complete",
+    (entry) => getEntryStatus(entry, draft.mode) !== "complete",
   ).length;
   return (
     <form
@@ -54,6 +57,9 @@ export function ScoreEntryView({
       <div className="px-4 pt-2 pb-2">
         <RaceTrack players={draft.players} winThreshold={winThreshold} />
       </div>
+      <div className="px-4 pt-1">
+        <EntryModeToggle mode={draft.mode} onChange={onModeChange} />
+      </div>
       <fieldset
         disabled={isSaving}
         className="px-4 pt-2 pb-2 space-y-2.5 max-w-[540px]"
@@ -66,7 +72,8 @@ export function ScoreEntryView({
             color={player.color}
             score={player.score}
             entry={draft.entries[player.id]}
-            status={getEntryStatus(draft.entries[player.id])}
+            status={getEntryStatus(draft.entries[player.id], draft.mode)}
+            mode={draft.mode}
             onUpdate={(field, value) => onUpdate(player.id, field, value)}
           />
         ))}

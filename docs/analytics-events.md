@@ -13,7 +13,7 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 
 | Event | Fires when | Properties |
 | --- | --- | --- |
-| `scoring_round_submitted` | A new round saves | `game_id`, `round_number`, `player_count`, `entry_duration_ms` |
+| `scoring_round_submitted` | A new round saves | `game_id`, `round_number`, `player_count`, `entry_duration_ms`, `entry_mode` (`cards`, or `total` for "Do math" round totals) |
 | `scoring_round_edited` | An edit to a saved round saves | same as above |
 | `scoring_round_edit_cancelled` | The user backs out of editing a saved round | `game_id`, `round_number`, `had_conflict` |
 | `scoring_round_conflict` | The server rejects a save as stale or conflicting | `game_id`, `round_number`, `is_edit`, `reason` (`round_conflict`, `stale_round`, `game_finished`) |
@@ -32,6 +32,8 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | --- | --- | --- |
 | `create_game` | A Circle game is created | `gameId`, `playerCount`, `guestPlayerCount`, `win_threshold` (camelCase kept for history) |
 | `clone_game` | A rematch creates a new game | `originalGameId`, `newGameId` (camelCase kept for history) |
+| `game_note_saved` | A player saves or clears a game's note | `game_id`, `has_note` (the note text is never sent) |
+| `game_tag_saved` | A player sets, changes or removes a game's tag | `game_id`, `has_tag` (the tag text is never sent) |
 | `set_accent_color` | The creator saves a default colour from the colour step | `color` (a palette hex) |
 | `update_game_as_finished` | A round save completes the game | `game_id` |
 | `game_reopened_after_edit` | An edit drops the leader back under the threshold | `game_id` |
@@ -39,11 +41,19 @@ Every PostHog product event Blitzer sends, where it fires, and what it carries. 
 | `join_pickup_game` / `join_pickup_game_rejected` | A player joins a lobby, or the join is refused | `game_id` / `reason`, optional `game_id` |
 | `start_pickup_game` / `start_pickup_game_rejected` | The host starts a lobby, or the start is refused | `game_id` / `reason`, `game_id` |
 
-## Dashboard (server)
+## Preferences and dashboard (server)
 
 | Event | Fires when | Properties |
 | --- | --- | --- |
+| `score_entry_mode_changed` | A player switches between "Cards + Blitz" and "Round totals" entry | `entry_mode` (`cards`, `total`) |
 | `dashboard_customized` / `dashboard_reset` | A user saves or resets their dashboard card layout | `visible_cards`, `hidden_cards` |
+
+## Key-moment photos (server)
+
+| Event | Fires when | Properties |
+| --- | --- | --- |
+| `key_moment_uploaded` | A player saves a photo to a game | `game_id`, `has_caption`, `has_round`, `size_kb` |
+| `key_moment_deleted` | The uploader removes their photo | `game_id` |
 
 ## Account (server)
 
@@ -73,6 +83,7 @@ LLM generations are traced separately by `@posthog/ai` in privacy mode.
 - **Which graphs do people look at?** `scoring_graph_viewed` by `graph` and `context`.
 - **Is score entry smooth?** Median `entry_duration_ms` on `scoring_round_submitted`, broken down by `player_count`.
 - **Does anyone want the score breakdown?** `scoring_show_math_toggled` with `enabled: true`.
+- **How many rounds skip the card breakdown?** `scoring_round_submitted` by `entry_mode`; `score_entry_mode_changed` shows who switched.
 - **Do people use "save as my default colour"?** `set_accent_color` against `create_game`.
 - **Do games get abandoned?** `create_game` and `start_pickup_game` that never reach `update_game_as_finished` for the same game.
 - **How often do two devices collide?** `scoring_round_conflict` by `reason`.

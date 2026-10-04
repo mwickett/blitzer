@@ -42,10 +42,20 @@ describe("computeRoundMvps", () => {
     const result = computeRoundMvps(
       players,
       { a: [-6, 0], b: [-2, 0], c: [0, 0] },
-      { a: [5, 3], b: [4, 3], c: [null, null] },
+      { a: [true, true], b: [true, true], c: [false, false] },
     );
     expect(result.mvpsByRound).toEqual([["b"], ["a", "b"]]);
     expect(result.winsByPlayer.c).toBe(0);
+  });
+
+  it("counts rounds whose totals were typed without a breakdown", () => {
+    // Typed totals have no Blitz pile, but the MVP is decided by score alone.
+    const result = computeRoundMvps(
+      players,
+      { a: [12], b: [8], c: [-4] },
+      { a: [true], b: [true], c: [true] },
+    );
+    expect(result.mvpsByRound).toEqual([["a"]]);
   });
 
   it("handles a game with no rounds", () => {
@@ -87,7 +97,7 @@ describe("BlitzPileCard", () => {
       "8",
     );
     expect(
-      screen.getByLabelText("Cara, round 2: no score"),
+      screen.getByLabelText("Cara, round 2: not recorded"),
     ).toBeInTheDocument();
     expect(screen.getByText(/Blitzes:/)).toHaveTextContent(
       "Blitzes: Alice 1, Bob 1",

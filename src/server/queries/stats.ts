@@ -11,7 +11,9 @@ import {
   getRoundStatsForUser,
   getWinStreaksForUser,
   getDeckStatsForUser,
+  getWidestGamesForUser,
   type DeckStat,
+  type WidestGames,
   type RecentGame,
   type Rival,
   type WinStreaks,
@@ -40,8 +42,9 @@ export type BattingAverageStats = {
 
 export type ScoreExtreme = {
   score: number;
-  totalCardsPlayed: number;
-  blitzPileRemaining: number;
+  /** Null, like blitzPileRemaining, when the round total was typed. */
+  totalCardsPlayed: number | null;
+  blitzPileRemaining: number | null;
 };
 
 export type ScoreExtremes = {
@@ -72,6 +75,7 @@ export type DashboardStats = {
   /** Plain-data highlight moments, so they cross to the client unchanged. */
   moments: DashboardMoment[];
   decks: DeckStat[];
+  widest: WidestGames;
 };
 
 export type DashboardMoment = ReturnType<typeof highlightMoments>[number];
@@ -165,7 +169,7 @@ export async function getDashboardStatsForUser(
   userId: string,
   db: Db = prisma
 ): Promise<DashboardStats> {
-  const [roundStats, scoreExtremes, gameRoundExtremes, games, recentGames, streaks, rivals, highlights, decks] =
+  const [roundStats, scoreExtremes, gameRoundExtremes, games, recentGames, streaks, rivals, highlights, decks, widest] =
     await Promise.all([
       getRoundStatsForUser(userId, db),
       getHighestAndLowestScoreForUser(userId, db),
@@ -176,11 +180,13 @@ export async function getDashboardStatsForUser(
       getRivalsForUser(userId, db),
       getPlayerHighlightsForUser(userId, db),
       getDeckStatsForUser(userId, db),
+      getWidestGamesForUser(userId, db),
     ]);
 
   return {
     battingAverage: {
-      totalHandsPlayed: roundStats.totalRounds,
+      // Typed round totals cannot say who blitzed, so they are left out.
+      totalHandsPlayed: roundStats.breakdownRounds,
       totalHandsWon: roundStats.totalBlitzes,
       battingAverage: (roundStats.blitzPercentage / 100).toFixed(3),
     },
@@ -196,6 +202,7 @@ export async function getDashboardStatsForUser(
       (moment) => !MOMENTS_COVERED_ELSEWHERE.has(moment.key),
     ),
     decks,
+    widest,
   };
 }
 

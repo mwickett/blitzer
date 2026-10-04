@@ -1,9 +1,7 @@
 import type { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { getGameCompletion } from "@/lib/gameLogic";
-import {
-  scoreWriteSchema,
-  type SubmittedScore,
-} from "@/lib/validation/submissions";
+import { scoreWriteSchema } from "@/lib/validation/submissions";
+import { type RoundScoreValues } from "@/lib/validation/schema";
 import { assertGameScoringAccess } from "./access";
 
 type Caller = { userId: string; orgId?: string };
@@ -26,23 +24,21 @@ function playerKey(score: { userId?: string | null; guestId?: string | null }) {
   return score.userId ? `user:${score.userId}` : `guest:${score.guestId}`;
 }
 
-function scoresMatch(
-  stored: {
-    userId: string | null;
-    guestId: string | null;
-    totalCardsPlayed: number;
-    blitzPileRemaining: number;
-  }[],
-  submitted: SubmittedScore[],
-) {
+type PlayerScore = RoundScoreValues & {
+  userId?: string | null;
+  guestId?: string | null;
+};
+
+function scoresMatch(stored: PlayerScore[], submitted: PlayerScore[]) {
   const byPlayer = new Map(stored.map((score) => [playerKey(score), score]));
   return (
     stored.length === submitted.length &&
     submitted.every((score) => {
       const existing = byPlayer.get(playerKey(score));
       return (
-        existing?.totalCardsPlayed === score.totalCardsPlayed &&
-        existing?.blitzPileRemaining === score.blitzPileRemaining
+        existing?.totalCardsPlayed === (score.totalCardsPlayed ?? null) &&
+        existing?.blitzPileRemaining === (score.blitzPileRemaining ?? null) &&
+        (existing?.typedScore ?? null) === (score.typedScore ?? null)
       );
     })
   );
@@ -133,8 +129,13 @@ export async function writeRound(
       }
     }
 
+    // Every write sets all three columns so switching entry modes on an edit
+    // clears the other form.
     const data = command.scores.map((score) => ({
       ...score,
+      blitzPileRemaining: score.blitzPileRemaining ?? null,
+      totalCardsPlayed: score.totalCardsPlayed ?? null,
+      typedScore: score.typedScore ?? null,
       updatedAt: new Date(),
     }));
     const round =

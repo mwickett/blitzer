@@ -343,7 +343,7 @@ describe("Queries", () => {
           });
         (prisma.$queryRaw as jest.Mock)
           .mockResolvedValueOnce([
-            { totalRounds: 10, totalBlitzes: 4, cumulativeScore: 60 },
+            { totalRounds: 10, breakdownRounds: 10, totalBlitzes: 4, cumulativeScore: 60 },
           ])
           .mockResolvedValueOnce([
             { score: 30, totalCardsPlayed: 40, blitzPileRemaining: 5 },
@@ -399,6 +399,13 @@ describe("Queries", () => {
           .mockResolvedValueOnce([
             { deck: "pump", games: BigInt(4), wins: BigInt(1) },
             { deck: "anchor", games: BigInt(2), wins: BigInt(2) },
+          ])
+          // Widest games, then the widest round.
+          .mockResolvedValueOnce([
+            { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), roundNumber: null, leaderId: mockUserId, leaderName: "me", spread: "42.5" },
+          ])
+          .mockResolvedValueOnce([
+            { gameId: "game-new", finishedAt: new Date("2026-10-02T12:00:00Z"), roundNumber: 3, leaderId: "guest-1", leaderName: null, spread: "18.0" },
           ]);
         (prisma.round.groupBy as jest.Mock)
           .mockResolvedValueOnce([{ gameId: "game-long", _count: { _all: 9 } }])
@@ -451,6 +458,10 @@ describe("Queries", () => {
         });
         // One recorded win is not yet a story, so there are no moments.
         expect(stats.moments).toEqual([]);
+        expect(stats.widest).toEqual({
+          games: [{ gameId: "game-new", finishedAt: "2026-10-02T12:00:00.000Z", spread: 42.5, leaderName: "me", leaderIsMe: true }],
+          round: { gameId: "game-new", finishedAt: "2026-10-02T12:00:00.000Z", spread: 18, leaderName: "Unknown player", leaderIsMe: false, roundNumber: 3 },
+        });
         expect(stats.decks).toEqual([
           { deck: "pump", games: 4, wins: 1, winRate: 25 },
         ]);

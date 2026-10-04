@@ -111,6 +111,11 @@ export interface PredictionProfile {
   roundsPlayed: number;
   meanDelta: number;
   stdDelta: number;
+  /**
+   * Rounds with a card breakdown behind blitzRate and the means. Absent means
+   * all of roundsPlayed; typed "Do math" totals have no breakdown.
+   */
+  breakdownRounds?: number;
   blitzRate: number;
   meanCardsPlayed: number;
   meanBlitzPileRemaining: number;
@@ -302,6 +307,8 @@ function buildHistoricalMechanics(
   profile: PredictionProfile | undefined
 ): PlayerMechanicsStats | undefined {
   if (!hasUsableHistory(profile)) return undefined;
+  if ((profile.breakdownRounds ?? profile.roundsPlayed) < MIN_HISTORICAL_ROUNDS)
+    return undefined;
 
   return {
     blitzRate: profile.blitzRate,

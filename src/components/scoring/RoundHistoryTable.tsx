@@ -4,7 +4,11 @@ import { useSyncExternalStore } from "react";
 import { Calculator, Pencil } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { type PlayerWithScore, type RoundData } from "./types";
-import { calculateRoundScore, GAME_RULES } from "@/lib/validation/gameRules";
+import {
+  calculateRoundScore,
+  GAME_RULES,
+  hasBreakdown,
+} from "@/lib/validation/gameRules";
 import { findPlayerScore } from "./utils";
 
 interface RoundHistoryTableProps {
@@ -147,9 +151,15 @@ export function RoundHistoryTable({
                       </span>
                       {showMath && score && (
                         <span className="block whitespace-nowrap text-xs font-normal text-[#8b5e3c]">
-                          {score.totalCardsPlayed} played
-                          {score.blitzPileRemaining > 0 &&
-                            ` − ${score.blitzPileRemaining}×${GAME_RULES.BLITZ_PENALTY_MULTIPLIER}`}
+                          {hasBreakdown(score) ? (
+                            <>
+                              {score.totalCardsPlayed} played
+                              {score.blitzPileRemaining > 0 &&
+                                ` − ${score.blitzPileRemaining}×${GAME_RULES.BLITZ_PENALTY_MULTIPLIER}`}
+                            </>
+                          ) : (
+                            "total entered"
+                          )}
                         </span>
                       )}
                     </td>

@@ -27,12 +27,15 @@ const page: GameListPage = {
       roundCount: 5,
       players: [player],
       winnerName: null,
+      note: "Grandma blitzed three rounds in a row",
+      tag: "Cottage",
     },
   ],
   filters: {
     status: "active",
     players: [player.key],
     search: "Player",
+    tag: "cottage",
     cursor: "previous",
   },
   totalMatches: 30,
@@ -49,6 +52,9 @@ it("renders each game once, with the actual start date and filter-preserving pag
   expect(within(list).getAllByRole("link")).toHaveLength(1);
   expect(within(list).getByText("Jan 2, 2026")).toBeInTheDocument();
   expect(within(list).queryByText("Jan 1, 2026")).not.toBeInTheDocument();
+  expect(
+    within(list).getByText("Grandma blitzed three rounds in a row"),
+  ).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
     "href",
     gameListHref("/games", page.filters, "next"),
@@ -68,7 +74,19 @@ it("submits status and every selected player while clearing the old cursor", () 
   const data = new FormData(container.querySelector("form")!);
   expect(data.getAll("player")).toEqual([player.key]);
   expect(data.get("status")).toBe("active");
+  expect(data.get("tag")).toBe("cottage");
   expect(data.has("cursor")).toBe(false);
+});
+
+it("shows each game's tag and keeps the tag filter in links", () => {
+  render(<GameList page={page} />);
+  const list = screen.getByRole("list", { name: "Games" });
+  expect(within(list).getByText("Cottage")).toBeInTheDocument();
+  expect(gameListHref("/games", page.filters)).toContain("tag=cottage");
+  expect(parseGameListFilters({ tag: "  stoned   again " }).tag).toBe(
+    "stoned again",
+  );
+  expect(parseGameListFilters({ tag: "x".repeat(40) }).tag).toHaveLength(24);
 });
 
 it("shows unstarted and expired lobbies explicitly", () => {

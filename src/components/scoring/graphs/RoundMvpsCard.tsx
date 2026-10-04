@@ -3,8 +3,8 @@ import { type PlayerWithScore } from "../types";
 interface RoundMvpsCardProps {
   players: PlayerWithScore[];
   deltasByRound: Record<string, number[]>; // playerId -> delta per round
-  /** null marks a round with no saved score for that player. */
-  blitzByRound?: Record<string, (number | null)[]>;
+  /** false marks a round with no saved score for that player. */
+  scoredByRound?: Record<string, boolean[]>;
 }
 
 export interface RoundMvpSummary {
@@ -17,7 +17,7 @@ export interface RoundMvpSummary {
 export function computeRoundMvps(
   players: PlayerWithScore[],
   deltasByRound: Record<string, number[]>,
-  blitzByRound?: Record<string, (number | null)[]>,
+  scoredByRound?: Record<string, boolean[]>,
 ): RoundMvpSummary {
   const roundCount = Math.max(
     0,
@@ -34,7 +34,8 @@ export function computeRoundMvps(
     for (const player of players) {
       const delta = deltasByRound[player.id]?.[round];
       // A player without a saved score did not "score zero" that round.
-      if (delta === undefined || blitzByRound?.[player.id]?.[round] === null)
+      // Typed round totals still count: the MVP is decided by score alone.
+      if (delta === undefined || scoredByRound?.[player.id]?.[round] === false)
         continue;
       if (delta > best) {
         best = delta;
@@ -53,12 +54,12 @@ export function computeRoundMvps(
 export function RoundMvpsCard({
   players,
   deltasByRound,
-  blitzByRound,
+  scoredByRound,
 }: RoundMvpsCardProps) {
   const { mvpsByRound, winsByPlayer } = computeRoundMvps(
     players,
     deltasByRound,
-    blitzByRound,
+    scoredByRound,
   );
   const byId = new Map(players.map((p) => [p.id, p]));
   const leaderboard = [...players]

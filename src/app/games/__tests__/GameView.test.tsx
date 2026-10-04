@@ -8,11 +8,20 @@ jest.mock("@/server/queries/games", () => ({ getGameById: jest.fn() }));
 jest.mock("@/server/queries/predictionProfiles", () => ({
   getPredictionProfilesForGame: jest.fn().mockResolvedValue({}),
 }));
+jest.mock("@/server/queries/preferences", () => ({
+  getScoreEntryMode: jest.fn().mockResolvedValue("cards"),
+}));
 jest.mock("@/featureFlags", () => ({ isLlmFeaturesEnabled: jest.fn().mockResolvedValue(false) }));
 jest.mock("../[id]/GameStory", () => ({
   __esModule: true,
   default: ({ game }: { game: { id: string } }) => <div data-testid="story" data-game={game.id} />,
   GameStorySkeleton: () => null,
+}));
+jest.mock("../[id]/KeyMoments", () => ({
+  __esModule: true,
+  default: ({ canUpload }: { canUpload: boolean }) => (
+    <div data-testid="key-moments" data-upload={String(canUpload)} />
+  ),
 }));
 jest.mock("@clerk/nextjs/server", () => ({
   auth: jest.fn().mockResolvedValue({ userId: "clerk-a", orgId: "circle" }),
@@ -34,7 +43,10 @@ jest.mock("@/components/scoring/ScoringShell", () => ({
   ),
 }));
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  delete process.env.BLOB_READ_WRITE_TOKEN;
+});
 
 it("keeps historical rounds editable when a legacy finalization flag disagrees with final totals", async () => {
   (getGameById as jest.Mock).mockResolvedValue({
@@ -163,4 +175,21 @@ it("does not offer recaps or check flags for spectators of a game in progress", 
   render(await GameView({ params: Promise.resolve({ id: "game" }) }));
   expect(screen.getByTestId("scoring")).toHaveAttribute("data-recap", "false");
   expect(isLlmFeaturesEnabled).not.toHaveBeenCalled();
+});
+
+it("shows key-moment photos only once Blob storage is configured", async () => {
+  (getGameById as jest.Mock).mockResolvedValue({
+    id: "game",
+    kind: "CIRCLE",
+    organizationId: "circle",
+    winThreshold: 75,
+    players: ["a", "b"].map((id) => ({ id, userId: id, user: { username: id, clerk_user_id: `clerk-${id}` } })),
+    rounds: [],
+  });
+  render(await GameView({ params: Promise.resolve({ id: "game" }) }));
+  expect(screen.queryByTestId("key-moments")).not.toBeInTheDocument();
+
+  process.env.BLOB_READ_WRITE_TOKEN = "test-only";
+  render(await GameView({ params: Promise.resolve({ id: "game" }) }));
+  expect(await screen.findByTestId("key-moments")).toHaveAttribute("data-upload", "true");
 });

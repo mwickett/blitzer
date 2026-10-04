@@ -30,6 +30,11 @@ interface GameOverViewProps {
   canRematch?: boolean;
 }
 
+/** Spreads are averages, so they can carry one decimal place. */
+function formatSpread(value: number) {
+  return `${value > 0 ? "+" : ""}${Number.isInteger(value) ? value : value.toFixed(1)}`;
+}
+
 export function GameOverView({
   winner,
   players,
@@ -47,7 +52,7 @@ export function GameOverView({
   const [rematchError, setRematchError] = useState<string | null>(null);
   const rematching = useRef(false);
   const sorted = [...players].sort((a, b) => b.score - a.score);
-  const { scoresByRound, deltasByRound, blitzByRound } = useMemo(
+  const { scoresByRound, deltasByRound, blitzByRound, scoredByRound } = useMemo(
     () => buildRoundGraphSeries(players, rounds),
     [players, rounds],
   );
@@ -147,7 +152,7 @@ export function GameOverView({
             <RoundMvpsCard
               players={players}
               deltasByRound={deltasByRound}
-              blitzByRound={blitzByRound}
+              scoredByRound={scoredByRound}
             />
             <BlitzPileCard players={players} blitzByRound={blitzByRound} />
           </GraphCarousel>
@@ -232,6 +237,33 @@ export function GameOverView({
             Total Blitzes
           </div>
         </div>
+        {stats.widestRound && stats.finalSpread !== null && (
+          <>
+            <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-lg p-3 text-center">
+              <div className="text-xl font-extrabold text-[#290806]">
+                {formatSpread(stats.widestRound.range)}
+              </div>
+              <div className="text-[9px] text-[#8b5e3c] uppercase tracking-wider mt-0.5">
+                Widest Round
+              </div>
+              <div className="text-[10px] text-[#8b5e3c]">
+                {stats.widestRound.playerName} vs the field · R
+                {stats.widestRound.roundNumber}
+              </div>
+            </div>
+            <div className="bg-white border-[1.5px] border-[#e6d7c3] rounded-lg p-3 text-center">
+              <div className="text-xl font-extrabold text-[#290806]">
+                {formatSpread(stats.finalSpread)}
+              </div>
+              <div className="text-[9px] text-[#8b5e3c] uppercase tracking-wider mt-0.5">
+                Final Spread
+              </div>
+              <div className="text-[10px] text-[#8b5e3c]">
+                Leader vs the field&rsquo;s average
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Round history — tap to edit */}

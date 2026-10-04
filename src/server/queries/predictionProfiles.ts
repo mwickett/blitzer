@@ -2,7 +2,7 @@ import "server-only";
 
 import { type Prisma } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
-import { calculateRoundScore } from "@/lib/validation/gameRules";
+import { calculateRoundScore, hasBreakdown } from "@/lib/validation/gameRules";
 import {
   type PredictionProfile,
   type PredictionProfilesByPlayer,
@@ -16,8 +16,9 @@ export const RECENT_DELTA_LIMIT = 40;
 export interface PredictionScoreSample {
   userId: string | null;
   guestId: string | null;
-  totalCardsPlayed: number;
-  blitzPileRemaining: number;
+  totalCardsPlayed: number | null;
+  blitzPileRemaining: number | null;
+  typedScore?: number | null;
 }
 
 function mean(values: number[]): number {
@@ -59,6 +60,8 @@ export function buildPredictionProfiles(
       .map(([playerId, playerSamples]) => {
         const deltas = playerSamples.map(calculateRoundScore);
         const deltaMean = mean(deltas);
+        // Typed totals inform the score model but not the card mechanics.
+        const breakdowns = playerSamples.filter(hasBreakdown);
 
         return [
           playerId,
@@ -67,14 +70,16 @@ export function buildPredictionProfiles(
             roundsPlayed: playerSamples.length,
             meanDelta: deltaMean,
             stdDelta: stddev(deltas, deltaMean),
-            blitzRate:
-              playerSamples.filter((sample) => sample.blitzPileRemaining === 0)
-                .length / playerSamples.length,
+            breakdownRounds: breakdowns.length,
+            blitzRate: breakdowns.length
+              ? breakdowns.filter((sample) => sample.blitzPileRemaining === 0)
+                  .length / breakdowns.length
+              : 0,
             meanCardsPlayed: mean(
-              playerSamples.map((sample) => sample.totalCardsPlayed),
+              breakdowns.map((sample) => sample.totalCardsPlayed),
             ),
             meanBlitzPileRemaining: mean(
-              playerSamples.map((sample) => sample.blitzPileRemaining),
+              breakdowns.map((sample) => sample.blitzPileRemaining),
             ),
             recentDeltas: deltas.slice(0, RECENT_DELTA_LIMIT),
           },
@@ -134,6 +139,7 @@ export async function getPredictionProfilesForGame(
     guestId: true,
     totalCardsPlayed: true,
     blitzPileRemaining: true,
+    typedScore: true,
   } as const;
   const scoreOrder: Prisma.ScoreOrderByWithRelationInput[] = [
     { createdAt: "desc" },
