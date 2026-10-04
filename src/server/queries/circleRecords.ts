@@ -37,8 +37,9 @@ type RecordRow = {
 };
 
 /**
- * All-time records for CIRCLE games in one organization. A record belongs to
- * the first game that set it; a later tie does not take it.
+ * All-time records for finished CIRCLE games in one organization, so a game
+ * in progress never holds one. A record belongs to the first game that set
+ * it; a later tie does not take it.
  */
 export async function getCircleRecordsForOrg(
   organizationId: string,
@@ -103,12 +104,14 @@ export async function getCircleRecordsForOrg(
       (SELECT 'highestRound' AS kind, sc.score AS value, sc."gameId",
               sc."playerId", sc.round AS "roundNumber", sc."roundAt" AS "at"
        FROM scores sc
+       INNER JOIN finished f ON f.id = sc."gameId"
        ORDER BY sc.score DESC, sc."roundAt", sc."playerId"
        LIMIT 1)
       UNION ALL
       (SELECT 'lowestRound', sc.score, sc."gameId",
               sc."playerId", sc.round, sc."roundAt"
        FROM scores sc
+       INNER JOIN finished f ON f.id = sc."gameId"
        ORDER BY sc.score ASC, sc."roundAt", sc."playerId"
        LIMIT 1)
       UNION ALL

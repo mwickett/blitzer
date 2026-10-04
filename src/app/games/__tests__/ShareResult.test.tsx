@@ -19,15 +19,20 @@ beforeEach(() => {
 });
 
 function press() {
-  const button = screen.getByRole("button", { name: /Share result/ });
-  fireEvent.pointerDown(button);
-  fireEvent.click(button);
+  fireEvent.click(screen.getByRole("button", { name: /Share result/ }));
 }
+
+/** Lets the picture that starts loading with the page finish. */
+const pictureLoaded = () =>
+  waitFor(() => expect(global.fetch).toHaveBeenCalled()).then(
+    () => new Promise((r) => setTimeout(r, 0)),
+  );
 
 it("shares the recap picture when the device can share files", async () => {
   const share = jest.fn().mockResolvedValue(undefined);
   Object.assign(nav, { share, canShare: () => true });
   render(<ShareResult gameId="g1" winnerName="Priya" />);
+  await pictureLoaded();
   press();
   await screen.findByText("Shared");
   expect(global.fetch).toHaveBeenCalledWith("/games/g1/opengraph-image");
@@ -39,10 +44,23 @@ it("shares the recap picture when the device can share files", async () => {
   });
 });
 
+it("shares the link at once while the picture is still loading", async () => {
+  global.fetch = jest.fn(
+    () => new Promise(() => {}),
+  ) as unknown as typeof fetch;
+  const share = jest.fn().mockResolvedValue(undefined);
+  Object.assign(nav, { share, canShare: () => true });
+  render(<ShareResult gameId="g1" winnerName="Priya" />);
+  press();
+  await screen.findByText("Shared");
+  expect(share.mock.calls[0][0].files).toBeUndefined();
+});
+
 it("shares the link when files can't be shared", async () => {
   const share = jest.fn().mockResolvedValue(undefined);
   Object.assign(nav, { share, canShare: () => false });
   render(<ShareResult gameId="g1" winnerName="Priya" />);
+  await pictureLoaded();
   press();
   await screen.findByText("Shared");
   expect(share.mock.calls[0][0].files).toBeUndefined();
