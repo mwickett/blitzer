@@ -1,121 +1,85 @@
-import { Metadata } from "next";
+import { Prose, GuidePageHeader } from "@/components/marketing/Prose";
+import { pageMetadata } from "@/lib/siteMetadata";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Terms of Service | Blitzer",
-  description: "Terms of Service for Blitzer - Dutch Blitz scoring app",
-};
+  description: "The terms for using Blitzer.",
+  path: "/terms",
+});
+
+// Hard-coded on purpose: bump it whenever the terms change.
+const EFFECTIVE_DATE = "October 30, 2026";
 
 export default function TermsPage() {
-  const currentDate = new Date().toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
   return (
-    <main className="max-w-4xl mx-auto px-6 py-12">
-      <h1 className="text-3xl font-bold mb-4 text-brandAccent">
-        📜 Terms of Service
-      </h1>
-      <p className="text-sm text-gray-500 mb-8">
-        Effective Date: {currentDate}
-      </p>
+    <div className="mx-auto max-w-3xl px-6 py-12">
+      <GuidePageHeader
+        title="Terms of Service"
+        intro={`Effective ${EFFECTIVE_DATE}`}
+      />
 
-      <div className="prose prose-lg max-w-none">
-        <p className="mb-6">
+      <Prose>
+        <p>
           By using Blitzer (&quot;the Service&quot;), you agree to these Terms
           of Service (&quot;Terms&quot;). If you do not agree, please do not use
           the Service.
         </p>
 
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            1. Use of the Service
-          </h2>
-          <p className="mb-4">
-            You must be at least 13 years old to use Blitzer. You are
-            responsible for any content (e.g., game data) you create or upload.
-          </p>
-        </section>
+        <h2>1. Use of the Service</h2>
+        <p>
+          You must be at least 13 years old to use Blitzer. You are
+          responsible for any content (e.g., game data) you create or upload.
+        </p>
 
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            2. Account and Access
-          </h2>
-          <p className="mb-4">
-            You may use Blitzer with or without an account. If using an account,
-            you are responsible for maintaining its security.
-          </p>
-        </section>
+        <h2>2. Accounts and access</h2>
+        <p>
+          You need an account to host a game, join one from your own device, or
+          keep stats. A host can add people without an account as guests, and
+          anyone can view a finished game&apos;s page from its link. If you have
+          an account, you are responsible for keeping it secure.
+        </p>
 
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            3. Prohibited Use
-          </h2>
-          <p className="mb-4">You may not use Blitzer to:</p>
-          <ul className="list-disc pl-6 mb-4 space-y-2">
-            <li>Break any laws or regulations.</li>
-            <li>Abuse, harass, or harm others.</li>
-            <li>Attempt to gain unauthorized access to our systems.</li>
-          </ul>
-        </section>
+        <h2>3. Prohibited use</h2>
+        <p>You may not use Blitzer to:</p>
+        <ul>
+          <li>Break any laws or regulations.</li>
+          <li>Abuse, harass, or harm others.</li>
+          <li>Attempt to gain unauthorized access to our systems.</li>
+        </ul>
 
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            4. Intellectual Property
-          </h2>
-          <p className="mb-4">
-            Blitzer and its content are owned by Mike Wickett. You may not reuse
-            code or assets without permission.
-          </p>
-        </section>
+        <h2>4. Intellectual property</h2>
+        <p>
+          Blitzer and its content are owned by Mike Wickett. You may not reuse
+          code or assets without permission.
+        </p>
 
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            5. Limitation of Liability
-          </h2>
-          <p className="mb-4">
-            We provide the Service &quot;as is&quot; without warranties. We are
-            not liable for any loss, damage, or inconvenience caused by using
-            the Service.
-          </p>
-        </section>
+        <h2>5. Limitation of liability</h2>
+        <p>
+          We provide the Service &quot;as is&quot; without warranties. We are
+          not liable for any loss, damage, or inconvenience caused by using
+          the Service.
+        </p>
 
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            6. Termination
-          </h2>
-          <p className="mb-4">
-            We may suspend or terminate access at any time, especially if these
-            Terms are violated.
-          </p>
-        </section>
+        <h2>6. Termination</h2>
+        <p>
+          We may suspend or terminate access at any time, especially if these
+          Terms are violated. You can delete your account at any time from the
+          account page.
+        </p>
 
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            7. Changes to Terms
-          </h2>
-          <p className="mb-4">
-            We may update these Terms at any time. Continued use of the Service
-            means you accept the new Terms.
-          </p>
-        </section>
+        <h2>7. Changes to these Terms</h2>
+        <p>
+          We may update these Terms at any time. When we do, we will change the
+          effective date above. Continued use of the Service means you accept
+          the new Terms.
+        </p>
 
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            8. Contact
-          </h2>
-          <p className="mb-4">
-            Questions? Email us at:{" "}
-            <a
-              href="mailto:hello@blitzer.fun"
-              className="text-brandAccent hover:underline"
-            >
-              hello@blitzer.fun
-            </a>
-          </p>
-        </section>
-      </div>
-    </main>
+        <h2>8. Contact</h2>
+        <p>
+          Questions? Email{" "}
+          <a href="mailto:hello@blitzer.fun">hello@blitzer.fun</a>.
+        </p>
+      </Prose>
+    </div>
   );
 }
