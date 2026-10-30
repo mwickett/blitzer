@@ -80,7 +80,7 @@ function TotalInput({
             setNegative(!negative);
             apply(value === null ? null : Math.abs(value), !negative);
           }}
-          className={`h-11 w-11 shrink-0 rounded-lg border-[1.5px] text-xl font-bold ${
+          className={`press h-11 w-11 shrink-0 rounded-lg border-[1.5px] text-xl font-bold ${
             negative
               ? "border-[#b91c1c] bg-[#fef2f2] text-[#b91c1c]"
               : "border-[#e6d7c3] bg-[#fff7ea] text-[#8b5e3c]"

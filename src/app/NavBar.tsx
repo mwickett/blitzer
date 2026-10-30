@@ -32,7 +32,7 @@ function MobileNavLink({
     <Link
       href={href}
       onClick={onClick}
-      className={`block py-2 ${
+      className={`block py-2 active:opacity-60 ${
         pathName === href
           ? "font-semibold text-primary"
           : "text-muted-foreground"
@@ -51,8 +51,8 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
   const appLinks = signedInLinks(llmEnabled);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
+    <div className="flex min-h-dvh flex-col">
+      <header className="sticky top-0 z-50 w-full border-b pt-[env(safe-area-inset-top)] bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
         <div className="container flex h-14 min-w-0 items-center gap-2 sm:gap-3">
           <div className="flex shrink-0 items-center md:hidden">
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -169,7 +169,7 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
           </div>
         </div>
       </header>
-      <main className="flex-1 flex flex-col min-h-[calc(100vh-3.5rem)]">
+      <main className="flex-1 flex flex-col min-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))]">
         {children[0]}
         {children.slice(1)}
       </main>

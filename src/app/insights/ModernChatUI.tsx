@@ -62,7 +62,7 @@ export default function ModernChatUI() {
         {/* Chat messages */}
         <div
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4"
+          className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4"
         >
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground p-8">
@@ -139,6 +139,7 @@ export default function ModernChatUI() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask about your game data..."
+              enterKeyHint="send"
               disabled={isLoading}
               className="flex-1"
             />

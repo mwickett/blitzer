@@ -39,6 +39,7 @@ export function RoundEditor({
   return (
     <form
       ref={form}
+      data-scoring-screen
       className="mx-4 my-3 rounded-xl border-2 border-[#fbbf24] bg-[#fffbeb] p-3"
       onSubmit={(event) => {
         event.preventDefault();
@@ -71,14 +72,14 @@ export function RoundEditor({
           type="button"
           disabled={isSaving}
           onClick={onCancel}
-          className="flex-1 rounded-lg bg-[#f0e6d2] px-3 py-3 font-bold text-[#8b5e3c]"
+          className="press flex-1 rounded-lg bg-[#f0e6d2] px-3 py-3 font-bold text-[#8b5e3c]"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isSaving || blocked || !complete}
-          className="flex-1 rounded-lg bg-[#2a6517] px-3 py-3 font-bold text-white disabled:opacity-50"
+          className="press flex-1 rounded-lg bg-[#2a6517] px-3 py-3 font-bold text-white disabled:opacity-50"
         >
           {isSaving ? "Saving changes…" : "Save Changes"}
         </button>

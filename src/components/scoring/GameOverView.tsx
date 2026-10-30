@@ -305,7 +305,7 @@ export function GameOverView({
             <button
               onClick={handleRematch}
               disabled={isRematching}
-              className="w-full py-3.5 rounded-xl text-[15px] font-bold bg-[#290806] text-white hover:bg-[#3d1a0a] transition-colors cursor-pointer"
+              className="w-full py-3.5 rounded-xl text-[15px] font-bold bg-[#290806] text-white hover:bg-[#3d1a0a] press cursor-pointer"
             >
               {isRematching ? "Creating rematch…" : "New Game with Same Players"}
             </button>

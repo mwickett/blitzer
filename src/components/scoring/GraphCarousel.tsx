@@ -64,7 +64,7 @@ export function GraphCarousel({
     <div className="px-4 py-2">
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+        className="flex gap-3 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scrollbar-hide"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {children.map((child, i) => (

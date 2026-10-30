@@ -337,7 +337,7 @@ export default function NewGameChooser({
 
               {!addingPlayer && !isAtCapacity && (
                 <button
-                  className="flex items-center sm:flex-col sm:items-center justify-start sm:justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] transition-colors sm:h-[130px]"
+                  className="flex items-center sm:flex-col sm:items-center justify-start sm:justify-center p-3 rounded-lg border border-dashed border-[#d1bfa8] bg-[#f7f2e9] hover:bg-[#f0e6d2] active:bg-[#f0e6d2] press sm:h-[130px]"
                   onClick={startAddingPlayer}
                 >
                   <div className="h-12 w-12 rounded-full bg-[#f0e6d2] flex items-center justify-center sm:mb-2 mr-3 sm:mr-0 shrink-0">
@@ -438,11 +438,14 @@ export default function NewGameChooser({
                           }}
                           placeholder="Enter guest name"
                           maxLength={50}
-                          className="border-[#e6d7c3] h-8 text-xs pr-16"
+                          autoCapitalize="words"
+                          autoComplete="off"
+                          enterKeyHint="done"
+                          className="border-[#e6d7c3] h-10 sm:h-8 text-base sm:text-xs pr-16"
                         />
                         <Button
                           size="sm"
-                          className="absolute right-0 top-0 h-8 text-xs bg-[#5a341f] hover:bg-[#3d1a0a]"
+                          className="absolute right-0 top-0 h-10 sm:h-8 text-xs bg-[#5a341f] hover:bg-[#3d1a0a]"
                           onClick={handleAddGuest}
                         >
                           Add
@@ -511,6 +514,7 @@ export default function NewGameChooser({
             <div className="mt-3">
               <Input
                 type="number"
+                inputMode="numeric"
                 min={MIN_THRESHOLD}
                 max={MAX_THRESHOLD}
                 value={winThreshold}

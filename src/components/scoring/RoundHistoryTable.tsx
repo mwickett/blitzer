@@ -129,7 +129,7 @@ export function RoundHistoryTable({
                       aria-label={`Edit round ${index + 1}`}
                       disabled={disabled}
                       onClick={() => onEditRound(index)}
-                      className="flex min-h-11 min-w-16 items-center justify-center gap-2 rounded-md p-2 hover:bg-[#faf5ed] focus-visible:outline-2 focus-visible:outline-[#8b5e3c] disabled:opacity-50"
+                      className="press flex min-h-11 min-w-16 items-center justify-center gap-2 rounded-md p-2 hover:bg-[#faf5ed] active:bg-[#faf5ed] focus-visible:outline-2 focus-visible:outline-[#8b5e3c] disabled:opacity-50"
                     >
                       {index + 1}
                       <Pencil aria-hidden className="h-4 w-4" />
@@ -187,7 +187,7 @@ export function RoundHistoryTable({
           type="button"
           aria-pressed={showMath}
           onClick={toggleShowMath}
-          className="flex min-h-11 items-center gap-1.5 rounded-md px-3 text-sm font-medium text-[#8b5e3c] hover:bg-[#faf5ed] focus-visible:outline-2 focus-visible:outline-[#8b5e3c]"
+          className="press flex min-h-11 items-center gap-1.5 rounded-md px-3 text-sm font-medium text-[#8b5e3c] hover:bg-[#faf5ed] active:bg-[#faf5ed] focus-visible:outline-2 focus-visible:outline-[#8b5e3c]"
         >
           <Calculator aria-hidden className="h-4 w-4" />
           {showMath ? "Hide the math" : "Show the math"}

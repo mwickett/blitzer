@@ -44,6 +44,7 @@ export function ScoreEntryView({
   return (
     <form
       ref={form}
+      data-scoring-screen
       className="pb-4"
       onSubmit={(event) => {
         event.preventDefault();

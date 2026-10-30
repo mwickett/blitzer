@@ -74,7 +74,10 @@ export default function GameTag({
           disabled={saving}
           onChange={(event) => setDraft(event.target.value)}
           placeholder="stoned, sober, cottage…"
-          className="h-11 min-w-0 flex-1 rounded-md border bg-background px-2"
+          autoCapitalize="none"
+          autoComplete="off"
+          enterKeyHint="done"
+          className="h-11 min-w-0 flex-1 rounded-md border bg-background px-2 text-base"
         />
         <datalist id={listId}>
           {suggestions.map((suggestion) => (

@@ -91,7 +91,7 @@ export default function GameNote({
             disabled={saving}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Grandma blitzed three rounds in a row…"
-            className="w-full rounded-md border bg-background p-2 text-sm"
+            className="w-full rounded-md border bg-background p-2 text-base sm:text-sm"
           />
           <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <span aria-live="polite">

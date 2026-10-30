@@ -84,7 +84,7 @@ export default function ShareResult({
       <button
         type="button"
         onClick={share}
-        className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#290806] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#3d1a0a]"
+        className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#290806] px-4 py-2 text-sm font-bold text-white press hover:bg-[#3d1a0a]"
       >
         {state === "shared" || state === "copied" ? (
           <Check className="h-4 w-4" aria-hidden />

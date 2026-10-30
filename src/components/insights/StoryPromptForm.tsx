@@ -53,7 +53,7 @@ export function StoryPromptForm({ initialPrompt }: { initialPrompt: string | nul
             setPrompt(event.target.value);
             setStatus({ kind: "idle" });
           }}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         />
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" disabled={pending || prompt.trim() === saved}>
