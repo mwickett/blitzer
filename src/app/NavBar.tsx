@@ -169,7 +169,7 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
           </div>
         </div>
       </header>
-      <main className="flex-1 flex flex-col min-h-[calc(100dvh-3.5rem)]">
+      <main className="flex-1 flex flex-col min-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))]">
         {children[0]}
         {children.slice(1)}
       </main>
