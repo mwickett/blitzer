@@ -1,6 +1,7 @@
 import {
   BADGE_FAMILIES,
   BADGES,
+  badgesEarnedInGame,
   computeBadges,
   gameMomentBadges,
   type BadgeGame,
@@ -62,6 +63,20 @@ describe("gameMomentBadges", () => {
     expect(gameMomentBadges(g, "a")).toEqual(["wire_to_wire", "short_fuse", "triple_blitz"]);
     expect(gameMomentBadges(g, "b")).toEqual(["shortcoming"]);
     expect(gameMomentBadges(g, "c")).toEqual([]);
+  });
+
+  it("counts a Tornado as a Comeback kid", () => {
+    // Alice is alone in last after round 1, 10 behind Bob, who leads alone
+    // and then finishes alone in last: a Tornado, short of a 15-point comeback.
+    const g = game(
+      {
+        a: [[0, 0], [40, 0]],
+        b: [[10, 0], [0, 10]],
+        c: [[5, 0], [10, 0]],
+      },
+      "a",
+    );
+    expect(gameMomentBadges(g, "a")).toContain("comeback");
   });
 
   it("gives the runner-up of a photo finish a Heartbreaker", () => {
@@ -133,6 +148,8 @@ describe("computeBadges", () => {
     const progress = computeBadges([], "a");
     expect(progress.map((p) => p.badge.id)).toEqual(BADGES.map((b) => b.id));
     expect(progress.every((p) => p.count === 0 && p.firstGameId === null)).toBe(true);
+    expect(byId(progress).winner).toMatchObject({ tiers: [], total: 0 });
+    expect(byId(progress).snipe.total).toBeNull();
   });
 
   it("dates each badge to the first game that earned it and counts repeats", () => {
@@ -142,26 +159,44 @@ describe("computeBadges", () => {
     // Order of the input doesn't matter.
     const progress = byId(computeBadges([win2, loss, win1], "a"));
 
-    expect(progress.first_win).toMatchObject({ count: 1, firstGameId: win1.gameId });
-    expect(progress.bounce_back).toMatchObject({ count: 1, firstGameId: win1.gameId });
-    expect(progress.first_blitz).toMatchObject({ count: 1, firstGameId: win1.gameId });
+    expect(progress.winner).toMatchObject({ count: 1, firstGameId: win1.gameId, total: 2 });
+    expect(progress.blitzer).toMatchObject({ count: 1, firstGameId: win1.gameId, total: 4 });
     expect(progress.short_fuse).toMatchObject({ count: 2, firstGameId: win1.gameId });
-    expect(progress.games_10.count).toBe(0);
+    expect(progress.regular).toMatchObject({ count: 0, total: 3 });
   });
 
-  it("awards milestones on the game that crosses them", () => {
-    const games = Array.from({ length: 10 }, () =>
+  it("awards milestone tiers on the game that crosses each one", () => {
+    const games = Array.from({ length: 13 }, () =>
       game({ a: [[40, 0], [40, 0]], b: [[0, 0], [0, 0]] }, "a"),
     );
     const progress = byId(computeBadges(games, "a"));
-    expect(progress.games_10).toMatchObject({ count: 1, firstGameId: games[9].gameId });
-    expect(progress.wins_10).toMatchObject({ count: 1, firstGameId: games[9].gameId });
-    expect(progress.blitzes_100.count).toBe(0);
+    expect(progress.regular).toMatchObject({ count: 1, firstGameId: games[9].gameId, total: 13 });
+    expect(progress.winner).toMatchObject({ count: 2, firstGameId: games[0].gameId });
+    expect(progress.winner.tiers.map((t) => t.gameId)).toEqual([games[0].gameId, games[9].gameId]);
+    // Two blitzes a game: bronze in game 1, silver in game 13 (26 blitzes).
+    expect(progress.blitzer.tiers.map((t) => t.gameId)).toEqual([games[0].gameId, games[12].gameId]);
+  });
+
+  it("names the badges and tiers a game earned", () => {
+    const games = Array.from({ length: 10 }, () =>
+      game({ a: [[40, 0], [40, 0]], b: [[0, 0], [0, 0]] }, "a"),
+    );
+    const progress = computeBadges(games, "a");
+    expect(badgesEarnedInGame(progress, games[0].gameId).map((b) => [b.badge.id, b.tier])).toEqual([
+      ["winner", "Bronze"],
+      ["blitzer", "Bronze"],
+      ["short_fuse", null],
+    ]);
+    expect(badgesEarnedInGame(progress, games[9].gameId).map((b) => [b.badge.id, b.tier])).toEqual([
+      ["winner", "Silver"],
+      ["regular", "Bronze"],
+    ]);
+    expect(badgesEarnedInGame(progress, games[4].gameId)).toEqual([]);
   });
 
   it("ignores games the player was not in", () => {
     const other = game({ b: [[40, 0], [40, 0]], c: [[0, 5], [0, 5]] }, "b");
-    expect(byId(computeBadges([other], "a")).games_10.count).toBe(0);
+    expect(byId(computeBadges([other], "a")).regular).toMatchObject({ count: 0, total: 0 });
     expect(computeBadges([other], "a").some((p) => p.count > 0)).toBe(false);
   });
 });

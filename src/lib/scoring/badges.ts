@@ -10,8 +10,9 @@ import { findNamedMoments } from "@/lib/scoring/namedMoments";
 /**
  * Badges a player collects across their finished games. Moment badges come
  * from the same detectors as the game page (named moments and highlights);
- * milestones count games, wins and blitzes. Nothing is stored: badges are
- * recomputed from history, and "earned" means the first game that met it.
+ * milestones count games, wins and blitzes through bronze, silver and gold.
+ * Nothing is stored: badges are recomputed from history, and "earned" means
+ * the first game that met it.
  */
 
 /** One finished game, oldest-to-newest order is not required. */
@@ -35,7 +36,7 @@ export const BADGE_FAMILIES = [
   {
     id: "milestones",
     name: "Milestones",
-    blurb: "Earned once, as your games, wins and blitzes add up.",
+    blurb: "Bronze, silver and gold, as your wins, games and blitzes add up.",
   },
   {
     id: "wins",
@@ -62,76 +63,36 @@ export type BadgeFamilyId = (typeof BADGE_FAMILIES)[number]["id"];
  */
 export const BADGES = [
   {
-    id: "first_win",
+    id: "winner",
     icon: "🏆",
-    name: "First win",
+    name: "Winner",
     family: "milestones",
-    hint: "Win a game",
-    rule: "Win any game you play to the finish.",
+    hint: "Win 1, 10 and 50 games",
+    rule: "Win 1 game for bronze, 10 for silver and 50 for gold.",
   },
   {
-    id: "wins_10",
-    icon: "🥇",
-    name: "Ten-time winner",
-    family: "milestones",
-    hint: "Win 10 games",
-    rule: "Win 10 games in total.",
-  },
-  {
-    id: "wins_50",
-    icon: "👑",
-    name: "Dynasty",
-    family: "milestones",
-    hint: "Win 50 games",
-    rule: "Win 50 games in total.",
-  },
-  {
-    id: "games_10",
+    id: "regular",
     icon: "🃏",
     name: "Regular",
     family: "milestones",
-    hint: "Finish 10 games",
-    rule: "Play 10 games to the finish, win or lose.",
+    hint: "Finish 10, 50 and 100 games",
+    rule: "Play 10 games to the finish for bronze, 50 for silver and 100 for gold, win or lose.",
   },
   {
-    id: "games_100",
-    icon: "🎴",
-    name: "Centurion",
-    family: "milestones",
-    hint: "Finish 100 games",
-    rule: "Play 100 games to the finish, win or lose.",
-  },
-  {
-    id: "first_blitz",
+    id: "blitzer",
     icon: "✨",
-    name: "First blitz",
+    name: "Blitzer",
     family: "milestones",
-    hint: "Empty your Blitz pile",
-    rule: "Empty your Blitz pile in a round. That's calling Blitz!",
-  },
-  {
-    id: "blitzes_100",
-    icon: "💯",
-    name: "Blitz century",
-    family: "milestones",
-    hint: "Empty your Blitz pile 100 times",
-    rule: "Empty your Blitz pile in 100 rounds in total.",
-  },
-  {
-    id: "tornado",
-    icon: "🌪️",
-    name: "Tornado",
-    family: "wins",
-    hint: "Win from dead last while the leader falls to last",
-    rule: "Be alone in last place after a round, then win the game, while the player leading alone at that moment finishes alone in last. Needs three or more players.",
+    hint: "Blitz 1, 25 and 100 times",
+    rule: "Empty your Blitz pile in 1 round for bronze, 25 for silver and 100 for gold.",
   },
   {
     id: "comeback",
     icon: "🔄",
     name: "Comeback kid",
     family: "wins",
-    hint: "Win after trailing by 15 or more",
-    rule: "Win a game after being 15 or more points behind the leader at the end of a round.",
+    hint: "Win from way behind",
+    rule: "Win a game after being 15 or more points behind the leader at the end of a round. A Tornado counts too: win after being alone in last, while the player leading alone at that moment finishes alone in last (three or more players).",
   },
   {
     id: "wire_to_wire",
@@ -156,14 +117,6 @@ export const BADGES = [
     family: "wins",
     hint: "Win a full game in four rounds or fewer",
     rule: "Win a game to 75 points or more in four rounds or fewer.",
-  },
-  {
-    id: "bounce_back",
-    icon: "🦘",
-    name: "Bounce back",
-    family: "wins",
-    hint: "Win the game right after a loss",
-    rule: "Win the next game with a recorded winner after losing one.",
   },
   {
     id: "u_turn",
@@ -210,28 +163,31 @@ export const BADGES = [
 export type BadgeId = (typeof BADGES)[number]["id"];
 export type Badge = (typeof BADGES)[number];
 
+export const BADGE_TIERS = ["Bronze", "Silver", "Gold"] as const;
+
+type MilestoneStat = "wins" | "games" | "blitzes";
+
+/** Milestone badges: the running total each tier needs, bronze first. */
+export const MILESTONES: Partial<
+  Record<BadgeId, { stat: MilestoneStat; levels: readonly number[] }>
+> = {
+  winner: { stat: "wins", levels: [1, 10, 50] },
+  regular: { stat: "games", levels: [10, 50, 100] },
+  blitzer: { stat: "blitzes", levels: [1, 25, 100] },
+};
+
 export interface BadgeProgress {
   badge: Badge;
-  /** Times earned; milestones count once. Zero means still locked. */
+  /** Times earned, or tiers reached for milestones. Zero means locked. */
   count: number;
   /** The game that first earned it. */
   firstGameId: string | null;
   firstAt: string | null;
+  /** Milestones only: each tier reached, bronze first. */
+  tiers: { gameId: string; at: string }[];
+  /** Milestones only: the running total; null for other badges. */
+  total: number | null;
 }
-
-const MILESTONES: {
-  id: BadgeId;
-  stat: "wins" | "games" | "blitzes";
-  at: number;
-}[] = [
-  { id: "first_win", stat: "wins", at: 1 },
-  { id: "wins_10", stat: "wins", at: 10 },
-  { id: "wins_50", stat: "wins", at: 50 },
-  { id: "games_10", stat: "games", at: 10 },
-  { id: "games_100", stat: "games", at: 100 },
-  { id: "first_blitz", stat: "blitzes", at: 1 },
-  { id: "blitzes_100", stat: "blitzes", at: 100 },
-];
 
 /** The sole player in last after a round, or null when it is shared. */
 function soleLast(game: BadgeGame, round: number): string | null {
@@ -273,9 +229,9 @@ export function gameMomentBadges(game: BadgeGame, playerId: string): BadgeId[] {
       ...series,
       winThreshold: game.winThreshold,
     })) {
-      if (moment.kind === "tornado" || moment.kind === "short_fuse") {
-        earned.add(moment.kind);
-      }
+      // A Tornado is the wildest comeback, so it earns Comeback kid.
+      if (moment.kind === "tornado") earned.add("comeback");
+      if (moment.kind === "short_fuse") earned.add("short_fuse");
     }
     for (const highlight of findGameHighlights({
       ...series,
@@ -360,7 +316,14 @@ export function computeBadges(
   const progress = new Map<BadgeId, BadgeProgress>(
     BADGES.map((badge) => [
       badge.id,
-      { badge, count: 0, firstGameId: null, firstAt: null },
+      {
+        badge,
+        count: 0,
+        firstGameId: null,
+        firstAt: null,
+        tiers: [],
+        total: MILESTONES[badge.id] ? 0 : null,
+      },
     ]),
   );
   const award = (id: BadgeId, game: BadgeGame) => {
@@ -370,8 +333,11 @@ export function computeBadges(
     entry.firstAt ??= game.finishedAt;
   };
 
-  const totals = { wins: 0, games: 0, blitzes: 0 };
-  let lostLast = false;
+  const totals: Record<MilestoneStat, number> = {
+    wins: 0,
+    games: 0,
+    blitzes: 0,
+  };
   for (const game of ordered) {
     if (!game.players.some((p) => p.id === playerId)) continue;
     for (const id of gameMomentBadges(game, playerId)) award(id, game);
@@ -382,15 +348,47 @@ export function computeBadges(
     totals.blitzes += (game.blitzByRound[playerId] ?? []).filter(
       (left) => left === 0,
     ).length;
-    for (const m of MILESTONES) {
-      if (before[m.stat] < m.at && totals[m.stat] >= m.at) award(m.id, game);
-    }
-
-    // Games without a recorded winner don't break or start a bounce back.
-    if (game.winnerId) {
-      if (lostLast && game.winnerId === playerId) award("bounce_back", game);
-      lostLast = game.winnerId !== playerId;
+    for (const [id, m] of Object.entries(MILESTONES) as [
+      BadgeId,
+      NonNullable<(typeof MILESTONES)[BadgeId]>,
+    ][]) {
+      for (const level of m.levels) {
+        if (before[m.stat] < level && totals[m.stat] >= level) {
+          award(id, game);
+          progress.get(id)!.tiers.push({
+            gameId: game.gameId,
+            at: game.finishedAt,
+          });
+        }
+      }
     }
   }
+  for (const [id, m] of Object.entries(MILESTONES)) {
+    progress.get(id as BadgeId)!.total = totals[m.stat];
+  }
   return [...progress.values()];
+}
+
+/** The tier name for a milestone that reached `count` tiers. */
+export const tierName = (count: number) => BADGE_TIERS[count - 1] ?? null;
+
+/**
+ * Badges a game earned the player for the first time, including milestone
+ * tiers reached in it, with the highest tier named.
+ */
+export function badgesEarnedInGame(
+  badges: BadgeProgress[],
+  gameId: string,
+): { badge: Badge; tier: string | null }[] {
+  return badges.flatMap<{ badge: Badge; tier: string | null }>((progress) => {
+    if (progress.total === null) {
+      return progress.firstGameId === gameId
+        ? [{ badge: progress.badge, tier: null }]
+        : [];
+    }
+    const reached = progress.tiers.findLastIndex((t) => t.gameId === gameId);
+    return reached >= 0
+      ? [{ badge: progress.badge, tier: tierName(reached + 1) }]
+      : [];
+  });
 }

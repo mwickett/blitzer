@@ -7,6 +7,7 @@ import { getCircleRecordsForOrg } from "@/server/queries/circleRecords";
 import { GameRecordsHeld } from "@/components/CircleRecords";
 import { getBadgesForUser } from "@/server/queries/badges";
 import { GameBadgesEarned } from "@/components/BadgeShelf";
+import { badgesEarnedInGame } from "@/lib/scoring/badges";
 import { notFound, redirect } from "next/navigation";
 import transformGameData from "@/lib/gameLogic";
 import {
@@ -162,9 +163,7 @@ export default async function GameView(props: {
       <GameRecordsHeld
         records={records.filter((record) => record.gameId === game.id)}
       />
-      <GameBadgesEarned
-        badges={badges.filter((badge) => badge.firstGameId === game.id)}
-      />
+      <GameBadgesEarned badges={badgesEarnedInGame(badges, game.id)} />
       {showStory && userId ? (
         <Suspense fallback={<GameStorySkeleton />}>
           <GameStory game={game} viewerId={userId} />
