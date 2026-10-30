@@ -71,7 +71,17 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider localization={circleLocalization}>
+    <ClerkProvider
+      localization={circleLocalization}
+      // Full-width provider buttons above the email form, so "Continue with
+      // Google" is the first thing on the sign-up screen.
+      appearance={{
+        options: {
+          socialButtonsPlacement: "top",
+          socialButtonsVariant: "blockButton",
+        },
+      }}
+    >
       <html lang="en">
         <CSPostHogProvider>
           <body className={`${inter.className} ${fraunces.variable} bg-brand`}>

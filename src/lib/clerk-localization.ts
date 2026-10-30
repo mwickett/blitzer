@@ -9,6 +9,14 @@
  * Only override leaf string values — no invented nesting.
  */
 export const circleLocalization = {
+  // "Start a game" lands here. Hosting needs an account; joining from your
+  // own phone does too, but the host can add anyone without one as a guest.
+  signUp: {
+    start: {
+      title: "Make an account to host",
+      subtitle: "Friends without one can play as guests.",
+    },
+  },
   organizationSwitcher: {
     action__createOrganization: "Create a circle",
     action__manageOrganization: "Manage circle",
