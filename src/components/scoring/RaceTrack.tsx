@@ -20,17 +20,18 @@ interface RaceTrackProps {
 const slotKey = (markers: TrackMarker[]) => markers.map((m) => m.id).join("|");
 
 /**
- * Positions a marker along the track. The full-width wrapper moves with a
- * transform (percentages of the track width), which stays on the compositor;
- * animating `left` would re-run layout on every frame.
+ * Positions a marker along the track. A zero-width slot moves with a
+ * transform in track-width units (`cqw`), which stays on the compositor;
+ * animating `left` would re-run layout on every frame, and a full-width
+ * translated slot would widen the page.
  */
 function TrackSlot({ pos, children }: { pos: number; children: ReactNode }) {
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-10 transition-[translate] duration-300 ease-in-out motion-reduce:transition-none"
-      style={{ translate: `${pos}% 0` }}
+      className="absolute inset-y-0 left-0 z-10 w-0 transition-[translate] duration-300 ease-in-out motion-reduce:transition-none"
+      style={{ translate: `${pos}cqw 0` }}
     >
-      <div className="pointer-events-auto absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
+      <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
         {children}
       </div>
     </div>
@@ -62,7 +63,7 @@ export function RaceTrack({
         <span>{winThreshold} to win</span>
       </div>
 
-      <div className="relative h-11 bg-[#f0e6d2] rounded-full overflow-visible">
+      <div className="@container relative h-11 bg-[#f0e6d2] rounded-full overflow-visible">
         {/* Zero line */}
         <div
           className="absolute top-0 bottom-0 w-px bg-[#d1bfa8]"
