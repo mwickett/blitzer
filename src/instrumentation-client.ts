@@ -76,22 +76,39 @@ Sentry.init({
 // CDN is blocked, errors are still reported without a replay.
 //
 // Replay records the page URL in places no hook reaches (its URL list and
-// rrweb's page metadata), so it only runs while the URL has no join token,
-// query string or fragment, and stops before navigating to one that does.
+// rrweb's page metadata), so it never runs on an invitation link, including
+// a sign-in page whose return URL is one. It starts only once the browser is
+// on a safe URL and stops for the rest of the page's life before a
+// navigation to an invitation link.
 type ReplayIntegration = ReturnType<
   Awaited<ReturnType<typeof Sentry.lazyLoadIntegration>>
 > & { stop?: () => Promise<void> };
 let replay: ReplayIntegration | undefined;
+let replayRequested = false;
+let replayStopped = false;
+let latestHref = window.location.href;
 
-function isPrivateUrl(url: URL) {
-  return url.pathname.startsWith("/join/") || url.search !== "" || url.hash !== "";
+function isInvitationUrl(href: string) {
+  return /\/join\/|%2Fjoin%2F/i.test(href);
+}
+
+function canRecord() {
+  return (
+    !replayStopped &&
+    !isInvitationUrl(window.location.href) &&
+    !isInvitationUrl(latestHref)
+  );
 }
 
 function loadReplay() {
-  if (isPrivateUrl(new URL(window.location.href))) return;
+  if (replayRequested || !canRecord()) return;
+  replayRequested = true;
   Sentry.lazyLoadIntegration("replayIntegration")
     .then((replayIntegration) => {
-      if (replay || isPrivateUrl(new URL(window.location.href))) return;
+      if (!canRecord()) {
+        replayRequested = false;
+        return;
+      }
       replay = replayIntegration({
         maskAllText: true,
         blockAllMedia: true,
@@ -104,6 +121,17 @@ function loadReplay() {
     .catch(() => {});
 }
 
+// Replay captures the current URL when it starts, so wait for a navigation
+// to land before starting it.
+function loadReplayAt(href: string, attempts = 50) {
+  if (href !== latestHref) return;
+  if (window.location.href === href) {
+    loadReplay();
+  } else if (attempts > 0) {
+    setTimeout(() => loadReplayAt(href, attempts - 1), 100);
+  }
+}
+
 if (document.readyState === "complete") {
   loadReplay();
 } else {
@@ -111,9 +139,15 @@ if (document.readyState === "complete") {
 }
 
 export function onRouterTransitionStart(href: string, navigationType: string) {
-  if (replay && isPrivateUrl(new URL(href, window.location.href))) {
-    void replay.stop?.();
-    replay = undefined;
+  latestHref = new URL(href, window.location.href).href;
+  if (isInvitationUrl(latestHref)) {
+    if (replay) {
+      void replay.stop?.();
+      replay = undefined;
+      replayStopped = true;
+    }
+  } else if (!replayRequested && document.readyState === "complete") {
+    loadReplayAt(latestHref);
   }
   Sentry.captureRouterTransitionStart(href, navigationType);
 }
