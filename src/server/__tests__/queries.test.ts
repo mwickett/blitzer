@@ -483,7 +483,7 @@ describe("Queries", () => {
         expect(stats.momentHistory.feed.map((item) => item.title)).toEqual(["Short fuse", "Shortcoming"]);
         const earned = stats.badges.filter((b) => b.count > 0).map((b) => b.badge.id);
         // Down 15 after round 1, then the win in two rounds.
-        expect(earned).toEqual(["first_win", "short_fuse", "comeback", "first_blitz"]);
+        expect(earned).toEqual(["first_win", "first_blitz", "comeback", "short_fuse"]);
         expect(stats.decks).toEqual([
           { deck: "pump", games: 4, wins: 1, winRate: 25 },
         ]);

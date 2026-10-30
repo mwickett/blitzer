@@ -1,4 +1,5 @@
 import {
+  BADGE_FAMILIES,
   BADGES,
   computeBadges,
   gameMomentBadges,
@@ -58,7 +59,7 @@ describe("gameMomentBadges", () => {
       },
       "a",
     );
-    expect(gameMomentBadges(g, "a")).toEqual(["short_fuse", "triple_blitz", "wire_to_wire"]);
+    expect(gameMomentBadges(g, "a")).toEqual(["wire_to_wire", "short_fuse", "triple_blitz"]);
     expect(gameMomentBadges(g, "b")).toEqual(["shortcoming"]);
     expect(gameMomentBadges(g, "c")).toEqual([]);
   });
@@ -162,5 +163,16 @@ describe("computeBadges", () => {
     const other = game({ b: [[40, 0], [40, 0]], c: [[0, 5], [0, 5]] }, "b");
     expect(byId(computeBadges([other], "a")).games_10.count).toBe(0);
     expect(computeBadges([other], "a").some((p) => p.count > 0)).toBe(false);
+  });
+});
+
+describe("badge catalogue data", () => {
+  it("puts every badge in a known family with a how-to-earn rule", () => {
+    const families = new Set(BADGE_FAMILIES.map((f) => f.id));
+    for (const badge of BADGES) {
+      expect(families.has(badge.family)).toBe(true);
+      expect(badge.rule.length).toBeGreaterThan(badge.hint.length);
+    }
+    expect(new Set(BADGES.map((b) => b.id)).size).toBe(BADGES.length);
   });
 });

@@ -297,8 +297,12 @@ describe("new badges", () => {
     render(await GameView({ params: Promise.resolve({ id: "game" }) }));
     expect(getBadgesForUser).toHaveBeenCalledWith("a");
     expect(screen.getByRole("heading", { name: "New badge" })).toBeInTheDocument();
-    expect(screen.getByText("First win")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /First win.*Win any game/ })).toHaveAttribute(
+      "href",
+      "/badges#badge-first_win",
+    );
     expect(screen.queryByText("First blitz")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "See all badges and how to earn them" })).toHaveAttribute("href", "/badges");
   });
 
   it("skips badges for unfinished games and for viewers who didn't play", async () => {

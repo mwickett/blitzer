@@ -1,9 +1,20 @@
 import Link from "next/link";
-import type { BadgeProgress } from "@/lib/scoring/badges";
+import {
+  BADGE_FAMILIES,
+  type BadgeId,
+  type BadgeProgress,
+} from "@/lib/scoring/badges";
 
 const integer = new Intl.NumberFormat("en-US");
 /** Locked badges previewed under the shelf, as goals to chase. */
 const NEXT_UP = 3;
+const earnedOn = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeZone: "UTC",
+});
+
+/** A badge's entry in the catalogue. */
+export const badgeHref = (id: BadgeId) => `/badges#badge-${id}`;
 
 function Medal({ icon, locked }: { icon: string; locked?: boolean }) {
   return (
@@ -37,10 +48,10 @@ export function BadgeShelf({ badges }: { badges: BadgeProgress[] }) {
           className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"
           aria-label="Earned badges"
         >
-          {earned.map(({ badge, count, firstGameId }) => (
+          {earned.map(({ badge, count }) => (
             <li key={badge.id}>
               <Link
-                href={`/games/${firstGameId}`}
+                href={badgeHref(badge.id)}
                 className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-surfaceSubtle"
               >
                 <Medal icon={badge.icon} />
@@ -65,21 +76,32 @@ export function BadgeShelf({ badges }: { badges: BadgeProgress[] }) {
             aria-label="Badges to earn"
           >
             {locked.map(({ badge }) => (
-              <li key={badge.id} className="flex items-center gap-2 p-1.5">
-                <Medal icon={badge.icon} locked />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-textBody">
-                    {badge.name}
+              <li key={badge.id}>
+                <Link
+                  href={badgeHref(badge.id)}
+                  className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-surfaceSubtle"
+                >
+                  <Medal icon={badge.icon} locked />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-textBody">
+                      {badge.name}
+                    </span>
+                    <span className="block text-xs text-textMuted">
+                      {badge.hint}
+                    </span>
                   </span>
-                  <span className="block text-xs text-textMuted">
-                    {badge.hint}
-                  </span>
-                </span>
+                </Link>
               </li>
             ))}
           </ul>
         </div>
       ) : null}
+      <Link
+        href="/badges"
+        className="mt-3 inline-block text-xs font-medium text-brandAccent underline-offset-4 hover:underline"
+      >
+        How to earn every badge
+      </Link>
     </>
   );
 }
@@ -101,23 +123,101 @@ export function GameBadgesEarned({ badges }: { badges: BadgeProgress[] }) {
       </p>
       <ul className="mt-3 space-y-2">
         {badges.map(({ badge }) => (
-          <li key={badge.id} className="flex items-center gap-3">
-            <Medal icon={badge.icon} />
-            <span>
-              <span className="block text-sm font-semibold">{badge.name}</span>
-              <span className="block text-xs text-muted-foreground">
-                {badge.hint}
+          <li key={badge.id}>
+            <Link
+              href={badgeHref(badge.id)}
+              className="flex items-center gap-3 rounded-lg p-1 hover:bg-surfaceSubtle"
+            >
+              <Medal icon={badge.icon} />
+              <span>
+                <span className="block text-sm font-semibold">{badge.name}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {badge.rule}
+                </span>
               </span>
-            </span>
+            </Link>
           </li>
         ))}
       </ul>
       <Link
-        href="/dashboard"
+        href="/badges"
         className="mt-3 inline-block text-xs font-medium underline"
       >
-        See all your badges
+        See all badges and how to earn them
       </Link>
     </section>
+  );
+}
+
+/** Every badge by family, with how to earn it and the player's progress. */
+export function BadgeCatalogue({ badges }: { badges: BadgeProgress[] }) {
+  return (
+    <div className="space-y-8">
+      {BADGE_FAMILIES.map((family) => {
+        const members = badges.filter((b) => b.badge.family === family.id);
+        if (members.length === 0) return null;
+        const earned = members.filter((b) => b.count > 0).length;
+        return (
+          <section key={family.id} aria-labelledby={`family-${family.id}`}>
+            <div className="flex items-baseline justify-between gap-3">
+              <h2
+                id={`family-${family.id}`}
+                className="font-display text-lg font-bold text-brandAccent"
+              >
+                {family.name}
+              </h2>
+              <span className="text-xs text-textMuted">
+                {earned} of {members.length}
+              </span>
+            </div>
+            <p className="text-sm text-textMuted">{family.blurb}</p>
+            <ul className="mt-3 space-y-2">
+              {members.map(({ badge, count, firstGameId, firstAt }) => (
+                <li
+                  key={badge.id}
+                  id={`badge-${badge.id}`}
+                  className="flex scroll-mt-24 items-start gap-3 rounded-lg border border-borderWarm p-3 target:ring-2 target:ring-brandAccent"
+                >
+                  <Medal icon={badge.icon} locked={count === 0} />
+                  <div className="min-w-0 flex-1">
+                    <h3
+                      className={
+                        count > 0
+                          ? "text-sm font-semibold text-brandAccent"
+                          : "text-sm font-semibold text-textBody"
+                      }
+                    >
+                      {badge.name}
+                    </h3>
+                    <p className="text-sm text-textBody">{badge.rule}</p>
+                    <p className="mt-1 text-xs text-textMuted">
+                      {count > 0 && firstGameId ? (
+                        <>
+                          {family.id === "milestones" || count === 1
+                            ? "Earned"
+                            : `Earned ${integer.format(count)} times`}
+                          {firstAt
+                            ? ` · first on ${earnedOn.format(new Date(firstAt))}`
+                            : null}
+                          {" · "}
+                          <Link
+                            href={`/games/${firstGameId}`}
+                            className="font-medium underline-offset-4 hover:underline"
+                          >
+                            See the game
+                          </Link>
+                        </>
+                      ) : (
+                        "Not earned yet"
+                      )}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
   );
 }
