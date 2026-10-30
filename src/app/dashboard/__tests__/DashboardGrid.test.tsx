@@ -117,9 +117,12 @@ describe("DashboardGrid", () => {
     expect(within(named).getByText(/Caught in 1 tornado/)).toBeInTheDocument();
     const badges = screen.getByRole("region", { name: "Badges" });
     expect(within(badges).getByText(`2 of ${BADGES.length} earned`)).toBeInTheDocument();
-    expect(within(badges).getByRole("link", { name: /Tornado.*× 2/ })).toHaveAttribute("href", "/games/g7");
-    expect(within(badges).getByRole("link", { name: /First win/ })).toHaveAttribute("href", "/games/g1");
-    expect(within(within(badges).getByRole("list", { name: "Badges to earn" })).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(badges).getByRole("link", { name: /Tornado.*× 2/ })).toHaveAttribute("href", "/badges#badge-tornado");
+    expect(within(badges).getByRole("link", { name: /First win/ })).toHaveAttribute("href", "/badges#badge-first_win");
+    const toEarn = within(badges).getByRole("list", { name: "Badges to earn" });
+    expect(within(toEarn).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(toEarn).getAllByRole("link")[0]).toHaveAttribute("href", expect.stringMatching(/^\/badges#badge-/));
+    expect(within(badges).getByRole("link", { name: "How to earn every badge" })).toHaveAttribute("href", "/badges");
     const lead = screen.getByRole("region", { name: "Lead changes" });
     expect(within(lead).getByText("40%")).toBeInTheDocument();
     expect(within(lead).getByText("1.4")).toBeInTheDocument();

@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import prisma from "@/server/db/db";
+import { requireAuthContext } from "../mutations/common";
 import { ROUND_SCORE_SQL } from "@/lib/validation/gameRules";
 import {
   computeBadges,
@@ -115,4 +116,10 @@ export async function getBadgesForUser(
   db: Db = prisma,
 ): Promise<BadgeProgress[]> {
   return computeBadges(await getBadgeGamesForUser(userId, db), userId);
+}
+
+/** The signed-in player's badges, for the badge catalogue. */
+export async function getMyBadges(): Promise<BadgeProgress[]> {
+  const { prismaUserId } = await requireAuthContext("prismaId");
+  return getBadgesForUser(prismaUserId);
 }
