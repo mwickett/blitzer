@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/siteMetadata";
 import { Prose, GuidePageHeader } from "@/components/marketing/Prose";
 import { WinProbabilityDemo } from "@/components/marketing/WinProbabilityDemo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Reading your stats — Blitzer guide",
   description:
     "What batting average means in Blitzer, how the in-game win odds are calculated, and what the charts show.",
-};
+  path: "/guide/reading-your-stats",
+});
 
 export default function ReadingYourStats() {
   return (

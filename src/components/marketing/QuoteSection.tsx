@@ -8,8 +8,7 @@ export function QuoteSection() {
         <blockquote className="font-display text-2xl font-normal leading-[1.42] tracking-[-0.018em] text-brandAccent md:text-[25px]">
           Dutch Blitz forces you to be in the moment. You can&apos;t play well
           and be thinking about anything else — that&apos;s one of the things I
-          love about it. But afterwards, wouldn&apos;t you like to know how it
-          actually went?
+          love about it.
         </blockquote>
         <figcaption className="mt-5 text-sm font-medium text-textMuted">
           Mike, who built Blitzer ·{" "}

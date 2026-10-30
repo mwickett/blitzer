@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/siteMetadata";
 import Link from "next/link";
 import { Prose, GuidePageHeader } from "@/components/marketing/Prose";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "How Dutch Blitz scoring works — Blitzer guide",
   description:
     "Dutch Blitz scoring explained: cards played minus twice your remaining Blitz pile, and how Blitzer tracks it round by round.",
-};
+  path: "/guide/how-scoring-works",
+});
 
 export default function HowScoringWorks() {
   return (

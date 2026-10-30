@@ -55,7 +55,8 @@ export const metadata: Metadata = {
     site: "@blitzerfun",
     creator: "@mwickett",
     title: "Blitzer",
-    description: "Scoring and stats for serious Dutch Blitz players",
+    description:
+      "Blitzer does the Dutch Blitz math, keeps the totals, and tells you who's going to win.",
     images: [
       {
         url: "/img/twitter-image.png",

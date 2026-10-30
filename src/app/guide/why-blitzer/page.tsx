@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/siteMetadata";
 import Link from "next/link";
 import { Prose, GuidePageHeader } from "@/components/marketing/Prose";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Why Blitzer — Blitzer guide",
   description:
     "Why a scorekeeping app for Dutch Blitz exists at all, written by the person who built it.",
-};
+  path: "/guide/why-blitzer",
+});
 
 export default function WhyBlitzer() {
   return (
