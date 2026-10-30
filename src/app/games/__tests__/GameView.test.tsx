@@ -281,27 +281,31 @@ describe("new badges", () => {
       },
     ],
   });
-  const progress = (id: string, firstGameId: string) => ({
+  const progress = (id: string, gameIds: string[]) => ({
     badge: BADGES.find((b) => b.id === id)!,
-    count: 1,
-    firstGameId,
+    count: gameIds.length,
+    firstGameId: gameIds[0],
     firstAt: "2026-10-01T00:00:00.000Z",
+    tiers: gameIds.map((gameId) => ({ gameId, at: "2026-10-01T00:00:00.000Z" })),
+    total: 10,
   });
 
   it("shows the viewer the badges this game earned them first", async () => {
     (getGameById as jest.Mock).mockResolvedValue(game(true));
     (getBadgesForUser as jest.Mock).mockResolvedValue([
-      progress("first_win", "game"),
-      progress("first_blitz", "older"),
+      progress("winner", ["older", "game"]),
+      progress("blitzer", ["older"]),
+      { ...progress("snipe", ["game"]), tiers: [], total: null },
     ]);
     render(await GameView({ params: Promise.resolve({ id: "game" }) }));
     expect(getBadgesForUser).toHaveBeenCalledWith("a");
-    expect(screen.getByRole("heading", { name: "New badge" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /First win.*Win any game/ })).toHaveAttribute(
+    expect(screen.getByRole("heading", { name: "New badges" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Winner · Silver.*for gold/ })).toHaveAttribute(
       "href",
-      "/badges#badge-first_win",
+      "/badges#badge-winner",
     );
-    expect(screen.queryByText("First blitz")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Snipe/ })).toHaveAttribute("href", "/badges#badge-snipe");
+    expect(screen.queryByText(/Blitzer/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "See all badges and how to earn them" })).toHaveAttribute("href", "/badges");
   });
 

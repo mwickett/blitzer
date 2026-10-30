@@ -67,9 +67,14 @@ const stats: DashboardStats = {
   },
   badges: BADGES.map((badge) => ({
     badge,
-    count: badge.id === "first_win" ? 1 : badge.id === "tornado" ? 2 : 0,
-    firstGameId: badge.id === "first_win" ? "g1" : badge.id === "tornado" ? "g7" : null,
-    firstAt: badge.id === "first_win" || badge.id === "tornado" ? "2026-09-27T15:00:00Z" : null,
+    count: badge.id === "winner" ? 2 : badge.id === "comeback" ? 2 : 0,
+    firstGameId: badge.id === "winner" ? "g1" : badge.id === "comeback" ? "g7" : null,
+    firstAt: badge.id === "winner" || badge.id === "comeback" ? "2026-09-27T15:00:00Z" : null,
+    tiers:
+      badge.id === "winner"
+        ? [{ gameId: "g1", at: "2026-09-27T15:00:00Z" }, { gameId: "g5", at: "2026-09-28T15:00:00Z" }]
+        : [],
+    total: badge.id === "winner" ? 12 : ["regular", "blitzer"].includes(badge.id) ? 0 : null,
   })),
 };
 
@@ -117,8 +122,8 @@ describe("DashboardGrid", () => {
     expect(within(named).getByText(/Caught in 1 tornado/)).toBeInTheDocument();
     const badges = screen.getByRole("region", { name: "Badges" });
     expect(within(badges).getByText(`2 of ${BADGES.length} earned`)).toBeInTheDocument();
-    expect(within(badges).getByRole("link", { name: /Tornado.*× 2/ })).toHaveAttribute("href", "/badges#badge-tornado");
-    expect(within(badges).getByRole("link", { name: /First win/ })).toHaveAttribute("href", "/badges#badge-first_win");
+    expect(within(badges).getByRole("link", { name: /Comeback kid.*× 2/ })).toHaveAttribute("href", "/badges#badge-comeback");
+    expect(within(badges).getByRole("link", { name: /Winner.*Silver/ })).toHaveAttribute("href", "/badges#badge-winner");
     const toEarn = within(badges).getByRole("list", { name: "Badges to earn" });
     expect(within(toEarn).getAllByRole("listitem")).toHaveLength(3);
     expect(within(toEarn).getAllByRole("link")[0]).toHaveAttribute("href", expect.stringMatching(/^\/badges#badge-/));
@@ -201,7 +206,7 @@ describe("DashboardGrid", () => {
         tornadoesSuffered: 0,
         feed: [],
       },
-      badges: BADGES.map((badge) => ({ badge, count: 0, firstGameId: null, firstAt: null })),
+      badges: BADGES.map((badge) => ({ badge, count: 0, firstGameId: null, firstAt: null, tiers: [], total: null })),
     };
     render(<DashboardGrid stats={empty} initialLayout={defaultDashboardLayout()} />);
 

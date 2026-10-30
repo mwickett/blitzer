@@ -104,10 +104,10 @@ test("badge history loads finished games with per-round scores and blitz piles",
   const badges = Object.fromEntries(
     (await getBadgesForUser(ana.id, prisma)).map((p) => [p.badge.id, p.count]),
   );
-  assert.equal(badges.first_win, 1);
-  assert.equal(badges.first_blitz, 1);
+  assert.equal(badges.winner, 1);
+  assert.equal(badges.blitzer, 1);
   assert.equal(badges.triple_blitz, 1);
   assert.equal(badges.short_fuse, 1);
   assert.equal(badges.wire_to_wire, 1);
-  assert.equal(badges.tornado, 0);
+  assert.equal(badges.comeback, 0);
 });
