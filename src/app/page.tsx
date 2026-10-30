@@ -23,7 +23,7 @@ export default function Home() {
   return (
     // A <div>, not a <main>: NavBar.tsx:164 already provides the document's
     // one <main>. The outgoing page nested a second one; this does not.
-    <div className="flex min-h-screen flex-col bg-brand">
+    <div className="flex min-h-svh flex-col bg-brand">
       <Hero />
       <GatherSection />
       <PlaySection />

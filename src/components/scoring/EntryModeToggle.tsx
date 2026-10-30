@@ -29,7 +29,7 @@ export function EntryModeToggle({
           onClick={() => {
             if (mode !== option.mode) onChange(option.mode);
           }}
-          className={`rounded-md px-3 py-1.5 ${
+          className={`press min-h-9 rounded-md px-3 py-1.5 ${
             mode === option.mode ? "bg-[#8b5e3c] text-white" : "text-[#8b5e3c]"
           }`}
         >

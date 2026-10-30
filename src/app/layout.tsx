@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { circleLocalization } from "@/lib/clerk-localization";
 import { Analytics } from "@vercel/analytics/react";
@@ -17,6 +17,18 @@ const fraunces = Fraunces({
   display: "swap",
   variable: "--font-fraunces",
 });
+
+// Edge to edge under the notch (content pads back with safe-area insets), and
+// let Android's keyboard shrink the layout like iOS does. Zoom stays allowed.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+  // The app has no dark theme; match the white header bar.
+  themeColor: "#ffffff",
+  colorScheme: "light",
+};
 
 export const metadata: Metadata = {
   metadataBase: process.env.VERCEL_URL

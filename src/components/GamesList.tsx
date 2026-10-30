@@ -68,7 +68,7 @@ export default function GameList({
               id="game-status"
               name="status"
               defaultValue={filters.status}
-              className="h-10 rounded-md border bg-background px-3 font-normal"
+              className="h-10 rounded-md border bg-background px-3 text-base font-normal sm:text-sm"
             >
               <option value="all">All games</option>
               {Object.entries(statusLabels)
@@ -92,7 +92,7 @@ export default function GameList({
               defaultValue={filters.tag}
               maxLength={24}
               placeholder="Any tag"
-              className="h-10 w-36 rounded-md border bg-background px-3 font-normal"
+              className="h-10 w-36 rounded-md border bg-background px-3 text-base font-normal sm:text-sm"
             />
           </label>
           <Button type="submit">Apply filters</Button>
@@ -121,7 +121,7 @@ export default function GameList({
                   defaultValue={filters.search}
                   maxLength={100}
                   placeholder="Player name"
-                  className="h-10 rounded-md border bg-background px-3"
+                  className="h-10 rounded-md border bg-background px-3 text-base sm:text-sm"
                 />
               </label>
               <Button type="submit" variant="outline">

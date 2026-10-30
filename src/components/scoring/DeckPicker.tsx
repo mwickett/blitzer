@@ -23,7 +23,7 @@ export function DeckPicker({
             type="button"
             aria-pressed={selected}
             onClick={() => onChange(selected ? null : deck.id)}
-            className={`flex items-center gap-1 rounded-full border-[1.5px] px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`flex min-h-9 items-center gap-1 rounded-full border-[1.5px] px-2.5 py-1 text-xs font-medium press ${
               selected
                 ? "border-[#290806] bg-[#290806] text-[#fff7ea]"
                 : "border-[#e6d7c3] text-[#5a341f] hover:border-[#d1bfa8]"

@@ -70,6 +70,7 @@ export function PickupGameSetup() {
             id="threshold"
             className="mt-2"
             type="number"
+            inputMode="numeric"
             min={25}
             max={200}
             value={threshold}
@@ -96,6 +97,8 @@ export function PickupGameSetup() {
                 aria-label={`Guest ${index + 1} name`}
                 placeholder="Guest name"
                 maxLength={50}
+                autoCapitalize="words"
+                autoComplete="off"
                 value={guest.name}
                 onChange={(event) =>
                   setGuests((currentGuests) =>

@@ -165,7 +165,7 @@ export default function DashboardGrid({
                   <button
                     type="button"
                     onClick={() => update(setCardVisible(layout, id, true))}
-                    className="flex w-full items-center gap-3 rounded-xl border-[1.5px] border-dashed border-borderWarm bg-surfaceSubtle p-3 text-left hover:border-textMuted"
+                    className="press flex w-full items-center gap-3 rounded-xl border-[1.5px] border-dashed border-borderWarm bg-surfaceSubtle p-3 text-left hover:border-textMuted"
                     aria-label={`Show ${info.title}`}
                   >
                     <Plus className="h-4 w-4 shrink-0 text-textMuted" aria-hidden />
@@ -198,7 +198,7 @@ function CardControls({
   onHide: () => void;
 }) {
   const iconButton =
-    "flex h-8 w-8 items-center justify-center rounded-md text-textMuted hover:bg-surfaceSubtle hover:text-brandAccent disabled:opacity-30";
+    "press flex h-10 w-10 items-center justify-center rounded-md text-textMuted hover:bg-surfaceSubtle active:bg-surfaceSubtle hover:text-brandAccent disabled:opacity-30";
   return (
     <div className="flex shrink-0 gap-0.5">
       <button type="button" className={iconButton} disabled={first} onClick={() => onMove(-1)} aria-label={`Move ${title} earlier`}>

@@ -80,7 +80,7 @@ export function RoundRecap({ gameId, roundsPlayed }: { gameId: string; roundsPla
             type="button"
             onClick={fetchRecap}
             disabled={state.status === "loading"}
-            className="rounded-md bg-[#290806] px-3 py-1 text-sm font-semibold text-white disabled:opacity-60"
+            className="press rounded-md bg-[#290806] px-3 py-1 text-sm font-semibold text-white disabled:opacity-60"
           >
             {state.status === "loading" ? "Writing…" : "Play recap"}
           </button>

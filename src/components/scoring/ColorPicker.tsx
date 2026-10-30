@@ -25,7 +25,7 @@ export function ColorPicker({
           <button
             key={c.value}
             onClick={() => !isUsed && onChange(c.value)}
-            className={`w-9 h-9 rounded-full border-2 transition-all ${
+            className={`press w-9 h-9 rounded-full border-2 ${
               isSelected
                 ? "border-[#290806] scale-110 shadow-xs"
                 : isUsed

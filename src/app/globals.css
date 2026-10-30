@@ -4,6 +4,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Tailwind 4's `hover:` already waits for `(hover: hover)`, but some touch
+ * devices still claim it and leave the hover style stuck after a tap. Also
+ * require a precise pointer, so phones get only the `:active` press state.
+ */
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+
 @utility container {
   margin-inline: auto;
   padding-inline: 2rem;
@@ -101,6 +114,81 @@
   [role='button']:not(:disabled) {
     cursor: pointer;
   }
+}
+
+/*
+ * Phone basics: no gray flash over tapped controls (each control has its own
+ * press state instead), no font inflation in landscape, and no double-tap
+ * zoom wait before a tap counts. Control labels aren't selectable on long
+ * press; content text stays selectable.
+ */
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /*
+   * Pull-to-refresh mid-round would reload over a half-entered score, so
+   * the scoring screen keeps the page still at the top edge.
+   */
+  html:has([data-scoring-screen]) {
+    overscroll-behavior-y: none;
+  }
+
+  /* Sit side content clear of the notch in landscape. */
+  body {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  a,
+  button,
+  label,
+  summary,
+  select,
+  input,
+  textarea,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+
+  button,
+  summary,
+  [role='button'] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /*
+   * iOS zooms the page into any field under 16px and never zooms back out.
+   * This covers fields without their own size; sized ones use text-base on
+   * small screens.
+   */
+  @media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+}
+
+/* Press feedback that lands with the finger, not on release. */
+@utility press {
+  transition-property: color, background-color, border-color, opacity, box-shadow, scale;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  transition-duration: 150ms;
+  &:active:not(:disabled) {
+    scale: 0.97;
+  }
+}
+
+/* Bottom-pinned UI clears the home indicator. */
+@utility pb-safe {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Tailwind v3's two-part drop-shadow-lg; v4's is a single, fainter shadow */

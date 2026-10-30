@@ -113,9 +113,9 @@ export function KeyMomentUpload({
           role="dialog"
           aria-modal="true"
           aria-labelledby="key-moment-upload-heading"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 pb-safe sm:items-center"
         >
-          <div className="w-full max-w-md space-y-3 rounded-lg bg-background p-4 shadow-lg">
+          <div className="max-h-full w-full max-w-md space-y-3 overflow-y-auto overscroll-contain rounded-lg bg-background p-4 shadow-lg">
             <h3 id="key-moment-upload-heading" className="font-semibold">Add a key moment</h3>
             {preview ? (
               // eslint-disable-next-line @next/next/no-img-element -- local object URL preview
@@ -137,7 +137,7 @@ export function KeyMomentUpload({
                 <select
                   value={roundId}
                   onChange={(event) => setRoundId(event.target.value)}
-                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm"
                 >
                   <option value="">The whole game</option>
                   {rounds.map((round) => (
