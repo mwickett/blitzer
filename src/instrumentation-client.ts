@@ -76,10 +76,10 @@ Sentry.init({
 // CDN is blocked, errors are still reported without a replay.
 //
 // Replay records the page URL in places no hook reaches (its URL list and
-// rrweb's page metadata), so it never runs on an invitation link, including
-// a sign-in page whose return URL is one. It starts only once the browser is
-// on a safe URL and stops for the rest of the page's life before a
-// navigation to an invitation link.
+// rrweb's page metadata), so it never runs on an invitation link, a sign-in
+// or sign-up page, or a URL carrying Clerk's handshake, ticket or invitation
+// parameters. It starts only once the browser is on a safe URL and stops for
+// the rest of the page's life before a navigation to a private one.
 type ReplayIntegration = ReturnType<
   Awaited<ReturnType<typeof Sentry.lazyLoadIntegration>>
 > & { stop?: () => Promise<void> };
@@ -88,15 +88,19 @@ let replayRequested = false;
 let replayStopped = false;
 let latestHref = window.location.href;
 
-function isInvitationUrl(href: string) {
-  return /\/join\/|%2Fjoin%2F/i.test(href);
+function isPrivateUrl(href: string) {
+  const { pathname, search, hash } = new URL(href, window.location.href);
+  return (
+    /^\/(?:join|sign-in|sign-up)(?:\/|$)/.test(pathname) ||
+    /\/join\/|%2Fjoin%2F|__clerk/i.test(search + hash)
+  );
 }
 
 function canRecord() {
   return (
     !replayStopped &&
-    !isInvitationUrl(window.location.href) &&
-    !isInvitationUrl(latestHref)
+    !isPrivateUrl(window.location.href) &&
+    !isPrivateUrl(latestHref)
   );
 }
 
@@ -140,7 +144,7 @@ if (document.readyState === "complete") {
 
 export function onRouterTransitionStart(href: string, navigationType: string) {
   latestHref = new URL(href, window.location.href).href;
-  if (isInvitationUrl(latestHref)) {
+  if (isPrivateUrl(latestHref)) {
     if (replay) {
       void replay.stop?.();
       replay = undefined;
