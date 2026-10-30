@@ -71,7 +71,7 @@ export function BetweenRoundsView({
   } = useMemo(() => buildRoundGraphSeries(players, rounds), [players, rounds]);
 
   return (
-    <>
+    <div className="view-enter">
       {/* Race Track */}
       <div className="px-4 pt-4 pb-2">
         <RaceTrack players={players} winThreshold={winThreshold} />
@@ -140,6 +140,6 @@ export function BetweenRoundsView({
           />
         </>
       )}
-    </>
+    </div>
   );
 }
