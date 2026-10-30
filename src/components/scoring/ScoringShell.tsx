@@ -367,7 +367,7 @@ function ScoringSession({
 
       {!showEntry &&
         (isFinished && winner ? (
-          <fieldset disabled={isSaving || awaitingRefresh}>
+          <fieldset className="min-w-0" disabled={isSaving || awaitingRefresh}>
             <GameOverView
               winner={winner}
               players={effectivePlayers}
