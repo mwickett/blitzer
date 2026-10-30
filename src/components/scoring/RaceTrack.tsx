@@ -6,12 +6,36 @@ import {
   groupMarkers,
   type TrackMarker,
 } from "@/lib/scoring/racetrack";
+import { type ReactNode } from "react";
 import { type PlayerWithScore } from "./types";
 
 interface RaceTrackProps {
   players: PlayerWithScore[];
   winThreshold?: number;
   pillThreshold?: number;
+}
+
+// Keyed by who is in the pill, so a player's marker glides to its new score
+// instead of being re-created.
+const slotKey = (markers: TrackMarker[]) => markers.map((m) => m.id).join("|");
+
+/**
+ * Positions a marker along the track. A zero-width slot moves with a
+ * transform in track-width units (`cqw`), which stays on the compositor;
+ * animating `left` would re-run layout on every frame, and a full-width
+ * translated slot would widen the page.
+ */
+function TrackSlot({ pos, children }: { pos: number; children: ReactNode }) {
+  return (
+    <div
+      className="absolute inset-y-0 left-0 z-10 w-0 transition-[translate] duration-300 ease-in-out motion-reduce:transition-none"
+      style={{ translate: `${pos}cqw 0` }}
+    >
+      <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export function RaceTrack({
@@ -39,7 +63,7 @@ export function RaceTrack({
         <span>{winThreshold} to win</span>
       </div>
 
-      <div className="relative h-11 bg-[#f0e6d2] rounded-full overflow-visible">
+      <div className="@container relative h-11 bg-[#f0e6d2] rounded-full overflow-visible">
         {/* Zero line */}
         <div
           className="absolute top-0 bottom-0 w-px bg-[#d1bfa8]"
@@ -57,39 +81,25 @@ export function RaceTrack({
         <div className="absolute -top-5 right-[-2px] text-[12px]">🏁</div>
 
         {/* Pill groups */}
-        {groups.map((group, gi) => {
+        {groups.map((group) => {
           const pos = Math.max(3, Math.min(97, group.position));
 
           if (group.markers.length === 1) {
             const m = group.markers[0];
             return (
-              <div
-                key={gi}
-                className="absolute top-1/2 z-10 transition-all duration-300"
-                style={{
-                  left: `${pos}%`,
-                  transform: "translateX(-50%) translateY(-50%)",
-                }}
-              >
+              <TrackSlot key={slotKey(group.markers)} pos={pos}>
                 <div
                   className="w-8 h-8 rounded-full border-[2.5px] border-[#fff7ea] shadow-xs flex items-center justify-center text-sm md:text-xs font-bold text-white"
                   style={{ backgroundColor: m.color }}
                 >
                   {m.score}
                 </div>
-              </div>
+              </TrackSlot>
             );
           }
 
           return (
-            <div
-              key={gi}
-              className="absolute top-1/2 z-10 transition-all duration-300"
-              style={{
-                left: `${pos}%`,
-                transform: "translateX(-50%) translateY(-50%)",
-              }}
-            >
+            <TrackSlot key={slotKey(group.markers)} pos={pos}>
               <div className="flex h-8 rounded-full border-[2.5px] border-[#fff7ea] shadow-xs overflow-hidden">
                 {group.markers.map((m) => (
                   <div
@@ -101,7 +111,7 @@ export function RaceTrack({
                   </div>
                 ))}
               </div>
-            </div>
+            </TrackSlot>
           );
         })}
       </div>

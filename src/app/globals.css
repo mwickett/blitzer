@@ -35,6 +35,16 @@
 
 @theme {
   /*
+   * Motion curves. The built-in ones are too soft to read as intentional;
+   * these replace Tailwind's `ease-out`/`ease-in-out` app-wide. Enter and
+   * exit use ease-out, on-screen movement ease-in-out, sheets the drawer
+   * curve.
+   */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /*
    * Tailwind v4 line heights are unitless ratios, which children with a
    * smaller arbitrary font size inherit and shrink by. Keep v3's absolute
    * values so nested text sits exactly as it did.
@@ -179,10 +189,30 @@
 /* Press feedback that lands with the finger, not on release. */
 @utility press {
   transition-property: color, background-color, border-color, opacity, box-shadow, scale;
-  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  transition-timing-function: var(--ease-out);
   transition-duration: 150ms;
   &:active:not(:disabled) {
     scale: 0.97;
+  }
+}
+
+/*
+ * A view that replaces another (score entry, between rounds, round editor)
+ * settles in instead of teleporting. Ends at `translate: none`, so it leaves
+ * no containing block behind for fixed or sticky children.
+ */
+@utility view-enter {
+  transition:
+    opacity 200ms var(--ease-out),
+    translate 200ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    @starting-style {
+      translate: none;
+    }
   }
 }
 
@@ -352,7 +382,7 @@
   @keyframes contentPop {
     0% {
       opacity: 0;
-      transform: scale(0.5);
+      transform: scale(0.8);
     }
     12% {
       opacity: 1;
@@ -373,7 +403,7 @@
   @keyframes trophyBounce {
     0% {
       opacity: 0;
-      transform: scale(0) rotate(-20deg);
+      transform: scale(0.5) rotate(-20deg);
     }
     15% {
       opacity: 1;

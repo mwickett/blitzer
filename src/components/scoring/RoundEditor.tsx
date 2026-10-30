@@ -40,7 +40,7 @@ export function RoundEditor({
     <form
       ref={form}
       data-scoring-screen
-      className="mx-4 my-3 rounded-xl border-2 border-[#fbbf24] bg-[#fffbeb] p-3"
+      className="view-enter mx-4 my-3 rounded-xl border-2 border-[#fbbf24] bg-[#fffbeb] p-3"
       onSubmit={(event) => {
         event.preventDefault();
         onSave();

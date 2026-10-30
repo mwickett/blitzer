@@ -59,7 +59,7 @@ export function CelebrationOverlay({
       />
 
       {/* Confetti */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden motion-reduce:hidden">
         {confetti.map((c) => (
           <div
             key={c.id}
@@ -80,8 +80,8 @@ export function CelebrationOverlay({
       </div>
 
       {/* Content */}
-      <div className="relative z-10 text-center animate-[contentPop_2.5s_ease-out_forwards]">
-        <div className="text-6xl mb-3 animate-[trophyBounce_2.5s_ease-out_forwards]">
+      <div className="relative z-10 text-center animate-[contentPop_2.5s_ease-out_forwards] motion-reduce:animate-none">
+        <div className="text-6xl mb-3 animate-[trophyBounce_2.5s_ease-out_forwards] motion-reduce:animate-none">
           🏆
         </div>
         <div className="text-3xl font-black text-white celebration-shadow">
