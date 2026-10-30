@@ -123,7 +123,7 @@ export const BADGES = [
     name: "Tornado",
     family: "wins",
     hint: "Win from dead last while the leader falls to last",
-    rule: "Be alone in last place after a round, then win the game, while the player leading at that moment finishes in last.",
+    rule: "Be alone in last place after a round, then win the game, while the player leading alone at that moment finishes alone in last. Needs three or more players.",
   },
   {
     id: "comeback",
@@ -163,7 +163,7 @@ export const BADGES = [
     name: "Bounce back",
     family: "wins",
     hint: "Win the game right after a loss",
-    rule: "Win the next game you finish after losing one.",
+    rule: "Win the next game with a recorded winner after losing one.",
   },
   {
     id: "u_turn",
