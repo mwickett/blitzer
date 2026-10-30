@@ -17,8 +17,9 @@ import {
  *
  * Each card shows the score *before* the round being keyed in, so that the
  * "standings redraw before the next deal" claim has supporting demo: the
- * phone screen and the standings panel beside it show different snapshots in
- * time — entry in progress on the phone, post-update standings adjacent.
+ * hero's phone screen and the play section's standings show different
+ * snapshots in time — entry in progress on the phone, post-update standings
+ * below.
  */
 const noop = () => {};
 

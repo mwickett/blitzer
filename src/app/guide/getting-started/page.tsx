@@ -1,20 +1,21 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/siteMetadata";
 import Link from "next/link";
 import { Prose, GuidePageHeader } from "@/components/marketing/Prose";
 import { MAX_PICKUP_PLAYERS } from "@/lib/lobbies";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Getting started — Blitzer guide",
   description:
     "Run your first Dutch Blitz game in Blitzer: set up the table, enter scores round by round, and finish the game.",
-};
+  path: "/guide/getting-started",
+});
 
 export default function GettingStarted() {
   return (
     <>
       <GuidePageHeader
         title="Getting started"
-        intro="Your first game, from opening the app to a final score. About two minutes of setup, most of it choosing colours."
+        intro="Your first game, from opening the app to a final score. About two minutes of setup, most of it choosing colors."
       />
 
       <Prose>
@@ -48,19 +49,19 @@ export default function GettingStarted() {
           screenshot cannot pull someone into a game that finished last week.
         </p>
 
-        <h2>3. Choose colours</h2>
+        <h2>3. Choose colors</h2>
         <p>
-          Each player gets a colour, which is how they are identified in the
+          Each player gets a color, which is how they are identified in the
           standings, the race track and every chart. In a Circle game, whoever
-          sets it up picks colours for everyone on one screen before play
-          starts; with six or fewer players, if they put two on the same colour,
-          the player who had it first moves to the next free colour. In a pickup
-          game, Blitzer assigns colours automatically as people join.
+          sets it up picks colors for everyone on one screen before play
+          starts; with six or fewer players, if they put two on the same color,
+          the player who had it first moves to the next free color. In a pickup
+          game, Blitzer assigns colors automatically as people join.
         </p>
         <p>
-          There are six colours, so a seven- or eight-player game runs out and
-          one or two colours get used twice. Everything still scores correctly;
-          you just have to look at the names rather than the colours.
+          There are six colors, so a seven- or eight-player game runs out and
+          one or two colors get used twice. Everything still scores correctly;
+          you just have to look at the names rather than the colors.
         </p>
 
         <h2>4. Score each round</h2>

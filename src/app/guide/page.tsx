@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/siteMetadata";
 import Link from "next/link";
 import { Prose, GuidePageHeader } from "@/components/marketing/Prose";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Guide — Blitzer",
   description:
     "How to use Blitzer: starting a game, entering scores, Circles and pickup games, and what the stats mean.",
-};
+  path: "/guide",
+});
 
 const TOPICS = [
   {
@@ -17,7 +18,7 @@ const TOPICS = [
   {
     href: "/guide/how-scoring-works",
     title: "How scoring works",
-    blurb: "The Dutch Blitz maths, and what Blitzer does with it.",
+    blurb: "The Dutch Blitz math, and what Blitzer does with it.",
   },
   {
     href: "/guide/circles-and-pickup-games",

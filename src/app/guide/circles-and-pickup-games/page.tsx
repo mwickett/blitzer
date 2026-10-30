@@ -1,13 +1,14 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/siteMetadata";
 import Link from "next/link";
 import { Prose, GuidePageHeader } from "@/components/marketing/Prose";
 import { MAX_PICKUP_PLAYERS } from "@/lib/lobbies";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Circles & pickup games — Blitzer guide",
   description:
     "The difference between a pickup game and a Circle in Blitzer, and which one to use.",
-};
+  path: "/guide/circles-and-pickup-games",
+});
 
 export default function CirclesAndPickupGames() {
   return (

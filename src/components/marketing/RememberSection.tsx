@@ -25,10 +25,14 @@ export function RememberSection() {
             round extremes). "Games won" was here once and is not computed
             anywhere — do not reintroduce a stat the product cannot show.
           */}
-          <div className="mb-3 grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <StatTile label="Batting average" value=".412" />
             <StatTile label="Rounds played" value="312" />
           </div>
+          <p className="mb-3 mt-2 text-[13px] leading-snug text-textMuted">
+            Batting average: you called Blitz in 41% of the rounds you&apos;ve
+            played.
+          </p>
           <ScoreProgressionCard
             players={DEMO_PLAYERS}
             scoresByRound={DEMO_SCORES_BY_ROUND}
@@ -43,9 +47,8 @@ export function RememberSection() {
           </h2>
           <p className="mt-4 text-base leading-relaxed text-textBody">
             A Circle is the group you play with regularly. Every game you play
-            together lands in your Circle, so years of Thursdays sit in one
-            place instead of scattered across whoever remembered to write it
-            down.
+            together lands in your Circle, so every Christmas at Grandma&apos;s
+            sits in one place instead of on whichever napkin survived.
           </p>
           <p className="mt-3 text-base leading-relaxed text-textBody">
             Every finished game also gets a link anyone can open. No account, no

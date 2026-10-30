@@ -14,7 +14,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useLlmFeaturesFlag } from "@/hooks/useFeatureFlag";
-import { SIGNED_OUT_LINKS, signedInLinks } from "@/components/marketing/navLinks";
+import {
+  SIGNED_OUT_LINKS,
+  signedInLinks,
+} from "@/components/marketing/navLinks";
 
 // Mobile nav link component
 function MobileNavLink({
@@ -54,24 +57,26 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-50 w-full border-b pt-[env(safe-area-inset-top)] bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
         <div className="container flex h-14 min-w-0 items-center gap-2 sm:gap-3">
-          <div className="flex shrink-0 items-center md:hidden">
-            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">Toggle Menu</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="pr-0">
-                <Link
-                  href="/"
-                  className="flex items-center"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <span className="text-xl font-bold">Blitzer</span>
-                </Link>
-                <nav className="flex flex-col gap-4 mt-4">
-                  <Show when="signed-in">
+          {/* Signed-out visitors have one link, so they get it inline in the
+              header rather than a drawer with nothing else in it. */}
+          <Show when="signed-in">
+            <div className="flex shrink-0 items-center md:hidden">
+              <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Toggle Menu</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="pr-0">
+                  <Link
+                    href="/"
+                    className="flex items-center"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <span className="text-xl font-bold">Blitzer</span>
+                  </Link>
+                  <nav className="flex flex-col gap-4 mt-4">
                     {appLinks.map((navItem) => (
                       <MobileNavLink
                         href={navItem.href}
@@ -82,47 +87,38 @@ export default function NavBar({ children }: { children: React.ReactNode[] }) {
                       />
                     ))}
                     <Button asChild>
-                      <Link href="/games/new" onClick={() => setIsMenuOpen(false)}>
+                      <Link
+                        href="/games/new"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
                         New game
                       </Link>
                     </Button>
-                  </Show>
-                  <Show when="signed-out">
-                    {SIGNED_OUT_LINKS.map((navItem) => (
-                      <MobileNavLink
-                        href={navItem.href}
-                        label={navItem.label}
-                        onClick={() => setIsMenuOpen(false)}
-                        pathName={pathName}
-                        key={navItem.href}
-                      />
-                    ))}
-                  </Show>
-                </nav>
-              </SheetContent>
-            </Sheet>
-          </div>
-          <Link
-            href="/"
-            className="flex shrink-0 items-center md:mr-4 lg:mr-6"
-          >
+                  </nav>
+                </SheetContent>
+              </Sheet>
+            </div>
+          </Show>
+          <Link href="/" className="flex shrink-0 items-center md:mr-4 lg:mr-6">
             <span className="text-xl font-bold">Blitzer</span>
           </Link>
-          <nav className="hidden md:flex items-center space-x-6">
+          <nav className="flex items-center gap-6">
             <Show when="signed-in">
-              {appLinks.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`text-sm font-medium transition-colors hover:text-primary ${
-                    pathName === item.href
-                      ? "text-primary font-semibold"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
+              <div className="hidden md:contents">
+                {appLinks.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`text-sm font-medium transition-colors hover:text-primary ${
+                      pathName === item.href
+                        ? "text-primary font-semibold"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
             </Show>
             <Show when="signed-out">
               {SIGNED_OUT_LINKS.map((item) => (

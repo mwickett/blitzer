@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/siteMetadata";
 import { Hero } from "@/components/marketing/Hero";
 import { GatherSection } from "@/components/marketing/GatherSection";
 import { PlaySection } from "@/components/marketing/PlaySection";
@@ -8,11 +8,12 @@ import { QuoteSection } from "@/components/marketing/QuoteSection";
 import { GuideTeaser } from "@/components/marketing/GuideTeaser";
 import { FinalCta } from "@/components/marketing/FinalCta";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Blitzer — scoring and stats for Dutch Blitz",
   description:
-    "Blitzer runs the scoring for your Dutch Blitz table: live standings, real win odds, and a permanent record of how you've been playing.",
-};
+    "Nobody has to do the math. Blitzer does the Dutch Blitz minus-twos, keeps the totals, and tells you who's actually going to win.",
+  path: "/",
+});
 
 /**
  * The section order is chronological — gather, play, settle, remember — so the

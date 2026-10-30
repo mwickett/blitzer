@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StartGameCta } from "@/components/marketing/MarketingCta";
 
 const GUIDE_NAV = [
   { label: "Overview", href: "/guide" },
@@ -40,7 +41,20 @@ export default function GuideLayout({
           content in the document's one <main>. Nesting a second would be
           invalid HTML and give screen readers two competing landmarks.
         */}
-        <div className="min-w-0">{children}</div>
+        <div className="min-w-0">
+          {children}
+
+          {/* Guide pages are where search visitors land, so each one ends
+              with the way in. */}
+          <aside className="mt-12 rounded-xl border-[1.5px] border-borderWarm bg-surfaceRaised p-6 text-center sm:flex sm:items-center sm:justify-between sm:text-left">
+            <p className="font-display text-xl font-bold tracking-[-0.018em] text-brandAccent">
+              Ready for the next deal?
+            </p>
+            <div className="mt-4 grid sm:mt-0">
+              <StartGameCta section="guide_footer" />
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );

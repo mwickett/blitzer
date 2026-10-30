@@ -6,13 +6,13 @@ const CARDS = [
     href: "/guide/how-scoring-works",
     title: "How scoring works",
     blurb:
-      "Cards played, minus twice your Blitz pile. Why the maths is the way it is.",
+      "Cards played, minus twice your Blitz pile. Why the math is the way it is.",
   },
   {
     href: "/guide/circles-and-pickup-games",
     title: "Circles vs pickup games",
     blurb:
-      "One is for tonight. One is for the next three years of Thursdays.",
+      "One is for the cabin weekend. One is for every family Christmas after it.",
   },
   {
     href: "/guide/reading-your-stats",
