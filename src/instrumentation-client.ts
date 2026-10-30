@@ -21,7 +21,12 @@ function scrubFields(fields: Record<string, unknown> | undefined) {
 
 function scrubEventUrls<T extends Sentry.Event>(event: T) {
   if (event.transaction) event.transaction = scrubUrls(event.transaction);
-  if (event.request?.url) event.request.url = scrubUrls(event.request.url);
+  if (event.request) {
+    if (event.request.url) event.request.url = scrubUrls(event.request.url);
+    // HttpContext copies document.referrer into the Referer header.
+    scrubFields(event.request.headers);
+    delete event.request.query_string;
+  }
   scrubFields(event.contexts?.trace?.data);
   return event;
 }
