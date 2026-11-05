@@ -83,6 +83,9 @@
     },
     "@vercel/cli-config": {
       "zod": "^4.6.7"
+    },
+    "@posthog/ai": {
+      "zod": "^4.6.7"
     }
   }
 }
