@@ -63,7 +63,7 @@ export const submittedScoresSchema = z
     );
     if (new Set(keys).size !== keys.length) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Each player must have exactly one score.",
       });
     }
@@ -72,7 +72,7 @@ export const submittedScoresSchema = z
     if (breakdowns.length === 0) return;
     if (breakdowns.length !== scores.length) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Enter every player's round the same way.",
       });
       return;
@@ -81,7 +81,7 @@ export const submittedScoresSchema = z
       validateGameRules(breakdowns);
     } catch (error) {
       if (!(error instanceof ValidationError)) throw error;
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: error.message });
+      ctx.addIssue({ code: "custom", message: error.message });
     }
   });
 
@@ -100,7 +100,7 @@ const playerSchema = z
   .superRefine((player, ctx) => {
     if (player.isGuest && !guestNameSchema.safeParse(player.username).success) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Guest names must contain 1–50 characters.",
       });
     }
