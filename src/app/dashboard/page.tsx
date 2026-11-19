@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getDashboard } from "@/server/queries/stats";
 import { requireSignedIn } from "@/server/pageAuth";
 import CircleCtaSection from "./_components/CircleCtaSection";
 import DashboardGrid from "./_components/DashboardGrid";
+
+export const metadata: Metadata = { title: "Your stats — Blitzer" };
 
 function FirstGamePrompt() {
   return (

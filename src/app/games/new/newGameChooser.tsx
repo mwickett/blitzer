@@ -292,15 +292,15 @@ export default function NewGameChooser({
                     isCurrentUser(player) && "ring-1 ring-[#8b5e3c]"
                   )}
                 >
-                  <div className="absolute top-1 right-1">
+                  <div className="absolute top-0 right-0">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-[#8b5e3c] hover:text-[#5a341f] hover:bg-[#f7f2e9]"
+                      className="h-9 w-9 text-[#8b5e3c] hover:text-[#5a341f] hover:bg-[#f7f2e9]"
                       onClick={() => removePlayer(player.id)}
                     >
                       <X className="h-3 w-3" />
-                      <span className="sr-only">Remove</span>
+                      <span className="sr-only">Remove {player.username}</span>
                     </Button>
                   </div>
                   <Avatar className="h-12 w-12 sm:mb-2 mr-3 sm:mr-0 shrink-0">

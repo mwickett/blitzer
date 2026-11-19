@@ -43,6 +43,7 @@ export function LobbyControls({
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(joinUrl);
+      setError("");
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1_800);
     } catch {
