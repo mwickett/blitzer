@@ -3,6 +3,7 @@
 import { captureServerEvent } from "@/server/telemetry";
 
 import { after } from "next/server";
+import { refresh } from "next/cache";
 import prisma from "@/server/db/db";
 import { assertAccountActive, requireAuthContext } from "./common";
 import { writeRound } from "../scoring/writeRound";
@@ -25,6 +26,9 @@ async function submit(input: unknown) {
   if (!result.ok) return result;
 
   const { transition, round } = result;
+  // Send the updated game page back with this response, so the scorer's
+  // screen catches up without a second request.
+  refresh();
   if (transition) {
     captureServerEvent(posthog, {
       distinctId: userId,

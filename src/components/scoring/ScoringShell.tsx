@@ -85,10 +85,8 @@ function ScoringSession({
     canEdit && !isFinished && rounds.length === 0
       ? newRoundDraft(players, currentRoundNumber, preferredMode)
       : null;
-  const session = useScoringDraft(gameId, initialDraft, (round) => {
-    setSavedRound(round);
-    router.refresh();
-  });
+  // The save action sends the refreshed page back with its response.
+  const session = useScoringDraft(gameId, initialDraft, setSavedRound);
   const { draft, isSaving, hasConflict } = session;
   const returnFocusTo = useRef<string | null>(null);
 
@@ -119,6 +117,14 @@ function ScoringSession({
           })),
     [players, effectiveRounds, awaitingRefresh],
   );
+
+  // Normally the refreshed page arrives with the save itself. If it hasn't
+  // shortly after, ask for it, as the save used to do every time.
+  useEffect(() => {
+    if (!awaitingRefresh) return;
+    const timer = window.setTimeout(() => router.refresh(), 1_500);
+    return () => window.clearTimeout(timer);
+  }, [awaitingRefresh, router]);
 
   const shouldPoll =
     sharedScoring &&
