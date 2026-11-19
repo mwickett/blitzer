@@ -31,7 +31,7 @@ it("turns highlights into linked moment cards", () => {
   expect(screen.getByText("Lost by 1 point").closest("a")).toHaveAttribute("href", "/games/close-loss");
   expect(screen.getByText("Aunt Carol")).toBeInTheDocument();
   expect(screen.getByText("You 1, Aunt Carol 2 across 3 games")).toBeInTheDocument();
-  expect(screen.getByLabelText("Recent results, newest first")).toHaveTextContent("WWL");
+  expect(screen.getByLabelText("Recent results, oldest to newest")).toHaveTextContent("LWW");
 });
 
 it("names tiebreak finishes instead of a zero-point margin", () => {

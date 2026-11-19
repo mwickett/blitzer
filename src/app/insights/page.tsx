@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import ModernChatUI from "./ModernChatUI";
 import { isLlmFeaturesEnabled } from "@/featureFlags";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +7,8 @@ import { getPlayerHighlightsForClerkUser } from "@/server/queries/playerHighligh
 import { getStoryPromptForClerkUser } from "@/server/queries/storyPrompt";
 import { StoryPromptForm } from "@/components/insights/StoryPromptForm";
 import { requireCircle } from "@/server/pageAuth";
+
+export const metadata: Metadata = { title: "Insights — Blitzer" };
 
 export default async function InsightsPage() {
   const { userId } = await requireCircle();

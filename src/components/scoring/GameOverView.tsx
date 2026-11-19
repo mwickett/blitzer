@@ -179,8 +179,8 @@ export function GameOverView({
         {sorted.map((player, i) => (
           <div
             key={player.id}
-            className={`flex items-center justify-between py-2.5 px-3 bg-white border-[1.5px] border-[#e6d7c3] rounded-lg ${
-              player.id === winner.id ? "bg-[#eff6ff]" : ""
+            className={`flex items-center justify-between py-2.5 px-3 border-[1.5px] border-[#e6d7c3] rounded-lg ${
+              player.id === winner.id ? "bg-[#eff6ff]" : "bg-white"
             }`}
             style={{ borderLeftWidth: "5px", borderLeftColor: player.color }}
           >

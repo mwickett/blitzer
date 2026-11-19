@@ -68,9 +68,10 @@ export default function PlayerHighlights({ highlights }: { highlights: Highlight
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 id="highlights-heading" className="text-xl font-semibold">Highlights</h2>
         {highlights.recentResults.length ? (
-          <div className="flex items-center gap-1" aria-label="Recent results, newest first">
+          <div className="flex items-center gap-1" aria-label="Recent results, oldest to newest">
             <span className="mr-1 text-sm text-muted-foreground">Recent form</span>
-            {highlights.recentResults.map((result, index) => (
+            {/* Oldest to newest, the same direction as the dashboard. */}
+            {[...highlights.recentResults].reverse().map((result, index) => (
               <span
                 key={index}
                 title={result === "W" ? "Win" : "Loss"}

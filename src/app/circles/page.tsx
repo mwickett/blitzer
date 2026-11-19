@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getCircleStandings } from "@/server/queries/circleStandings";
 import { getCircleRecords } from "@/server/queries/circleRecords";
 import { CircleRecordBook } from "@/components/CircleRecords";
@@ -8,6 +9,8 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { requireCircle } from "@/server/pageAuth";
+
+export const metadata: Metadata = { title: "Circle standings — Blitzer" };
 
 export default async function CircleStandingsPage() {
   await requireCircle();

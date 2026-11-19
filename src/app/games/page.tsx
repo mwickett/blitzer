@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import GameList from "@/components/GamesList";
 import { getGames } from "@/server/queries/games";
 import type { GameListSearchParams } from "@/lib/gameList";
 import Link from "next/link";
 import { requireSignedIn } from "@/server/pageAuth";
+
+export const metadata: Metadata = { title: "Games — Blitzer" };
 
 export default async function GamesPage({
   searchParams,

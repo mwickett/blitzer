@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requireSignedIn } from "@/server/pageAuth";
 import DeleteAccountForm from "./DeleteAccountForm";
 
-export const metadata: Metadata = { title: "Delete account | Blitzer" };
+export const metadata: Metadata = { title: "Delete account — Blitzer" };
 
 export default async function AccountPage() {
   await requireSignedIn();
