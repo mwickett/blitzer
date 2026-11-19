@@ -1,12 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePostHog } from "posthog-js/react";
 import {
   createRoundForGame,
   updateRoundScores,
 } from "@/server/mutations/rounds";
-import { submittedScoresSchema } from "@/lib/validation/submissions";
 import { calculateRoundScore } from "@/lib/validation/gameRules";
 import { findPlayerScore } from "./utils";
 import {
@@ -43,6 +42,13 @@ export function newRoundDraft(
   };
 }
 
+// The submission schema (and zod) loads after the page is usable; it is
+// fetched as soon as a scoring screen mounts, well before the first save.
+const loadSubmissionSchema = () =>
+  import("@/lib/validation/submissions").then(
+    (module) => module.submittedScoresSchema,
+  );
+
 export function useScoringDraft(
   gameId: string,
   initialDraft: () => ScoringDraft | null,
@@ -56,6 +62,11 @@ export function useScoringDraft(
   // Measures entry effort, not round length: starts at the first value typed.
   const firstEntryAt = useRef<number | null>(null);
   const posthog = usePostHog();
+  useEffect(() => {
+    loadSubmissionSchema().catch(() => {
+      // Retried on submit, where a failure is shown.
+    });
+  }, []);
 
   const track = (event: string, properties: Record<string, unknown>) => {
     try {
@@ -163,15 +174,18 @@ export function useScoringDraft(
             }),
       };
     });
-    const parsed = submittedScoresSchema.safeParse(scores);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0].message);
-      return;
-    }
     saving.current = true;
     setIsSaving(true);
     setError(null);
     try {
+      const schema = await loadSubmissionSchema().catch(() => {
+        throw new Error("Unable to save scores. Please try again.");
+      });
+      const parsed = schema.safeParse(scores);
+      if (!parsed.success) {
+        setError(parsed.error.issues[0].message);
+        return;
+      }
       const result = draft.round
         ? await updateRoundScores(
             gameId,

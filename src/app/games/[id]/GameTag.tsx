@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { saveGameTag } from "@/server/mutations/games";
-import { GAME_TAG_MAX_LENGTH } from "@/lib/validation/submissions";
+import { GAME_TAG_MAX_LENGTH } from "@/lib/validation/limits";
 
 /** An optional short label for the game, such as "stoned" or "cottage". */
 export default function GameTag({
