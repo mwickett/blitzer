@@ -153,7 +153,8 @@ it("submits once and blocks next-round entry until the saved snapshot arrives", 
   await act(async () => {
     finish({ ok: true, round: firstRound });
   });
-  expect(mockRouter.refresh).toHaveBeenCalledTimes(1);
+  // The save response carries the refreshed page; no second request.
+  expect(mockRouter.refresh).not.toHaveBeenCalled();
   expect(
     screen.getByRole("button", { name: "Enter Round 2 Scores" }),
   ).toBeDisabled();
@@ -164,6 +165,25 @@ it("submits once and blocks next-round entry until the saved snapshot arrives", 
   fillScores();
   fireEvent.click(screen.getByRole("button", { name: "Submit Round" }));
   expect(mockCreate.mock.calls[1][1]).toBe(2);
+});
+
+it("asks for the page again when the saved snapshot is slow to arrive", async () => {
+  jest.useFakeTimers();
+  try {
+    mockCreate.mockResolvedValueOnce({ ok: true, round: firstRound });
+    render(<ScoringShell {...emptyProps} />);
+    fillScores();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Submit Round" }));
+    });
+    expect(mockRouter.refresh).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1_500);
+    });
+    expect(mockRouter.refresh).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it("retains the entire draft on request failure and lets the user retry", async () => {

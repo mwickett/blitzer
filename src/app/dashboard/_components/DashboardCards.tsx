@@ -1,17 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Bar,
-  BarChart,
-  Cell,
-  LabelList,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 import type { DashboardCardId } from "@/lib/dashboardLayout";
 import type { DashboardStats } from "@/server/queries/stats";
 import type { RecentGame, SpreadGame } from "@/server/queries/playerStats";
@@ -21,9 +11,10 @@ import { DeckIcon } from "@/components/scoring/DeckIcon";
 import { deckLabel } from "@/lib/scoring/decks";
 import { BadgeShelf } from "@/components/BadgeShelf";
 
-const WIN = "#2a6517";
-const LOSS = "#b91c1c";
-const NEUTRAL = "#b8a08c";
+// The chart library loads after the page is usable; its box keeps the size.
+const RecentScoresChart = dynamic(() => import("./RecentScoresChart"), {
+  ssr: false,
+});
 
 const integer = new Intl.NumberFormat("en-US");
 const oneDecimal = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
@@ -167,37 +158,7 @@ function RecentScoresCard({ games }: { games: RecentGame[] }) {
       role="img"
       aria-label={`Final scores, oldest to newest: ${data.map((d) => `${d.score} (${d.result.toLowerCase()})`).join(", ")}`}
     >
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 16, right: 4, bottom: 0, left: -24 }}>
-          <XAxis dataKey="label" hide />
-          <YAxis
-            tick={{ fontSize: 12, fill: "#8b5e3c" }}
-            tickLine={false}
-            axisLine={false}
-            allowDecimals={false}
-          />
-          <ReferenceLine y={0} stroke="#d1bfa8" />
-          <Tooltip
-            cursor={{ fill: "#faf5ed" }}
-            contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e6d7c3" }}
-            labelFormatter={() => ""}
-            formatter={(value, _name, item) => [
-              `${value} points (${(item.payload as { detail: string }).detail})`,
-              "",
-            ]}
-            separator=""
-          />
-          <Bar dataKey="score" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-            <LabelList dataKey="mark" position="top" fontSize={11} fontWeight={700} fill="#5b4038" />
-            {data.map((entry, index) => (
-              <Cell
-                key={index}
-                fill={entry.won === true ? WIN : entry.won === false ? LOSS : NEUTRAL}
-              />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <RecentScoresChart data={data} />
     </div>
   );
 }

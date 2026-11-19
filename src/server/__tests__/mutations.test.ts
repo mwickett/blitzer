@@ -21,6 +21,7 @@ import prisma from "../db/db";
 import { auth } from "@clerk/nextjs/server";
 import { sendGameCompleteEmail } from "../email";
 import { after } from "next/server";
+import { refresh } from "next/cache";
 import { GAME_RULES } from "@/lib/validation/gameRules";
 
 // Mock dependencies
@@ -129,6 +130,10 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("next/server", () => ({
   after: jest.fn(),
+}));
+
+jest.mock("next/cache", () => ({
+  refresh: jest.fn(),
 }));
 
 describe("Game Mutations", () => {
@@ -251,6 +256,17 @@ describe("Game Mutations", () => {
         reason: "game_finished",
       });
       expect(prisma.round.create).not.toHaveBeenCalled();
+    });
+
+    it("sends the refreshed page back only with a saved round", async () => {
+      expect(await createRoundForGame(mockGameId, 2, scores)).toMatchObject({
+        ok: false,
+      });
+      expect(refresh).not.toHaveBeenCalled();
+      expect(await createRoundForGame(mockGameId, 1, scores)).toMatchObject({
+        ok: true,
+      });
+      expect(refresh).toHaveBeenCalledTimes(1);
     });
 
     it("derives and commits completion before scheduling its email callback", async () => {

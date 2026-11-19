@@ -1,17 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from "recharts";
+import dynamic from "next/dynamic";
 import { type PlayerWithScore } from "../types";
+
+// The chart library loads after the page is usable; the box keeps its size
+// meanwhile, and the chart only ever draws in the browser.
+const ScoreProgressionChart = dynamic(() => import("./ScoreProgressionChart"), {
+  ssr: false,
+});
 
 interface ScoreProgressionCardProps {
   players: PlayerWithScore[];
@@ -44,48 +41,11 @@ export function ScoreProgressionCard({
         Cumulative scores across all rounds
       </div>
       <div className="h-[160px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0e6d2" />
-            <XAxis
-              dataKey="round"
-              tick={{ fontSize: 12, fill: "#8b5e3c" }}
-              tickLine={false}
-              axisLine={{ stroke: "#e6d7c3" }}
-            />
-            <YAxis
-              tick={{ fontSize: 12, fill: "#8b5e3c" }}
-              tickLine={false}
-              axisLine={{ stroke: "#e6d7c3" }}
-            />
-            <Tooltip
-              contentStyle={{
-                fontSize: 11,
-                borderRadius: 8,
-                border: "1px solid #e6d7c3",
-              }}
-            />
-            <ReferenceLine
-              y={winThreshold}
-              stroke="#290806"
-              strokeDasharray="4 3"
-              strokeWidth={1}
-              opacity={0.3}
-            />
-            <ReferenceLine y={0} stroke="#d1bfa8" strokeWidth={0.5} />
-            {players.map((player) => (
-              <Line
-                key={player.id}
-                dataKey={player.id}
-                name={player.name}
-                stroke={player.color}
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
+        <ScoreProgressionChart
+          data={data}
+          players={players}
+          winThreshold={winThreshold}
+        />
       </div>
     </div>
   );
