@@ -139,7 +139,7 @@ it("submits once and blocks next-round entry until the saved snapshot arrives", 
   const { rerender } = render(<ScoringShell {...emptyProps} />);
   fillScores();
   const submit = screen.getByRole("button", { name: "Submit Round" });
-  act(() => {
+  await act(async () => {
     fireEvent.click(submit);
     fireEvent.click(submit);
   });
@@ -163,7 +163,9 @@ it("submits once and blocks next-round entry until the saved snapshot arrives", 
   fireEvent.click(screen.getByRole("button", { name: "Enter Round 2 Scores" }));
   expect(screen.getByText("Round 2")).toBeInTheDocument();
   fillScores();
-  fireEvent.click(screen.getByRole("button", { name: "Submit Round" }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Submit Round" }));
+  });
   expect(mockCreate.mock.calls[1][1]).toBe(2);
 });
 
@@ -284,7 +286,7 @@ it("prevents editor selection, cancellation and repeated saves while a write is 
   );
   fireEvent.click(screen.getByRole("button", { name: "Edit round 1" }));
   const save = screen.getByRole("button", { name: "Save Changes" });
-  act(() => {
+  await act(async () => {
     fireEvent.click(save);
     fireEvent.click(save);
   });

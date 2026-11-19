@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveGameNote } from "@/server/mutations/games";
-import { GAME_NOTE_MAX_LENGTH } from "@/lib/validation/submissions";
+import { GAME_NOTE_MAX_LENGTH } from "@/lib/validation/limits";
 
 /** A short free-text note about the game, editable by its players. */
 export default function GameNote({

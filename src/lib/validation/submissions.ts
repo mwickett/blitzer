@@ -7,6 +7,9 @@ import {
 } from "./gameRules";
 import { scoreValidationSchema } from "./schema";
 import { DECK_IDS } from "@/lib/scoring/decks";
+import { GAME_NOTE_MAX_LENGTH, GAME_TAG_MAX_LENGTH } from "./limits";
+
+export { GAME_NOTE_MAX_LENGTH, GAME_TAG_MAX_LENGTH };
 
 export const winThresholdSchema = z.number().int().min(25).max(200).default(75);
 export const deckSchema = z.enum(DECK_IDS);
@@ -155,7 +158,6 @@ export const storyPromptSchema = z
 
 export const scoreEntryModeSchema = z.enum(["CARDS", "TOTAL"]);
 
-export const GAME_NOTE_MAX_LENGTH = 280;
 // Blank notes clear the stored note.
 export const gameNoteSchema = z
   .string()
@@ -166,7 +168,6 @@ export const gameNoteSchema = z
   )
   .transform((note) => note || null);
 
-export const GAME_TAG_MAX_LENGTH = 24;
 // Blank tags clear the stored tag.
 export const gameTagSchema = z
   .string()
